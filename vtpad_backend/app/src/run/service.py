@@ -61,7 +61,10 @@ class RunService:
 
     @staticmethod
     async def get_run(run_id: str):
-        return await RunModel.filter(id=run_id).first()
+        temp = await RunModel.filter(id=run_id).first()
+        if not temp:
+            raise HTTPException(status_code=404, detail="not found")
+        return temp
 
     @staticmethod
     async def update_run(run_id: str, name: str):

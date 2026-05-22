@@ -58,6 +58,8 @@ class PadFolderService:
         try:
             await PadFolderModel.filter(id=folder_id).update(name=dto.name)
             return await PadFolderService.get_folder_detail(folder_id)
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f'{e}')
 
@@ -65,6 +67,8 @@ class PadFolderService:
     async def delete_folder(folder_id: str):
         try:
             return bool(await PadFolderModel.filter(id=folder_id).delete())
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f'{e}')
 
@@ -84,13 +88,16 @@ class PadFolderService:
 
         if folder_id:
             conn = Tortoise.get_connection("default")
-            temp = (await conn.execute_query_dict(
+            result = await conn.execute_query_dict(
                 'SELECT su.role, su."right" FROM padfoldermodel ' 
                 'LEFT JOIN spacesusermodel su on padfoldermodel.spaces_id = su."spaceId" '
                 "WHERE padfoldermodel.id = $1 "
                 "AND su.\"userId\" = $2",
                 [folder_id, user_payload.get('id')]
-            ))[0]
+            )
+            if not result:
+                raise HTTPException(status_code=404, detail="not found")
+            temp = result[0]
 
             if temp['role'] != SpacesUserRole.owner:
                 if 'editPads' in temp['right'] and temp['right']['editPads']:

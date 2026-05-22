@@ -207,9 +207,11 @@ class BugsService:
                          LEFT JOIN usermodel u2 on u2.id = bugsmodel.create_user_id \
                          LEFT JOIN filemodel f on u.avatar_id = f.id \
                          LEFT JOIN filemodel f2 on u2.avatar_id = f2.id \
-                WHERE bugsmodel.id = $1 \
-                group by bugsmodel.id, u.id, f.id, u2.id, f2.id; "
-        bug = (await conn.execute_query_dict(sql_new, [bug_id]))[0]
+                WHERE bugsmodel.id = $1";
+        result = await conn.execute_query_dict(sql_new, [bug_id])
+        if not result:
+            raise HTTPException(status_code=404, detail="not found")
+        bug = result[0]
 
         bug.update({'tag': await BugTagsService.get_tags_fo_bug(bug_id)})
         bug.update({'external_link': parse_external_link(bug.get('external_link'))})

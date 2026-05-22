@@ -179,7 +179,10 @@ class SpaceService:
             WHERE c.id = $1
             AND spacemodel.short_name = $2
         """
-        return (await conn.execute_query_dict(sql, [user.get('company'), short_name]))[0]
+        result = await conn.execute_query_dict(sql, [user.get('company'), short_name])
+        if not result:
+            raise HTTPException(status_code=404, detail="not found")
+        return result[0]
 
     @staticmethod
     async def check_short_name(short_name: str, space_id: str, company_id: str):

@@ -43,13 +43,16 @@ class SpacesUserService:
     @staticmethod
     async def check_right_runs(user_payload: dict, run_id: str):
         conn = Tortoise.get_connection("default")
-        run: dict = (await conn.execute_query_dict(
+        result = await conn.execute_query_dict(
             "SELECT s.id FROM runmodel "
             "LEFT JOIN padmodel p on runmodel.pads_id = p.id "
             "LEFT JOIN spacemodel s on p.spaces_id = s.id "
             "WHERE runmodel.id = $1",
             [run_id]
-        ))[0]
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="not found")
+        run: dict = result[0]
         spaces_id = str(run.get('id'))
         temp = await SpacesUserModel.filter(userId=str(user_payload.get('id')), spaceId=spaces_id).get()
 
@@ -92,13 +95,16 @@ class SpacesUserService:
     @staticmethod
     async def check_right_edit_tags(user_payload: dict, tag_id: str):
         conn = Tortoise.get_connection("default")
-        temp = (await conn.execute_query_dict(
+        result = await conn.execute_query_dict(
             'SELECT sm."right", sm.role FROM tagmodel '
             'LEFT JOIN spacesusermodel sm on sm."spaceId" = tagmodel.space_id '
             "WHERE tagmodel.id = $1 "
             'AND sm."userId" = $2',
             [tag_id, user_payload.get('id')]
-        ))[0]
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="not found")
+        temp = result[0]
         if temp.get('role') != SpacesUserRole.owner:
             if 'editTags' in temp.get('right') and temp.get('right')['editTags']:
                 pass

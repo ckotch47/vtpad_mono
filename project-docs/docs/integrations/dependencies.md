@@ -16,11 +16,11 @@
 
 | Библиотека | Назначение |
 |---|---|
-| FastAPI 0.111 | Веб-фреймворк |
-| Tortoise ORM 0.19.2 | Async ORM для PostgreSQL |
+| FastAPI 0.115.5 | Веб-фреймворк |
+| Tortoise ORM 0.21.7 | Async ORM для PostgreSQL |
 | Pydantic v2 | Валидация данных |
 | python-jose + passlib | JWT и хеширование паролей |
-| aioredis | Клиент Redis |
+| redis (asyncio) | Клиент Redis |
 | fastapi-mail | SMTP-уведомления (опционально) |
 | prometheus-fastapi-instrumentator | Метрики |
 

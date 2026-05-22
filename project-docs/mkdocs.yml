@@ -1,0 +1,48 @@
+site_name: VTPad Technical Docs
+site_description: Техническая документация по экосистеме VTPad
+site_language: ru
+
+theme:
+  name: material
+  language: ru
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - javascripts/vendor/mermaid.min.js
+  - javascripts/mermaid-init.js
+
+nav:
+  - Главная: index.md
+  - Архитектура:
+      - Обзор системы: architecture/system-overview.md
+      - Codebase Map: architecture/codebase-map.md
+      - Data Flow: architecture/data-flow.md
+  - Потоки:
+      - Аутентификация и авторизация: flows/auth-flow.md
+      - Жизненный цикл бага: flows/bug-lifecycle.md
+      - Жизненный цикл Pad / Run: flows/pad-run-lifecycle.md
+  - API:
+      - Карта сервисов и endpoint'ов: api/service-endpoints-map.md
+      - Backend Modules Endpoint Index: api/backend-modules-endpoints-index.md
+  - Интеграции:
+      - Внешние и инфраструктурные зависимости: integrations/dependencies.md
+  - Эксплуатация:
+      - Локальный запуск (baseline): ops/local-run-baseline.md
+      - Health/Readiness/Observability: ops/health-readiness-observability.md
+  - Правила:
+      - Роли и доступы (baseline): rules/roles-and-access.md
+  - Ошибки:
+      - Ошибки и ограничения (baseline): errors/common-errors.md
+  - Глоссарий:
+      - Термины: glossary/terms.md
+  - Изменения:
+      - START baseline: changes/START.md

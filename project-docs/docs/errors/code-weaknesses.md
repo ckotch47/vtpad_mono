@@ -278,6 +278,13 @@ f"WHERE spaces_id = 'b15528ef-d863-4e36-a9dc-0db4be39ccc1' "
 
 ---
 
+## Исправленные проблемы
+
+### Circular imports (backend)
+**Статус:** Исправлено  
+**Проблема:** Некорректные имена атрибутов роутеров в `app/main.py` (`items.items_router`, `pad.pad_router`, `run.runs_router` и др.) вызывали `AttributeError` и цепочку circular imports при импорте на Python 3.13.  
+**Решение:** Исправлены имена на корректные (`items.router`, `pad.router`, `run.router`, `comments_bug.router`, `tag.router`). `qa_report` импортирован напрямую как `qa_report_router`.
+
 ## Источники в коде
 
 - `vtpad_backend/app/src/**/service.py`

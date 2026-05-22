@@ -40,6 +40,7 @@ nav:
       - Health/Readiness/Observability: ops/health-readiness-observability.md
   - Правила:
       - Роли и доступы (baseline): rules/roles-and-access.md
+      - Правила ведения документации: rules/documentation-rules.md
   - Ошибки:
       - Ошибки и ограничения (baseline): errors/common-errors.md
   - Глоссарий:

@@ -38,3 +38,9 @@ docker compose up -d docs
 cd project-docs
 docker compose down
 ```
+
+## Правила обновления документации
+
+При любом изменении кода необходимо обновлять соответствующие `.md` файлы в `docs/`.
+
+Подробнее — в разделе [Правила ведения документации](docs/rules/documentation-rules.md).

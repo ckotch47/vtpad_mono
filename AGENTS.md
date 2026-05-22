@@ -296,3 +296,15 @@ The backend mounts `./uploads` as a volume and serves it statically at `/uploads
 - The project is a single monorepo with both parts under the same Git root. Backend and frontend changes can be committed atomically.
 - The frontend `README.md` is the default Vuetify scaffolding readme and does not describe project-specific business logic.
 - The backend `README.MD` is written in Russian and documents env variables in a free-form style.
+
+## Documentation Policy
+
+**Whenever you modify code, you MUST update the relevant documentation in `project-docs/docs/`.**
+
+- Changing routes / DTOs / models → update `api/service-endpoints-map.md` and/or `api/backend-modules-endpoints-index.md`.
+- Changing auth / flows / business logic → update the corresponding files in `flows/` or `architecture/`.
+- Adding new external dependencies → update `integrations/dependencies.md`.
+- Changing roles / permissions → update `rules/roles-and-access.md`.
+- Fixing a known bug or limitation → update `errors/common-errors.md`.
+
+Keep docs in sync with code. Do not leave documentation outdated after a change.

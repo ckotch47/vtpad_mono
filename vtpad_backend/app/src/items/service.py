@@ -31,14 +31,10 @@ def collect_id_for_delete(main_id: str, arr: list):
         })
     res = get_sub_item(main_id, res)
 
-    res = get_id_for_delete(res)
-
-    sql = f"('{main_id}'"
-    for i in res:
-        sql += f", '{i}'"
-
-    sql += ')'
-    return sql
+    ids = get_id_for_delete(res)
+    if main_id not in ids:
+        ids.insert(0, main_id)
+    return ids
 
 
 def get_id_for_delete(arr: list):
@@ -120,7 +116,7 @@ class ItemsService:
             last_sort = await ItemsModel.filter(pad_id=pad_id, mainId=main_id).order_by('-sort').first()
             try:
                 sort = ((last_sort.sort / 10) + 1) * 10
-            except:
+            except Exception:
                 sort = 10
 
             temp = await ItemsModel.create(
@@ -145,17 +141,17 @@ class ItemsService:
     async def get_items(pad_id: str):
         try:
             conn = Tortoise.get_connection('default')
-            sql = f"SELECT itemsmodel.*, array_to_json(" \
-                  f"array_agg(" \
-                  f"json_build_object('id',t2.id, 'create_data',t2.create_date, 'update_date',t2.update_date, 'title',t2.title, 'sort',t2.sort, 'space_id',t2.space_id, 'short_name', t2.short_name, 'link',t2.link) " \
-                  f"ORDER BY t2.sort)) " \
-                  f"as testcases FROM itemsmodel " \
-                  f"LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
-                  f"LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
-                  f"WHERE itemsmodel.pad_id = '{pad_id}' " \
-                  f"GROUP BY itemsmodel.id, itemsmodel.sort " \
-                  f"ORDER BY itemsmodel.sort "
-            temp = await conn.execute_query_dict(sql)
+            sql = "SELECT itemsmodel.*, array_to_json(" \
+                  "array_agg(" \
+                  "json_build_object('id',t2.id, 'create_data',t2.create_date, 'update_date',t2.update_date, 'title',t2.title, 'sort',t2.sort, 'space_id',t2.space_id, 'short_name', t2.short_name, 'link',t2.link) " \
+                  "ORDER BY t2.sort)) " \
+                  "as testcases FROM itemsmodel " \
+                  "LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
+                  "LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
+                  "WHERE itemsmodel.pad_id = $1 " \
+                  "GROUP BY itemsmodel.id, itemsmodel.sort " \
+                  "ORDER BY itemsmodel.sort "
+            temp = await conn.execute_query_dict(sql, [pad_id])
             for i in temp:
                 i['testcases'] = json.loads(i.get('testcases') if i.get('testcases') else "[]")
             # temp = await ItemsModel.filter(pad_id=pad_id).order_by('sort')
@@ -175,9 +171,8 @@ class ItemsService:
     async def delete_item(item_id: str):
         try:
             all_item = await ItemsModel.filter(pad_id=str((await ItemsModel.filter(id=item_id).get()).pad_id))
-            sql = f"DELETE from itemsmodel WHERE id in { collect_id_for_delete(item_id, all_item)}"
-
-            await ItemsModel.raw(sql)
+            ids_to_delete = collect_id_for_delete(item_id, all_item)
+            await ItemsModel.filter(id__in=ids_to_delete).delete()
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f'{e}')
@@ -198,7 +193,7 @@ class ItemsService:
 
         try:
             return await ItemsService.get_items(str(temp.pad_id))
-        except:
+        except Exception:
             return True
 
 class ItemsServiceV2:
@@ -253,7 +248,7 @@ class ItemsServiceV2:
         try:
             await self.get_conn().execute_query(sql, [item_id, checklist_id])
             return True
-        except:
+        except Exception:
             return False
 
     async def add_testcase(self, item_id: uuid.UUID, testcase_id: uuid.UUID):
@@ -263,7 +258,7 @@ class ItemsServiceV2:
         try:
             await self.get_conn().execute_query(sql, [item_id, testcase_id])
             return True
-        except:
+        except Exception:
             return False
 
     async def remove_checklist(self, item_id: uuid.UUID, checklist_id: uuid.UUID):
@@ -276,7 +271,7 @@ class ItemsServiceV2:
         try:
             await self.get_conn().execute_query(sql, [item_id, checklist_id])
             return True
-        except:
+        except Exception:
             return False
 
     async def remove_testcase(self, item_id: uuid.UUID, testcase_id: uuid.UUID):
@@ -289,5 +284,5 @@ class ItemsServiceV2:
         try:
             await self.get_conn().execute_query(sql, [item_id, testcase_id])
             return True
-        except:
+        except Exception:
             return False

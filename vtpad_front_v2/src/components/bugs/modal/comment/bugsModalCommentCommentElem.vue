@@ -3,7 +3,7 @@
     <div class="d-flex justify-space-between flex-grow-1">
       <div>
         {{comment.create_user.username}}<br>
-        <div v-html="comment.text" v-if="comment.view === 'comment'"></div>
+        <div v-html="sanitizedText" v-if="comment.view === 'comment'"></div>
       </div>
       <div class="flex-shrink-0">
           <v-icon icon="mdi-pencil" size="14" @click="editComment"/>
@@ -14,6 +14,8 @@
 </template>
 
 <script>
+import { sanitizeHtml } from '@/utils/sanitize';
+
 export default {
   name: "bugsModalCommentCommentElem",
   props:{
@@ -33,6 +35,11 @@ export default {
     }
   },
   mounted() {
+  },
+  computed: {
+    sanitizedText() {
+      return sanitizeHtml(this.comment?.text);
+    }
   },
   methods:{
     editComment(){

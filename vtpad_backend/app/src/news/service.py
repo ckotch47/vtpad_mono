@@ -16,7 +16,7 @@ class NewsService:
             if temp.status_code == 200:
                 return temp.json()
             return []
-        except:
+        except Exception:
             return []
 
     async def read_news(self, news: str, user: dict):
@@ -31,7 +31,7 @@ class NewsService:
                 return temp.json()
             return []
 
-        except:
+        except Exception:
             return []
 
     async def get_unread_count(self, user: dict):
@@ -41,5 +41,5 @@ class NewsService:
             if temp.status_code == 200:
                 return temp.json()
             return []
-        except:
+        except Exception:
             return []

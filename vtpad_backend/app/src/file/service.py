@@ -1,4 +1,6 @@
+import os
 import shutil
+import uuid
 
 from fastapi import UploadFile
 from .model import FileModel
@@ -7,8 +9,14 @@ import datetime
 
 class FileService:
     @staticmethod
+    def _generate_safe_path(filename: str) -> str:
+        ext = os.path.splitext(filename)[1]
+        safe_name = f"{uuid.uuid4().hex}{ext}"
+        return f"uploads/{safe_name}"
+
+    @staticmethod
     async def save_file(file: UploadFile, user: dict):
-        file_location = f'uploads/{file.filename}'
+        file_location = FileService._generate_safe_path(file.filename)
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
@@ -19,9 +27,7 @@ class FileService:
 
     @staticmethod
     async def save_image(file):
-
-
-        file_location = f'uploads/{file.filename}'
+        file_location = FileService._generate_safe_path(file.filename)
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 

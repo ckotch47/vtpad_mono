@@ -34,7 +34,7 @@ def add_sub_items_properety(arr):
                 j['testcase'] = list(filter(lambda x: (x['id'] == j['testcases_id']), i['cases']))[0]
                 testcases.append(j)
             testcases.sort(key=lambda x: x['testcase']['sort'], reverse=False)
-        except:
+        except Exception:
             pass
         res.append({
             'id': i['id'],
@@ -69,14 +69,14 @@ class RunItemsService:
     @staticmethod
     async def create_run_item(run_id: str):
         conn = Tortoise.get_connection("default")
-        run = await conn.execute_query_dict(f"SELECT * FROM runmodel WHERE id='{run_id}'")
+        run = await conn.execute_query_dict("SELECT * FROM runmodel WHERE id = $1", [run_id])
         pad = run[0].get('pads_id')
-        sql = f"SELECT itemsmodel.*, array_agg(t.testcases_id) as case_id FROM itemsmodel " \
-              f"LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
-              f"WHERE pad_id='{pad}' " \
-              f"GROUP BY itemsmodel.id "
+        sql = "SELECT itemsmodel.*, array_agg(t.testcases_id) as case_id FROM itemsmodel " \
+              "LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
+              "WHERE pad_id = $1 " \
+              "GROUP BY itemsmodel.id "
 
-        items = await conn.execute_query_dict(sql)
+        items = await conn.execute_query_dict(sql, [pad])
         temp = []
 
         for item in items:
@@ -90,7 +90,7 @@ class RunItemsService:
                         run_item_id=temp.id,
                         testcases_id=case_id
                     )
-            except:
+            except Exception:
                 pass
 
         return temp
@@ -98,18 +98,18 @@ class RunItemsService:
     @staticmethod
     async def get_item_for_run(run_id: str):
         conn = Tortoise.get_connection("default")
-        sql = f"SELECT itemsmodel.*, " \
-              f"runitemsmodel.*, " \
-              f"array_to_json(array_agg(t.*)) as run_items_case, " \
-              f"array_to_json(array_agg(json_build_object('id',t2.id, 'create_data',t2.create_date, 'update_date',t2.update_date, 'title',t2.title, 'sort',t2.sort, 'space_id',t2.space_id, 'short_name', t2.short_name, 'link',t2.link))) as cases FROM itemsmodel " \
-            f"LEFT JOIN runitemsmodel ON itemsmodel.id = runitemsmodel.\"itemId\" " \
-            f"LEFT JOIN testcaserunitemmodel t on t.run_item_id = runitemsmodel.id " \
-            f"LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
-            f"WHERE  runitemsmodel.run_id = '{run_id}' " \
-            f"GROUP BY itemsmodel.id, itemsmodel.sort, runitemsmodel.id " \
-            f"ORDER BY itemsmodel.sort ASC "
+        sql = "SELECT itemsmodel.*, " \
+              "runitemsmodel.*, " \
+              "array_to_json(array_agg(t.*)) as run_items_case, " \
+              "array_to_json(array_agg(json_build_object('id',t2.id, 'create_data',t2.create_date, 'update_date',t2.update_date, 'title',t2.title, 'sort',t2.sort, 'space_id',t2.space_id, 'short_name', t2.short_name, 'link',t2.link))) as cases FROM itemsmodel " \
+            "LEFT JOIN runitemsmodel ON itemsmodel.id = runitemsmodel.\"itemId\" " \
+            "LEFT JOIN testcaserunitemmodel t on t.run_item_id = runitemsmodel.id " \
+            "LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
+            "WHERE  runitemsmodel.run_id = $1 " \
+            "GROUP BY itemsmodel.id, itemsmodel.sort, runitemsmodel.id " \
+            "ORDER BY itemsmodel.sort ASC "
 
-        main_items = await conn.execute_query_dict(sql)
+        main_items = await conn.execute_query_dict(sql, [run_id])
 
         return {
             "items": add_sub_items_properety(main_items),

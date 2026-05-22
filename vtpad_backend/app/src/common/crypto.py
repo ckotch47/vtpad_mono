@@ -61,5 +61,5 @@ async def decode_refresh(refresh: str):
 def user_payload(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except:
+    except Exception:
         raise HTTPException(status_code=401, detail="not auth")

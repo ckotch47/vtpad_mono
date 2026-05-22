@@ -11,7 +11,7 @@
             </div>
           </v-expansion-panel-title>
           <v-expansion-panel-text>
-            <s v-html="this.textJson.from"></s> <span v-html="this.textJson.to"/>
+            <s v-html="sanitizedFrom"></s> <span v-html="sanitizedTo"/>
           </v-expansion-panel-text>
 
         </v-expansion-panel>
@@ -21,6 +21,8 @@
 </template>
 
 <script>
+import { sanitizeHtml } from '@/utils/sanitize';
+
 export default {
   name: "bugsModalCommentHistoryElem",
   props:{
@@ -36,6 +38,14 @@ export default {
         from: undefined,
         to: undefined
       }
+    }
+  },
+  computed: {
+    sanitizedFrom() {
+      return sanitizeHtml(this.textJson?.from);
+    },
+    sanitizedTo() {
+      return sanitizeHtml(this.textJson?.to);
     }
   },
   mounted() {

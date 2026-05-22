@@ -51,7 +51,7 @@ class SpaceService:
             last_sort = await SpaceService.get_space(user, 'DESC')
             last_sort = last_sort[0].get('sort')
             sort = ((last_sort / 10) + 1) * 10
-        except:
+        except Exception:
             sort = 10
 
         temp = await self.model.create(
@@ -72,12 +72,12 @@ class SpaceService:
         try:
             this_space_name = await translate(
                 f"{space_name.split(' ')[0][0].upper()}{space_name.split(' ')[1][0].upper()}")
-        except:
+        except Exception:
             try:
                 if len(space_name) > 2:
                     this_space_name = await translate(
                         f"{space_name[0].upper()}{space_name[int(len(space_name) / 2)].upper()}")
-            except:
+            except Exception:
                 this_space_name = await translate(space_name.upper())
 
         try:
@@ -86,7 +86,7 @@ class SpaceService:
             if temp.short_name:
                 this_space_name = f"{this_space_name}{(await SpaceModel.filter(id=space_id).get()).sort}"
                 return this_space_name.replace('0', '')
-        except:
+        except Exception:
             return this_space_name
 
     @staticmethod
@@ -101,7 +101,7 @@ class SpaceService:
         try:
             temp['right'] = json.loads(temp['right'])
             return temp
-        except:
+        except Exception:
             return temp
 
     @staticmethod
@@ -109,13 +109,14 @@ class SpaceService:
         conn = Tortoise.get_connection("default")
 
         temp = await conn.execute_query_dict(
-            f'SELECT "userId" as id, "spaceId", role, "right", username, mail, '
-            f'(avatar_id, filepath) as avatar '
-            f'FROM spacesusermodel '
-            f'LEFT JOIN usermodel on spacesusermodel."userId" = usermodel.id '
-            f'LEFT JOIN filemodel f on usermodel.avatar_id = f.id '
-            f'WHERE spacesusermodel."spaceId" = \'{space_id}\''
-            f'ORDER BY spacesusermodel.role DESC')
+            'SELECT "userId" as id, "spaceId", role, "right", username, mail, '
+            '(avatar_id, filepath) as avatar '
+            'FROM spacesusermodel '
+            'LEFT JOIN usermodel on spacesusermodel."userId" = usermodel.id '
+            'LEFT JOIN filemodel f on usermodel.avatar_id = f.id '
+            'WHERE spacesusermodel."spaceId" = $1 '
+            'ORDER BY spacesusermodel.role DESC',
+            [space_id])
         for i in temp:
             i['right'] = json.loads(i['right'])
             tmp = i['avatar']
@@ -147,9 +148,10 @@ class SpaceService:
     @staticmethod
     async def get_space(user: dict, order='ASC'):
         conn = Tortoise.get_connection("default")
-        sql = f'SELECT "spaceId" as id, role, name, sort, short_name FROM spacesusermodel ' \
-              f'LEFT JOIN spacemodel s on spacesusermodel."spaceId" = s.id ' \
-              f'WHERE spacesusermodel."userId" = $1 ORDER BY s.sort {order}'
+        order_direction = order.upper() if order.upper() in ('ASC', 'DESC') else 'ASC'
+        sql = 'SELECT "spaceId" as id, role, name, sort, short_name FROM spacesusermodel ' \
+              'LEFT JOIN spacemodel s on spacesusermodel."spaceId" = s.id ' \
+              'WHERE spacesusermodel."userId" = $1 ORDER BY s.sort ' + order_direction
         temp = await conn.execute_query_dict(sql, [user.get('id')])
         return temp
 
@@ -234,8 +236,7 @@ class SpaceService:
     @staticmethod
     async def check_owner(user_payload: dict, space_id: str):
         conn = Tortoise.get_connection('default')
-        sql = f'SELECT role FROM spacesusermodel WHERE "userId" = \'{user_payload.get("id")}\' AND "spaceId" = \'{space_id}\''
-        sqlV2 = f"""
+        sqlV2 = """
             SELECT spacesusermodel.role as sp_role, u.role as company_role
             FROM spacesusermodel
             LEFT OUTER JOIN usercompanysettingsmodel u on u.user_id = $1
@@ -256,14 +257,14 @@ class SpaceService:
                     raise HTTPException(status_code=403, detail="not have rule")
             else:
                 return True
-        except:
+        except Exception:
             try:
                 # role = (await conn.execute_query_dict(sql_check_role_company_admin, [user_payload.get('id'), space_id]))[0]
                 if temp.get('role') == 'company_admin':
                     return True
                 else:
                     raise HTTPException(status_code=403, detail="not have rule")
-            except:
+            except Exception:
                 raise HTTPException(status_code=403, detail="not have rule")
     @staticmethod
     async def update_user_rules_in_space(space_id: str, user_id: str, dto: UpdateUserRulesForSpaceDto):
@@ -330,35 +331,35 @@ class SpaceService:
     async def get_statistic_for_space(space_id: str):
         conn = Tortoise.get_connection('default')
 
-        sql_pads = f"SELECT count(DISTINCT padmodel.id) as count, count(i.id) as items_count FROM padmodel \
+        sql_pads = "SELECT count(DISTINCT padmodel.id) as count, count(i.id) as items_count FROM padmodel \
                     LEFT OUTER JOIN itemsmodel i on padmodel.id = i.pad_id \
-                    WHERE spaces_id = '{space_id}'"
+                    WHERE spaces_id = $1"
 
-        sql_runs_state = f"SELECT count(r.id) as item_count, r.state FROM runmodel \
+        sql_runs_state = "SELECT count(r.id) as item_count, r.state FROM runmodel \
                     LEFT JOIN padmodel p on p.id = runmodel.pads_id \
                     LEFT JOIN runitemsmodel r on runmodel.id = r.run_id \
-                    WHERE p.spaces_id = '{space_id}' \
+                    WHERE p.spaces_id = $1 \
                     GROUP BY r.state;"
 
-        sql_all_runs = f"SELECT count(runmodel.id) FROM runmodel \
+        sql_all_runs = "SELECT count(runmodel.id) FROM runmodel \
                         LEFT JOIN padmodel p on p.id = runmodel.pads_id \
-                        WHERE p.spaces_id = '{space_id}';"
+                        WHERE p.spaces_id = $1;"
 
-        sql_bugs = f"SELECT count(bugsmodel.id) as item_count, state FROM bugsmodel \
-                    WHERE bugsmodel.spaces_id = '{space_id}' \
+        sql_bugs = "SELECT count(bugsmodel.id) as item_count, state FROM bugsmodel \
+                    WHERE bugsmodel.spaces_id = $1 \
                     GROUP BY state;"
 
-        sql_all_bugs = f"SELECT count(bugsmodel.id) FROM bugsmodel \
-                            WHERE bugsmodel.spaces_id = '{space_id}';"
+        sql_all_bugs = "SELECT count(bugsmodel.id) FROM bugsmodel \
+                            WHERE bugsmodel.spaces_id = $1;"
 
-        pads = await conn.execute_query_dict(sql_pads)
+        pads = await conn.execute_query_dict(sql_pads, [space_id])
 
-        runs_state = await conn.execute_query_dict(sql_runs_state)
-        all_runs = await conn.execute_query_dict(sql_all_runs)
+        runs_state = await conn.execute_query_dict(sql_runs_state, [space_id])
+        all_runs = await conn.execute_query_dict(sql_all_runs, [space_id])
 
-        bugs = await conn.execute_query_dict(sql_bugs)
+        bugs = await conn.execute_query_dict(sql_bugs, [space_id])
 
-        all_bugs = await conn.execute_query_dict(sql_all_bugs)
+        all_bugs = await conn.execute_query_dict(sql_all_bugs, [space_id])
 
         return {
             'pads': pads[0] if pads[0] else 0,
@@ -376,7 +377,7 @@ class SpaceService:
     def get_arg(obj: list, name: str):
         try:
             return obj[0][name]
-        except:
+        except Exception:
             return 0
 
     @staticmethod
@@ -397,12 +398,16 @@ class SpaceService:
     @staticmethod
     async def get_bugs_count(space_id, state=None):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT count(id) FROM bugsmodel " \
-              f"WHERE spaces_id = '{space_id}'"
+        sql = "SELECT count(id) FROM bugsmodel " \
+              "WHERE spaces_id = $1"
 
+        params = [space_id]
         if state:
-            sql += f" AND state = '{state}'"
-        return (await conn.execute_query_dict(sql))[0]['count']
+            ALLOWED_STATES = {'OPEN', 'REOPEN', 'CLOSED', 'FIXED', 'HOLD', 'READY'}
+            if state.upper() in ALLOWED_STATES:
+                sql += " AND state = $2"
+                params.append(state.upper())
+        return (await conn.execute_query_dict(sql, params))[0]['count']
 
     @staticmethod
     async def get_pads_count(space_id):
@@ -414,12 +419,12 @@ class SpaceService:
         }
 
     @staticmethod
-    async def get_items_count_into_pad(pads_id: str):
+    async def get_items_count_into_pad(pads_id: list):
         if not pads_id:
-            return
+            return 0
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT count(id) FROM itemsmodel WHERE pad_id in {pads_id}"
-        return (await conn.execute_query_dict(sql))[0]['count']
+        sql = "SELECT count(id) FROM itemsmodel WHERE pad_id = ANY($1::uuid[])"
+        return (await conn.execute_query_dict(sql, [pads_id]))[0]['count']
 
     @staticmethod
     async def get_runs_statistic(space_id: str):
@@ -439,47 +444,43 @@ class SpaceService:
         }
 
     @staticmethod
-    async def get_runs_by_pad_ids(pad_ids):
+    async def get_runs_by_pad_ids(pad_ids: list):
         try:
             conn = Tortoise.get_connection('default')
-            sql = f"SELECT * FROM runmodel WHERE pads_id in {pad_ids}"
-            return await conn.execute_query_dict(sql)
-        except:
+            sql = "SELECT * FROM runmodel WHERE pads_id = ANY($1::uuid[])"
+            return await conn.execute_query_dict(sql, [pad_ids])
+        except Exception:
             return []
 
     @staticmethod
-    async def get_run_items_count_status(runs_ids, state=None):
+    async def get_run_items_count_status(runs_ids: list, state=None):
         try:
             conn = Tortoise.get_connection('default')
 
-            sql = f"SELECT count(id) FROM runitemsmodel WHERE run_id in {runs_ids}"
+            sql = "SELECT count(id) FROM runitemsmodel WHERE run_id = ANY($1::uuid[])"
+            params = [runs_ids]
             if state == 'pass' or state == 'fail':
-                sql += f" AND state = '{state}'"
+                sql += " AND state = $2"
+                params.append(state)
             if state == 'null':
-                sql += f" AND state is NULL"
-            return (await conn.execute_query_dict(sql))[0]['count']
-        except:
+                sql += " AND state is NULL"
+            return (await conn.execute_query_dict(sql, params))[0]['count']
+        except Exception:
             return 0
 
 
 async def collect_ids_pad(pad):
     if len(pad) <= 0:
-        return None
-    res = f"('{pad.pop().id}'"
+        return []
+    res = [str(pad.pop().id)]
     for i in pad:
-        res += f", '{i.id}'"
-    res += ")"
+        res.append(str(i.id))
     return res
 
 
 async def collect_ids_runs(runs):
     try:
-        res = f"("
-        for i in runs:
-            res += f"'{i['id']}', "
-
-        res = f"{res[:-2]})"
-        return res
-    except:
+        return [str(i['id']) for i in runs]
+    except Exception:
         return []
 

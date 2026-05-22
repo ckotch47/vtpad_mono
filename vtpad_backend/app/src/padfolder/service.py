@@ -33,7 +33,7 @@ class PadFolderService:
         last_sort = await PadFolderModel.filter(spaces_id=space_id).order_by('-sort').first()
         try:
             sort = ((last_sort.sort / 10) + 1) * 10
-        except:
+        except Exception:
             sort = 10
 
         try:
@@ -85,10 +85,12 @@ class PadFolderService:
         if folder_id:
             conn = Tortoise.get_connection("default")
             temp = (await conn.execute_query_dict(
-                f'SELECT su.role, su."right" FROM padfoldermodel ' 
-                f'LEFT JOIN spacesusermodel su on padfoldermodel.spaces_id = su."spaceId" '
-                f"WHERE padfoldermodel.id = '{folder_id}' "
-                f"AND su.\"userId\" = '{user_payload.get('id')}' "))[0]
+                'SELECT su.role, su."right" FROM padfoldermodel ' 
+                'LEFT JOIN spacesusermodel su on padfoldermodel.spaces_id = su."spaceId" '
+                "WHERE padfoldermodel.id = $1 "
+                "AND su.\"userId\" = $2",
+                [folder_id, user_payload.get('id')]
+            ))[0]
 
             if temp['role'] != SpacesUserRole.owner:
                 if 'editPads' in temp['right'] and temp['right']['editPads']:

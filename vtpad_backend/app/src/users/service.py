@@ -30,7 +30,7 @@ class UserService:
     @staticmethod
     async def get_user_by_mail(user_mail: str):
         conn = Tortoise.get_connection('default')
-        sql = (f"SELECT usermodel.id as id, username, mail, password, \
+        sql = ("SELECT usermodel.id as id, username, mail, password, \
                    u.status, u.role, \
                    jsonb_build_object('avatar',avatar_id,  'filepath',f.filepath) as avatar, \
                    jsonb_build_object('id', c.id, 'name', c.name, 'status', c.status) as company \
@@ -54,7 +54,7 @@ class UserService:
     @staticmethod
     async def get_user_by_id(user_payload: dict):
         conn = Tortoise.get_connection("default")
-        sql = f"SELECT usermodel.id as id, username, mail, avatar_id, f.filepath \
+        sql = "SELECT usermodel.id as id, username, mail, avatar_id, f.filepath \
                 FROM usermodel \
                     LEFT JOIN filemodel f on usermodel.avatar_id = f.id \
                     LEFT JOIN usercompanysettingsmodel u on usermodel.id = u.user_id \
@@ -69,7 +69,7 @@ class UserService:
     @staticmethod
     async def get_user_by_id_V2(user_payload: dict):
         conn = Tortoise.get_connection("default")
-        sql = f"SELECT usermodel.id as id, username, mail, \
+        sql = "SELECT usermodel.id as id, username, mail, \
                    u.status, u.role, \
                    jsonb_build_object('avatar',avatar_id,  'filepath',f.filepath) as avatar, \
                    jsonb_build_object('id', c.id, 'name', c.name, 'status', c.status) as company \
@@ -92,12 +92,12 @@ class UserService:
     @staticmethod
     async def search_user_by_mail(mail: str, user_payload: dict):
         conn = Tortoise.get_connection('default')
-        sql = (f"SELECT usermodel.id, usermodel.username, usermodel.mail, avatar_id FROM usermodel \
+        sql = ("SELECT usermodel.id, usermodel.username, usermodel.mail, avatar_id FROM usermodel \
                     LEFT OUTER JOIN usercompanysettingsmodel u on usermodel.id = u.user_id \
-                WHERE mail LIKE '%{mail}%' \
+                WHERE mail LIKE $1 \
                 AND u.status = 'active' \
                 AND u.company_id = "
-               f"(SELECT company_id FROM usercompanysettingsmodel WHERE user_id = $1 LIMIT 1)")
+               "(SELECT company_id FROM usercompanysettingsmodel WHERE user_id = $2 LIMIT 1)")
         # todo companyID
 
-        return await conn.execute_query_dict(sql, [user_payload.get('id'), ])
+        return await conn.execute_query_dict(sql, [f'%{mail}%', user_payload.get('id')])

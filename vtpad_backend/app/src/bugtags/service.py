@@ -14,7 +14,7 @@ class BugTagsService:
                 tag_id=tag_id
             )
             return await TagModel.filter(id=tag_id).get()
-        except:
+        except Exception:
             raise HTTPException(status_code=400, detail="not save")
 
     @staticmethod
@@ -25,7 +25,8 @@ class BugTagsService:
     async def get_tags_fo_bug(bug_id: str):
         conn = Tortoise.get_connection("default")
         return await conn.execute_query_dict(
-            f"SELECT t.id, t.title, t.color FROM bugtagsmodel "
-            f"LEFT JOIN tagmodel t on bugtagsmodel.tag_id = t.id "
-            f"WHERE bug_id = '{bug_id}' "
+            "SELECT t.id, t.title, t.color FROM bugtagsmodel "
+            "LEFT JOIN tagmodel t on bugtagsmodel.tag_id = t.id "
+            "WHERE bug_id = $1",
+            [bug_id]
         )

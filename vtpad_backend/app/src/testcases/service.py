@@ -26,8 +26,8 @@ class TestCasesService:
 
     async def get_short_name(self, space_id: str):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT short_name FROM spacemodel WHERE id = '{space_id}'"
-        temp = (await conn.execute_query_dict(sql))[0]['short_name']
+        sql = "SELECT short_name FROM spacemodel WHERE id = $1"
+        temp = (await conn.execute_query_dict(sql, [space_id]))[0]['short_name']
         return temp if temp else ''
 
     async def create_test_case(self, dto: CreateTestCaseDto):
@@ -47,34 +47,36 @@ class TestCasesService:
 
     async def get_filter_for_space(self, space_id):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT DISTINCT link FROM testcasesmodel \
+        sql = "SELECT DISTINCT link FROM testcasesmodel \
                 WHERE link IS NOT NULL \
-                AND space_id = '{space_id}'"
+                AND space_id = $1"
         res = []
-        for i in await conn.execute_query_dict(sql):
+        for i in await conn.execute_query_dict(sql, [space_id]):
             res.append(parse_external_link(i.get('link')))
         return res
 
     async def get_test_case_list_by_space_id(self, space_id: str, dto: GetTestcaseDto):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT id, create_date, update_date, title, sort, space_id, short_name FROM testcasesmodel \
-                        WHERE space_id = '{space_id}' \
-                        AND (lower(title) like lower('%{dto.q}%') " \
-              f"OR lower(link) like lower('%{dto.q}%') " \
-              f"OR lower(text) like lower('%{dto.q}%') " \
-              f"OR lower(short_name) like lower('%{dto.q}%')) \
-                        ORDER BY sort {dto.sort if dto.sort else 'DESC'} " \
-              f"LIMIT {dto.limit} " \
-              f"OFFSET {dto.offset}"
-        return await conn.execute_query_dict(sql)
+        order_direction = dto.sort.upper() if dto.sort and dto.sort.upper() in ('ASC', 'DESC') else 'DESC'
+        sql = "SELECT id, create_date, update_date, title, sort, space_id, short_name FROM testcasesmodel \
+                        WHERE space_id = $1 \
+                        AND (lower(title) like lower($2) " \
+              "OR lower(link) like lower($2) " \
+              "OR lower(text) like lower($2) " \
+              "OR lower(short_name) like lower($2)) \
+                        ORDER BY sort " + order_direction + " \
+              " \
+              "LIMIT $3 " \
+              "OFFSET $4"
+        return await conn.execute_query_dict(sql, [space_id, f"%{dto.q}%", dto.limit, dto.offset])
 
     async def get_test_case_by_paditem_id(self, item_id: str):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT t.id, t.create_date, t.update_date, " \
-              f"t.title, t.sort, t.space_id, t.short_name FROM testcasepaditemmodel " \
-              f"LEFT JOIN testcasesmodel t on testcasepaditemmodel.testcases_id = t.id " \
-              f"WHERE testcasepaditemmodel.pad_item_id = '{item_id}'"
-        return await conn.execute_query_dict(sql)
+        sql = "SELECT t.id, t.create_date, t.update_date, " \
+              "t.title, t.sort, t.space_id, t.short_name FROM testcasepaditemmodel " \
+              "LEFT JOIN testcasesmodel t on testcasepaditemmodel.testcases_id = t.id " \
+              "WHERE testcasepaditemmodel.pad_item_id = $1"
+        return await conn.execute_query_dict(sql, [item_id])
 
     async def update_test_case(self, dto: UpdateTestCaseDto, case_id: str):
         case = await self.test_case_model.filter(id=case_id).get()
@@ -106,30 +108,32 @@ class TestCasesService:
     async def get_test_cases_for_item(self, item_id: str, dto: GetTestcaseItemDto):
         if not dto.with_all:
             conn = Tortoise.get_connection('default')
-            sql = f"SELECT t2.id, t2.create_date, t2.update_date, t2.title, t2.sort, t2.space_id, t2.short_name, t2.link, t2.space_id from itemsmodel " \
-                  f"LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
-                  f"LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
-                  f"WHERE itemsmodel.id = '{item_id}' " \
-                  f"ORDER BY t2.sort {dto.sort if dto.sort else ''}"
-            testcase_by_item_select = await conn.execute_query_dict(sql)
+            order_direction = dto.sort.upper() if dto.sort and dto.sort.upper() in ('ASC', 'DESC') else ''
+            order_clause = f"ORDER BY t2.sort {order_direction}" if order_direction else ""
+            sql = "SELECT t2.id, t2.create_date, t2.update_date, t2.title, t2.sort, t2.space_id, t2.short_name, t2.link, t2.space_id from itemsmodel " \
+                  "LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
+                  "LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
+                  "WHERE itemsmodel.id = $1 " + order_clause
+            testcase_by_item_select = await conn.execute_query_dict(sql, [item_id])
             if testcase_by_item_select[0]['id'] is None:
                 return []
             return testcase_by_item_select
 
         else:
             conn = Tortoise.get_connection('default')
-            sql = f"SELECT array_agg(t2.id) as id, t2.space_id from itemsmodel " \
-                  f"LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
-                  f"LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
-                  f"WHERE itemsmodel.id = '{item_id}' " \
-                  f"GROUP BY t2.space_id"
+            sql = "SELECT array_agg(t2.id) as id, t2.space_id from itemsmodel " \
+                  "LEFT JOIN testcasepaditemmodel t on itemsmodel.id = t.pad_item_id " \
+                  "LEFT JOIN testcasesmodel t2 on t.testcases_id = t2.id " \
+                  "WHERE itemsmodel.id = $1 " \
+                  "GROUP BY t2.space_id"
 
-            testcase_by_item_select = await conn.execute_query_dict(sql)
+            testcase_by_item_select = await conn.execute_query_dict(sql, [item_id])
 
             select_item_id = testcase_by_item_select[0]['id']
             if select_item_id[0] is None:
                 testcase_by_item_select = await conn.execute_query_dict(
-                    f"SELECT p.spaces_id FROM itemsmodel LEFT JOIN padmodel p on itemsmodel.pad_id = p.id WHERE itemsmodel.id = '{item_id}'")
+                    "SELECT p.spaces_id FROM itemsmodel LEFT JOIN padmodel p on itemsmodel.pad_id = p.id WHERE itemsmodel.id = $1",
+                    [item_id])
                 space_id = testcase_by_item_select[0]['spaces_id']
             else:
                 space_id = testcase_by_item_select[0]['space_id']
@@ -177,6 +181,6 @@ class TestCasesService:
             if len(tmp) == 1:
                 return tmp[0]
             else:
-                raise HTTPException(status_code=404, detail=f'not fount')
-        except:
-            raise HTTPException(status_code=404, detail=f'not fount')
+                raise HTTPException(status_code=404, detail='not fount')
+        except Exception:
+            raise HTTPException(status_code=404, detail='not fount')

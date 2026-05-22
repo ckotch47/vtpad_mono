@@ -9,25 +9,25 @@ class QAReportService:
         self.bugsModel = BugsModel()
 
     async def get_bugs_list(self, dto: GetBugsDto):
-        sql_created = f"SELECT id, create_date, update_date, title, short_name, state, spaces_id, create_user_id FROM bugsmodel \
-                WHERE spaces_id = '{dto.space_id}' \
-                AND create_date >= '{dto.date_start}' \
-                AND create_date <= '{dto.date_end}' \
-                AND create_user_id = '{dto.create_user}' \
+        sql_created = "SELECT id, create_date, update_date, title, short_name, state, spaces_id, create_user_id FROM bugsmodel \
+                WHERE spaces_id = $1 \
+                AND create_date >= $2 \
+                AND create_date <= $3 \
+                AND create_user_id = $4 \
                 ORDER BY state DESC "
 
-        sql_updated = f"SELECT id, create_date, update_date, title, short_name, state, spaces_id, create_user_id FROM bugsmodel \
-                WHERE spaces_id = '{dto.space_id}' \
-                AND update_date >= '{dto.date_start}' \
-                AND update_date <= '{dto.date_end}' \
-                AND create_user_id = '{dto.create_user}' \
+        sql_updated = "SELECT id, create_date, update_date, title, short_name, state, spaces_id, create_user_id FROM bugsmodel \
+                WHERE spaces_id = $1 \
+                AND update_date >= $2 \
+                AND update_date <= $3 \
+                AND create_user_id = $4 \
                 AND DATE_TRUNC('second', update_date) != DATE_TRUNC('second', create_date) \
                 AND state != 'OPEN' \
                 ORDER BY state DESC"
         conn = Tortoise.get_connection('default')
-        opened = await conn.execute_query_dict(sql_created)
-        updated = await conn.execute_query_dict(sql_updated)
-        print()
+        params = [dto.space_id, dto.date_start, dto.date_end, dto.create_user]
+        opened = await conn.execute_query_dict(sql_created, params)
+        updated = await conn.execute_query_dict(sql_updated, params)
         return {
             'opened': opened,
             'updated': updated,
@@ -44,8 +44,8 @@ class QAReportService:
         }
 
     async def get_create_user_list(self, space_id: str):
-        sql = f"SELECT DISTINCT create_user_id, u.username, u.mail from bugsmodel \
+        sql = "SELECT DISTINCT create_user_id, u.username, u.mail from bugsmodel \
                 LEFT JOIN usermodel u on bugsmodel.create_user_id = u.id \
-                WHERE spaces_id = '{space_id}'"
+                WHERE spaces_id = $1"
         conn = Tortoise.get_connection('default')
-        return await conn.execute_query_dict(sql)
+        return await conn.execute_query_dict(sql, [space_id])

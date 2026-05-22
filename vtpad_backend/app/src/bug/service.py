@@ -23,24 +23,6 @@ from ..notification.service import NotificationService
 from ..comments.service import CommentBugService
 
 
-def in_query(input_list: list) -> str:
-    temp = input_list
-    string = f"'{temp[0]}'"
-    for elem in temp:
-        string += f", '{elem}'"
-    return string
-
-
-def in_query_text(input_list: list, ) -> str:
-    temp = input_list
-    string = '{'
-    string += f"%{temp[0]}%"
-    for elem in temp:
-        string += f", %{elem}%"
-    string += '}'
-    return string
-
-
 def parse_external_link(link: str):
     return link
     if type(link) != str:
@@ -61,7 +43,13 @@ class BugsService:
     tag_service = TagService()
     @staticmethod
     async def get_bugs_with_filter(b_filter: GetBugsDto):
-        str_q = f"SELECT \
+        ALLOWED_ORDER_BY = {
+            'id', 'create_date', 'estimate_date', 'short_name',
+            'state', 'update_date', 'title', 'assigner_id', 'create_user_id'
+        }
+        ALLOWED_ORDER_ARROW = {'ASC', 'DESC'}
+
+        str_q = "SELECT \
                 bugsmodel.id, \
                 bugsmodel.create_date, \
                 bugsmodel.estimate_date, \
@@ -71,8 +59,7 @@ class BugsService:
                 bugsmodel.title,  \
                 bugsmodel.external_link,  \
                 bugsmodel.create_user_id, " \
- \
-                f" json_build_object( \
+                " json_build_object( \
                     'id',create_user.id, \
                     'username',create_user.username, \
                     'mail',create_user.mail, \
@@ -82,9 +69,8 @@ class BugsService:
                         'filepath',create_avatar.filepath \
                         ) \
                 ) as create_user," \
- \
-                f"bugsmodel.assigner_id, " \
-                f"json_build_object( \
+                "bugsmodel.assigner_id, " \
+                "json_build_object( \
                     'id',assigner_user.id, \
                     'username',assigner_user.username, \
                     'mail',assigner_user.mail, \
@@ -94,7 +80,7 @@ class BugsService:
                         'filepath',assigner_avatar.filepath \
                         ) \
                 ) as assigner_user," \
-                f"json_agg( \
+                "json_agg( \
                     array( \
                         SELECT jsonb_build_object('id', tagmodel.id, 'title',tagmodel.title,'color', tagmodel.color) as tag \
                         FROM tagmodel \
@@ -103,57 +89,70 @@ class BugsService:
                         GROUP BY tagmodel.id \
                         ) \
                 ) as tag, " \
-                f"bugsmodel.spaces_id " \
-                f"FROM bugsmodel " \
-                f"LEFT JOIN usermodel create_user on bugsmodel.create_user_id = create_user.id \
+                "bugsmodel.spaces_id " \
+                "FROM bugsmodel " \
+                "LEFT JOIN usermodel create_user on bugsmodel.create_user_id = create_user.id \
                  LEFT JOIN usermodel assigner_user on bugsmodel.assigner_id = assigner_user.id \
                  LEFT JOIN filemodel assigner_avatar on assigner_user.avatar_id = assigner_avatar.id \
                  LEFT JOIN filemodel create_avatar on create_user.avatar_id = create_avatar.id \
                  LEFT JOIN bugtagsmodel bug_tag on bugsmodel.id = bug_tag.bug_id \
                  LEFT JOIN tagmodel t on bug_tag.tag_id = t.id " \
-                f"WHERE spaces_id = '{b_filter.space_id}' "
+                "WHERE spaces_id = $1 "
+
+        params = [b_filter.space_id]
+        param_idx = 1
+
+        def next_param():
+            nonlocal param_idx
+            param_idx += 1
+            return param_idx
 
         if b_filter.create_date:
-            str_q += f"AND DATE(create_date) >= '{b_filter.create_date}' "
+            params.append(b_filter.create_date)
+            str_q += f"AND DATE(create_date) >= ${next_param()} "
 
         if b_filter.create_date_end:
-            str_q += f"AND DATE(create_date) <= '{b_filter.create_date_end}' "
+            params.append(b_filter.create_date_end)
+            str_q += f"AND DATE(create_date) <= ${next_param()} "
 
         if b_filter.create_user:
-            str_q += f"AND create_user_id in ({in_query(b_filter.create_user)}) "  # '{b_filter.create_user}' "
+            params.append(b_filter.create_user)
+            str_q += f"AND create_user_id = ANY(${next_param()}::uuid[]) "
 
         if b_filter.assigner_id and not b_filter.not_assigner:
-            str_q += f"AND assigner_id in ({in_query(b_filter.assigner_id)}) "
+            params.append(b_filter.assigner_id)
+            str_q += f"AND assigner_id = ANY(${next_param()}::uuid[]) "
 
         if b_filter.not_assigner and not b_filter.assigner_id:
-            str_q += f"AND assigner_id is Null "
+            str_q += "AND assigner_id is Null "
 
         if b_filter.state:
-            str_q += f"AND state in ({in_query(b_filter.state).upper()}) "
+            params.append([s.upper() for s in b_filter.state])
+            str_q += f"AND state = ANY(${next_param()}::text[]) "
 
-        try:
-            if 'HOLD' not in b_filter.state:
-                str_q += f"AND state !='HOLD'"
-        except:
-            str_q += f"AND state !='HOLD'"
+        state_list = b_filter.state or []
+        if 'HOLD' not in state_list:
+            str_q += "AND state != 'HOLD' "
 
-        try:
-            if 'CLOSED' not in b_filter.state:
-                str_q += f"AND state !='CLOSED'"
-        except:
-            str_q += f"AND state !='CLOSED'"
+        if 'CLOSED' not in state_list:
+            str_q += "AND state != 'CLOSED' "
 
         if b_filter.estimate_date:
-            str_q += f"AND DATE(estimate_date) >= '{b_filter.estimate_date}' "
+            params.append(b_filter.estimate_date)
+            str_q += f"AND DATE(estimate_date) >= ${next_param()} "
 
         if b_filter.estimate_date_end:
-            str_q += f"AND DATE(estimate_date) <= '{b_filter.estimate_date_end}' "
+            params.append(b_filter.estimate_date_end)
+            str_q += f"AND DATE(estimate_date) <= ${next_param()} "
 
         if b_filter.tag:
-            str_q += f"AND bug_tag.tag_id in ({in_query(b_filter.tag)}) "  # '{b_filter.tag}' "
+            params.append(b_filter.tag)
+            str_q += f"AND bug_tag.tag_id = ANY(${next_param()}::uuid[]) "
 
         if b_filter.external_link:
-            str_q += f"AND external_link ~~ ANY('{in_query_text(b_filter.external_link)}') "
+            patterns = [f"%{elem}%" for elem in b_filter.external_link]
+            params.append(patterns)
+            str_q += f"AND external_link ~~ ANY(${next_param()}::text[]) "
 
         str_q += "GROUP BY bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, \
                  bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, bugsmodel.title, \
@@ -162,17 +161,24 @@ class BugsService:
                  assigner_user.id, assigner_avatar.filepath "
 
         if b_filter.order_by:
-            str_q += f"ORDER BY {b_filter.order_by} {b_filter.order_arrow} "
+            order_by = b_filter.order_by if b_filter.order_by in ALLOWED_ORDER_BY else 'create_date'
+            order_arrow = b_filter.order_arrow.upper() if b_filter.order_arrow and b_filter.order_arrow.upper() in ALLOWED_ORDER_ARROW else 'DESC'
+            str_q += f"ORDER BY {order_by} {order_arrow} "
         else:
-            str_q += f'ORDER BY create_date DESC '
+            str_q += 'ORDER BY create_date DESC '
 
-        str_q += f'LIMIT {b_filter.limit if b_filter.limit else "ALL"} ' \
-                 f'OFFSET {b_filter.skip if b_filter.skip else 0} '
+        if b_filter.limit:
+            params.append(b_filter.limit)
+            str_q += f'LIMIT ${next_param()} '
+        else:
+            str_q += 'LIMIT ALL '
+
+        skip = b_filter.skip if b_filter.skip else 0
+        params.append(skip)
+        str_q += f'OFFSET ${next_param()} '
 
         conn = Tortoise.get_connection("default")
-        temp = (await conn.execute_query_dict(str_q))
-        res = []
-        index = 0
+        temp = (await conn.execute_query_dict(str_q, params))
         for i in temp:
             if i.get('create_user_id'):
                 i['create_user'] = json.loads(i['create_user'])
@@ -191,14 +197,7 @@ class BugsService:
     async def get_bug_detail(bug_id: str, user: dict = None):
         conn = Tortoise.get_connection("default")
 
-        sql = f"SELECT bugsmodel.*, " \
-              f"f.filepath as assigner_avatar " \
-              f"FROM bugsmodel " \
-              f"LEFT JOIN usermodel u on bugsmodel.assigner_id = u.id " \
-              f"LEFT JOIN filemodel f on u.avatar_id = f.id " \
-              f"WHERE bugsmodel.id = '{bug_id}' "
-
-        sql_new = f"SELECT bugsmodel.*, \
+        sql_new = "SELECT bugsmodel.*, \
                        jsonb_build_object('id', u.id, 'mail', u.mail, 'username', u.username, 'avatar', \
                                           jsonb_build_object('id', f.id, 'filepath', f.filepath))   as assigner_user, \
                        jsonb_build_object('id', u2.id, 'mail', u2.mail, 'username', u2.username, 'avatar', \
@@ -208,9 +207,9 @@ class BugsService:
                          LEFT JOIN usermodel u2 on u2.id = bugsmodel.create_user_id \
                          LEFT JOIN filemodel f on u.avatar_id = f.id \
                          LEFT JOIN filemodel f2 on u2.avatar_id = f2.id \
-                WHERE bugsmodel.id = '{bug_id}' \
+                WHERE bugsmodel.id = $1 \
                 group by bugsmodel.id, u.id, f.id, u2.id, f2.id; "
-        bug = (await conn.execute_query_dict(sql_new))[0]
+        bug = (await conn.execute_query_dict(sql_new, [bug_id]))[0]
 
         bug.update({'tag': await BugTagsService.get_tags_fo_bug(bug_id)})
         bug.update({'external_link': parse_external_link(bug.get('external_link'))})
@@ -249,7 +248,7 @@ class BugsService:
                                               user=str(bug.assigner),
                                               data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                                               event=EventNotificationEnum.assign))
-            except:
+            except Exception:
                 pass
         return await BugsService.get_bug_detail(temp.id)
 
@@ -349,7 +348,7 @@ class BugsService:
 
         try:
             estimate_date = bug.estimate_date.replace(hour=23)
-        except:
+        except Exception:
             estimate_date = None
 
         temp = await BugsModel.filter(id=uuid.UUID(bug_id)).get()
@@ -380,7 +379,7 @@ class BugsService:
             if bug.additional_link != '<p></p>' and str(temp.additional_link) != bug.additional_link:
                 await CommentBugService.create_history(bug_id, user,
                                                        f"<p>change additional link</p> <s>{temp.additional_link}</s> to {bug.additional_link}<hr>")
-        except:
+        except Exception:
             pass
         # todo rework
         if str(bug.assigner) != str(temp.assigner) and str(bug.assigner) != str(user.get('id')):
@@ -390,7 +389,7 @@ class BugsService:
                                               user=str(bug.assigner),
                                               data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                                               event=EventNotificationEnum.assign))
-            except:
+            except Exception:
                 pass
 
         if bug.state != temp.state:
@@ -408,7 +407,7 @@ class BugsService:
                                                   user=str(temp.create_user_id),
                                                   data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                                                   event=EventNotificationEnum.update))
-            except:
+            except Exception:
                 pass
 
         return await BugsService.get_bug_detail(temp.id)
@@ -441,6 +440,9 @@ class BugsService:
 
     @staticmethod
     async def get_filter_by_row(space_id: str, row: str):
+        ALLOWED_ROWS = {'state', 'assigner_id', 'create_user_id', 'tag', 'short_name', 'title', 'external_link'}
+        if row not in ALLOWED_ROWS:
+            raise HTTPException(status_code=400, detail="invalid row")
 
         conn = Tortoise.get_connection('default')
         if row == 'state':
@@ -449,41 +451,40 @@ class BugsService:
                 enum.append(i.title().upper())
             return enum
         if row == 'assigner_id' or row == 'create_user_id':
-            sql = f'SELECT DISTINCT "{row}" as id, u.username, u.mail, (f.id, f.filepath) as avatar FROM bugsmodel ' \
-                  f'LEFT JOIN usermodel u on bugsmodel."{row}" = u.id ' \
-                  f"LEFT JOIN filemodel f on u.avatar_id = f.id " \
-                  f"WHERE '{row}' is not null " \
-                  f"AND spaces_id = '{space_id}';"
-            temp = await conn.execute_query_dict(sql)
+            sql = 'SELECT DISTINCT "' + row + '" as id, u.username, u.mail, (f.id, f.filepath) as avatar FROM bugsmodel ' \
+                  'LEFT JOIN usermodel u on bugsmodel."' + row + '" = u.id ' \
+                  "LEFT JOIN filemodel f on u.avatar_id = f.id " \
+                  "WHERE spaces_id = $1;"
+            temp = await conn.execute_query_dict(sql, [space_id])
             for i in temp:
                 try:
-                    if i['avatar'][0] != None:
+                    if i['avatar'][0] is not None:
                         i['avatar'] = {
                             "id": i['avatar'][0],
                             "filepath": i['avatar'][1]
                         }
                     else:
                         i['avatar'] = {}
-                except:
+                except Exception:
                     i['avatar'] = {}
             return temp
 
         if row == 'tag':
-            sql = f"SELECT * FROM tagmodel WHERE tagmodel.space_id = '{space_id}'"
-            return await conn.execute_query_dict(sql)
-        sql = f'SELECT DISTINCT "{row}" FROM bugsmodel ' \
-              f"WHERE spaces_id = 'b15528ef-d863-4e36-a9dc-0db4be39ccc1' " \
-              f'ORDER BY "{row}" DESC'
-        return await conn.execute_query_dict(sql)
+            sql = "SELECT * FROM tagmodel WHERE tagmodel.space_id = $1"
+            return await conn.execute_query_dict(sql, [space_id])
+        sql = 'SELECT DISTINCT "' + row + '" FROM bugsmodel ' \
+              "WHERE spaces_id = $1 " \
+              'ORDER BY "' + row + '" DESC'
+        return await conn.execute_query_dict(sql, [space_id])
 
     @staticmethod
     async def get_external_link_for_filter_bug(space_id):
         conn = Tortoise.get_connection("default")
-        sql = f"SELECT DISTINCT external_link FROM bugsmodel " \
-              f"WHERE spaces_id = '{space_id}' " \
-              f"AND state in ('OPEN', 'REOPEN', 'FIXED') " \
-              f"AND external_link LIKE '%http%' "
-        temp = await conn.execute_query_dict(sql)
+        sql = "SELECT DISTINCT external_link FROM bugsmodel " \
+              "WHERE spaces_id = $1 " \
+              "AND state in ('OPEN', 'REOPEN', 'FIXED') " \
+              "AND external_link LIKE '%http%' "
+        temp = await conn.execute_query_dict(sql, [space_id])
         res = []
         for i in temp:
             res.append(i['external_link'])
@@ -512,13 +513,14 @@ class BugsService:
         conn = Tortoise.get_connection("default")
         try:
             temp: dict = (await conn.execute_query_dict(
-                f"SELECT role, \"right\" FROM bugsmodel "
-                f"LEFT JOIN spacemodel s on bugsmodel.spaces_id = s.id "
-                f"LEFT JOIN spacesusermodel sp on sp.\"spaceId\" = s.id "
-                f"WHERE bugsmodel.id = '{bug_id}' "
-                f"AND sp.\"userId\" = '{user.get('id')}' "
+                "SELECT role, \"right\" FROM bugsmodel "
+                "LEFT JOIN spacemodel s on bugsmodel.spaces_id = s.id "
+                "LEFT JOIN spacesusermodel sp on sp.\"spaceId\" = s.id "
+                "WHERE bugsmodel.id = $1 "
+                "AND sp.\"userId\" = $2",
+                [bug_id, user.get('id')]
             ))[0]
-        except:
+        except Exception:
             raise HTTPException(status_code=403, detail="not have right")
 
         if temp['role'] == SpacesUserRole.owner:
@@ -530,7 +532,7 @@ class BugsService:
                     return True
                 else:
                     raise HTTPException(status_code=403, detail="not have right")
-        except:
+        except Exception:
             raise HTTPException(status_code=403, detail="not have right")
 
     @staticmethod
@@ -538,11 +540,12 @@ class BugsService:
         # closeBugs
         conn = Tortoise.get_connection("default")
         temp: dict = (await conn.execute_query_dict(
-            f"SELECT role, \"right\" FROM bugsmodel "
-            f"LEFT JOIN spacemodel s on bugsmodel.spaces_id = s.id "
-            f"LEFT JOIN spacesusermodel sp on sp.\"spaceId\" = s.id "
-            f"WHERE bugsmodel.id = '{bug_id}' "
-            f"AND sp.\"userId\" = '{user.get('id')}' "
+            "SELECT role, \"right\" FROM bugsmodel "
+            "LEFT JOIN spacemodel s on bugsmodel.spaces_id = s.id "
+            "LEFT JOIN spacesusermodel sp on sp.\"spaceId\" = s.id "
+            "WHERE bugsmodel.id = $1 "
+            "AND sp.\"userId\" = $2",
+            [bug_id, user.get('id')]
         ))[0]
 
         if temp['role'] == SpacesUserRole.owner:
@@ -554,7 +557,7 @@ class BugsService:
                 return True
             else:
                 raise HTTPException(status_code=403, detail="not have right")
-        except:
+        except Exception:
             raise HTTPException(status_code=403, detail="not have right")
 
     @staticmethod
@@ -619,6 +622,5 @@ class BugsService:
             bug['create_user'] = json.loads(bug['create_user'])
 
             return bug
-            # return (await conn.execute_query_dict(sql, [short_name, user_payload.get('id')]))[0]
-        except:
+        except Exception:
             raise HTTPException(status_code=404, detail="not found")

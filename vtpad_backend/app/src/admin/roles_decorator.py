@@ -23,8 +23,8 @@ async def check_role_admin(user_payload: dict, available_role: list[RolesEnum]):
         return True
 
     conn = Tortoise.get_connection('default')
-    sql = f"SELECT * FROM usercompanysettingsmodel WHERE user_id = '{user_payload.get('id')}'"
-    this_user = await conn.execute_query_dict(sql)
+    sql = "SELECT * FROM usercompanysettingsmodel WHERE user_id = $1"
+    this_user = await conn.execute_query_dict(sql, [user_payload.get('id')])
     try:
         if not this_user or not this_user[0]:
             raise HTTPException(status_code=403, detail="not have rule")

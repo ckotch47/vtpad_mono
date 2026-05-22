@@ -33,5 +33,5 @@ class TagService:
         try:
             await TagModel.filter(id=tag_id).delete()
             return True
-        except:
+        except Exception:
             return False

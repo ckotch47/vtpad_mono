@@ -10,11 +10,8 @@ class CompanyService:
     @staticmethod
     async def get_company_list(dto: GetCompanyListDto):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT * FROM companymodel " \
-              f"WHERE name LIKE '%{dto.q}%' " \
-              f"OFFSET '{dto.limit}' " \
-              f"LIMIT '{dto.offset}'"
-        return await conn.execute_query_dict(sql)
+        sql = "SELECT * FROM companymodel WHERE name LIKE $1 OFFSET $2 LIMIT $3"
+        return await conn.execute_query_dict(sql, [f"%{dto.q}%", dto.limit, dto.offset])
 
     async def create_company(self, dto: AddCompanyDto):
         return await self.model.create(

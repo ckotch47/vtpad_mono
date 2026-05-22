@@ -41,18 +41,20 @@ class RunMigration:
 
     async def find_migration_in_bd(self, migration_name: str):
         # find into bd migration by name
-        sql = f"SELECT id FROM migrationmodel WHERE name = '{migration_name}'"
-        return (await self.run_sql(sql))[0]
+        sql = "SELECT id FROM migrationmodel WHERE name = $1"
+        return (await self.run_sql(sql, [migration_name]))[0]
 
     async def save_migration_name_into_bd(self, migration_name: str):
         # create new migration into bd
-        sql = f"INSERT INTO migrationmodel (id, create_date, name) " \
-              f"VALUES (gen_random_uuid(), current_timestamp, '{migration_name}')"
-        return (await self.run_sql(sql))[0]
+        sql = "INSERT INTO migrationmodel (id, create_date, name) " \
+              "VALUES (gen_random_uuid(), current_timestamp, $1)"
+        return (await self.run_sql(sql, [migration_name]))[0]
 
-    async def run_sql(self, sql):
+    async def run_sql(self, sql, params=None):
         conn = Tortoise.get_connection('default')
         try:
+            if params:
+                return await conn.execute_query(sql, params)
             return await conn.execute_query(sql)
         except Exception as e:
             print(e)

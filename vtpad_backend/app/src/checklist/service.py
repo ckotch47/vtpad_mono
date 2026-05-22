@@ -38,7 +38,7 @@ class ChecklistService:
         temp = await conn.execute_query_dict(sql, [space_id, ])
         try:
             temp = temp[0]
-        except:
+        except Exception:
             temp = {
                 "count": 0,
                 "sort": 0,
@@ -98,7 +98,7 @@ class ChecklistService:
                 return tmp[0]
             else:
                 raise HTTPException(status_code=404, detail=f'not fount')
-        except:
+        except Exception:
             raise HTTPException(status_code=404, detail=f'not fount')
 
 
@@ -117,5 +117,5 @@ class ChecklistService:
                 return True
             else:
                 raise HTTPException(status_code=404, detail="not found")
-        except:
+        except Exception:
             raise HTTPException(status_code=404, detail="not found")

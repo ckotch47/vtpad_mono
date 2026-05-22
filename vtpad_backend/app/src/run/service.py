@@ -33,10 +33,10 @@ class RunService:
     @staticmethod
     async def get_filter_for_run(space_id: str):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT DISTINCT p.name, p.id FROM runmodel \
+        sql = "SELECT DISTINCT p.name, p.id FROM runmodel \
                 LEFT JOIN padmodel p on runmodel.pads_id = p.id \
-                WHERE spaces_id = '{space_id}'"
-        return await conn.execute_query_dict(sql)
+                WHERE spaces_id = $1"
+        return await conn.execute_query_dict(sql, [space_id])
 
     @staticmethod
     async def get_runs_with_filter(dto: GetRunsDto):
@@ -106,7 +106,7 @@ class RunService:
     @staticmethod
     async def get_last_run(space_id: str):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT p.*, json_agg(runmodel.*) as runs FROM runmodel \
+        sql = "SELECT p.*, json_agg(runmodel.*) as runs FROM runmodel \
                 LEFT JOIN padmodel p on p.id = runmodel.pads_id \
                 WHERE p.spaces_id = $1 \
                 GROUP BY p.id, runmodel.date \
@@ -141,7 +141,7 @@ class RunService:
 
     @staticmethod
     async def re_run_run_by_id(run_id: str):
-        sql = f"UPDATE runitemsmodel \
+        sql = "UPDATE runitemsmodel \
                 SET state = null \
                 WHERE run_id = $1"
         conn = Tortoise.get_connection('default')

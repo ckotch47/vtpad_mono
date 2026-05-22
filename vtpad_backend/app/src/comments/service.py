@@ -75,17 +75,17 @@ class CommentBugService:
     @staticmethod
     async def get_comment(bug_id: str):
         conn = Tortoise.get_connection("default")
-        sql = f"SELECT commentmodel.id as id, commentmodel.create_date, commentmodel.text, commentmodel.bug_id, \
+        sql = "SELECT commentmodel.id as id, commentmodel.create_date, commentmodel.text, commentmodel.bug_id, \
                    commentmodel.user_id, commentmodel.view, \
                     json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, 'avatar_id', u.avatar_id, \
                     'avatar', json_build_object('id', f.id, 'filepath', f.filepath)) as create_user \
             FROM commentmodel \
                 LEFT JOIN usermodel u on commentmodel.user_id = u.id \
                 LEFT JOIN filemodel f on f.id = u.avatar_id \
-            WHERE commentmodel.bug_id = '{bug_id}' \
+            WHERE commentmodel.bug_id = $1 \
             ORDER BY commentmodel.create_date"
 
-        temp = await conn.execute_query_dict(sql)
+        temp = await conn.execute_query_dict(sql, [bug_id])
         for elem in temp:
             elem['create_user'] = json.loads(elem['create_user'])
         return temp
@@ -113,17 +113,17 @@ class CommentBugService:
     @staticmethod
     async def get_comment_by_id(comment_id: str):
         conn = Tortoise.get_connection("default")
-        sql = f"SELECT commentmodel.id as id, commentmodel.create_date, commentmodel.text, commentmodel.bug_id, \
+        sql = "SELECT commentmodel.id as id, commentmodel.create_date, commentmodel.text, commentmodel.bug_id, \
                    commentmodel.user_id, commentmodel.view, \
                     json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, 'avatar_id', u.avatar_id, \
                     'avatar', json_build_object('id', f.id, 'filepath', f.filepath)) as create_user \
             FROM commentmodel \
                 LEFT JOIN usermodel u on commentmodel.user_id = u.id \
                 LEFT JOIN filemodel f on f.id = u.avatar_id \
-            WHERE commentmodel.id = '{comment_id}' \
+            WHERE commentmodel.id = $1 \
             ORDER BY commentmodel.create_date"
 
-        temp = (await conn.execute_query_dict(sql))[0]
+        temp = (await conn.execute_query_dict(sql, [comment_id]))[0]
         temp['create_user'] = json.loads(temp['create_user'])
 
         return temp

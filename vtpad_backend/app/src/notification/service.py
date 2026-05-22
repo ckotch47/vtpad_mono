@@ -6,24 +6,18 @@ from .enum import EventNotificationEnum
 class NotificationService:
     @staticmethod
     async def get_notification(dto: GetNotificationDto, limit: int = 20, skip: int = 0):
-        sql = f'SELECT * FROM notificationmodel '
-        sql += f"WHERE user_id = '{dto.user_id}' "
+        query = NotificationModel.filter(user_id=dto.user_id)
 
         if dto.send is not None:
-            sql += f'AND send = {dto.send} '
+            query = query.filter(send=dto.send)
 
         if dto.read is not None:
-            sql += f'AND read = {dto.read} '
+            query = query.filter(read=dto.read)
 
         if dto.event is not None:
-            sql += f'AND event = {dto.event} '
+            query = query.filter(event=dto.event)
 
-        sql += f'ORDER BY create_date DESC '
-
-        sql += f"LIMIT {limit} "
-        sql += f"OFFSET {skip}"
-
-        return await NotificationModel.raw(sql)
+        return await query.order_by('-create_date').offset(skip).limit(limit)
 
 
     @staticmethod
@@ -38,7 +32,7 @@ class NotificationService:
             ).get()
             if temp:
                 return None
-        except:
+        except Exception:
             try:
                 # todo add redis counter
                 return await NotificationModel.create(
@@ -48,7 +42,7 @@ class NotificationService:
                     personal=dto.personal if dto.personal else True,
                     read=dto.read if dto.read else False
                 )
-            except:
+            except Exception:
                 pass
 
     @staticmethod
@@ -80,7 +74,7 @@ class NotificationService:
     async def send_notification(notification_id: str):
         try:
             await NotificationModel.filter(id=notification_id).update(send=True)
-        except:
+        except Exception:
             pass
 
     @staticmethod

@@ -92,5 +92,5 @@ class PadService:
 
         try:
             return await PadService.get_pad(str(temp.spaces_id))
-        except:
+        except Exception:
             return True

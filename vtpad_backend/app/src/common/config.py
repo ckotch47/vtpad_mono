@@ -41,7 +41,7 @@ class EnvConfig:
         self.main_admin_id: str = os.getenv('main_admin_id')
         try:
             self.use_mail = True if os.getenv('use_mail') == '1' else False
-        except:
+        except Exception:
             self.use_mail = False
         if self.use_mail:
             self.mail_conf = ConnectionConfig(

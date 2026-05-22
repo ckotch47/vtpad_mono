@@ -28,7 +28,7 @@ class ReportService:
             if temp.status_code == 200:
                 return temp.json()
             return []
-        except:
+        except Exception:
             return []
 
     async def get_test_detail(self, test_id: str):
@@ -41,7 +41,7 @@ class ReportService:
             if temp.status_code == 200:
                 return temp.json()
             return []
-        except:
+        except Exception:
             return []
 
 

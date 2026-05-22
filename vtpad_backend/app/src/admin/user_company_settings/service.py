@@ -25,16 +25,16 @@ class UserCompanyService:
     async def get_user_by_company(self, user_payload: dict):
         conn = Tortoise.get_connection('default')
         company = await self.model.filter(user_id=user_payload.get('id')).get()
-        sql = f"SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, usercompanysettingsmodel.role, " \
-              f"json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
-              f"'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
-              f"FROM usercompanysettingsmodel " \
-              f"LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
-              f"LEFT JOIN filemodel f on f.id = u.avatar_id " \
-              f"WHERE company_id = '{company.__getattribute__('company_id')}' " \
-              f"ORDER BY usercompanysettingsmodel.status, u.id "
+        sql = "SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, usercompanysettingsmodel.role, " \
+              "json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
+              "'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
+              "FROM usercompanysettingsmodel " \
+              "LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
+              "LEFT JOIN filemodel f on f.id = u.avatar_id " \
+              "WHERE company_id = $1 " \
+              "ORDER BY usercompanysettingsmodel.status, u.id "
 
-        temp = await conn.execute_query_dict(sql)
+        temp = await conn.execute_query_dict(sql, [company.__getattribute__('company_id')])
         for i in temp:
             i['user'] = json.loads(i['user'])
         return temp
@@ -43,15 +43,15 @@ class UserCompanyService:
         conn = Tortoise.get_connection('default')
         try:
             company = await self.model.filter(user_id=user_payload.get('id')).get()
-            sql_get_user = f"SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, " \
-                           f"json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
-                           f"'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
-                           f"FROM usercompanysettingsmodel " \
-                           f"LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
-                           f"LEFT JOIN filemodel f on f.id = u.avatar_id " \
-                           f"WHERE company_id = '{company.__getattribute__('company_id')}' " \
-                           f"AND u.id = '{user_id}'"
-            user = await conn.execute_query_dict(sql_get_user)
+            sql_get_user = "SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, " \
+                           "json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
+                           "'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
+                           "FROM usercompanysettingsmodel " \
+                           "LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
+                           "LEFT JOIN filemodel f on f.id = u.avatar_id " \
+                           "WHERE company_id = $1 " \
+                           "AND u.id = $2"
+            user = await conn.execute_query_dict(sql_get_user, [company.__getattribute__('company_id'), user_id])
 
             if not user[0]:
                 raise HTTPException(status_code=404, detail="not found user")
@@ -90,15 +90,15 @@ class UserCompanyService:
             user_id=this_user.__getattribute__('id')
         )
 
-        sql_get_user = f"SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, " \
-                       f"json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
-                       f"'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
-                       f"FROM usercompanysettingsmodel " \
-                       f"LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
-                       f"LEFT JOIN filemodel f on f.id = u.avatar_id " \
-                       f"WHERE company_id = '{company.__getattribute__('company_id')}' " \
-                       f"AND u.id = '{this_user.__getattribute__('id')}'"
-        user = await conn.execute_query_dict(sql_get_user)
+        sql_get_user = "SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, " \
+                       "json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
+                       "'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
+                       "FROM usercompanysettingsmodel " \
+                       "LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
+                       "LEFT JOIN filemodel f on f.id = u.avatar_id " \
+                       "WHERE company_id = $1 " \
+                       "AND u.id = $2"
+        user = await conn.execute_query_dict(sql_get_user, [company.__getattribute__('company_id'), this_user.__getattribute__('id')])
         user = user[0]
         user['user'] = json.loads(user['user'])
         background_tasks.add_task(self.send_message_new_user, user['user'], dto.password, background_tasks)
@@ -122,16 +122,16 @@ class UserCompanyService:
     async def reset_password(self, user_id: str, user_payload: dict):
         conn = Tortoise.get_connection('default')
         company = await self.model.filter(user_id=user_payload.get('id')).get()
-        sql_get_user = f"SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, " \
-                       f"json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
-                       f"'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
-                       f"FROM usercompanysettingsmodel " \
-                       f"LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
-                       f"LEFT JOIN filemodel f on f.id = u.avatar_id " \
-                       f"WHERE company_id = '{company.__getattribute__('company_id')}' " \
-                       f"AND u.id = '{user_id}'"
+        sql_get_user = "SELECT usercompanysettingsmodel.id, usercompanysettingsmodel.status, usercompanysettingsmodel.company_id, " \
+                       "json_build_object('id', u.id, 'username', u.username, 'mail', u.mail, " \
+                       "'avatar_id', u.avatar_id, 'avatar', json_build_object('id', f.id, 'filepath', filepath)) as \"user\" " \
+                       "FROM usercompanysettingsmodel " \
+                       "LEFT JOIN usermodel u on u.id = usercompanysettingsmodel.user_id " \
+                       "LEFT JOIN filemodel f on f.id = u.avatar_id " \
+                       "WHERE company_id = $1 " \
+                       "AND u.id = $2"
 
-        t_user = await conn.execute_query_dict(sql_get_user)
+        t_user = await conn.execute_query_dict(sql_get_user, [company.__getattribute__('company_id'), user_id])
         if not t_user or not t_user[0]:
             raise HTTPException(status_code=404, detail="not found")
 
@@ -143,10 +143,10 @@ class UserCompanyService:
 
     async def delete_user(self, user_id: str, payload: dict):
         conn = Tortoise.get_connection('default')
-        sql = f"SELECT * FROM usermodel \
+        sql = "SELECT * FROM usermodel \
                     LEFT OUTER JOIN usercompanysettingsmodel u on usermodel.id = u.user_id \
                 WHERE usermodel.id = $1 \
                 AND u.company_id = (SELECT company_id FROM usercompanysettingsmodel WHERE user_id = $2 AND role='company_admin' LIMIT 1) "
         user = (await conn.execute_query_dict(sql, [user_id, payload.get('id')]))[0]
-        sql_delete = f"DELETE FROM usermodel WHERE id = $1"
+        sql_delete = "DELETE FROM usermodel WHERE id = $1"
         return await conn.execute_query_dict(sql_delete, [user.get('user_id'), ])

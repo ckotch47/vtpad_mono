@@ -43,6 +43,7 @@ nav:
       - Правила ведения документации: rules/documentation-rules.md
   - Ошибки:
       - Ошибки и ограничения (baseline): errors/common-errors.md
+      - Слабые места в коде: errors/code-weaknesses.md
   - Глоссарий:
       - Термины: glossary/terms.md
   - Изменения:

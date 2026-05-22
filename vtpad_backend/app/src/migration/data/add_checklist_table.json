@@ -1,0 +1,8 @@
+{
+  "data": [
+    "create table checklistmodel\n(\n    id          uuid                                               not null\n        constraint checklistmodel_pkey\n            primary key,\n    create_date timestamp with time zone default CURRENT_TIMESTAMP not null,\n    update_date timestamp with time zone default CURRENT_TIMESTAMP not null,\n    title       text                                               not null,\n    text        text,\n    sort        integer,\n    short_name  text,\n    state       varchar(40)                                        not null,\n    space_id    uuid                                               not null\n        constraint checklistmodel_space_id_fkey\n            references spacemodel\n            on delete cascade\n);",
+    "comment on column checklistmodel.state is 'enum <enum ''ChecklistStatusEnum''>';",
+    "alter table checklistmodel\n    owner to vtpad_back;"
+  ],
+  "state": 0
+}

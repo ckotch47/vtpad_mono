@@ -1,0 +1,90 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:13.3
+    container_name: db
+    environment:
+      POSTGRES_DB: ${db_name}
+      POSTGRES_USER: ${db_user}
+      POSTGRES_PASSWORD: ${db_password}
+    ports:
+      - "5449:5432"
+    networks:
+      example-network:
+        ipv4_address: 172.16.238.9
+
+  app:
+    build: .
+    container_name: app
+    external_links:
+      - db:db
+    command: uvicorn app.main:app --host 0.0.0.0
+    volumes:
+      - ./app:/app
+    ports:
+      - ${backend_port}:8000
+    networks:
+      example-network:
+        ipv4_address: 172.16.238.10
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    container_name: prometheus
+    external_links:
+      - grafana:grafana
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    networks:
+      example-network:
+        ipv4_address: 172.16.238.11
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    user: "472"
+    container_name: grafana
+    external_links:
+      - prometheus:prometheus
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+    volumes:
+      - ./datasource.yml:/etc/grafana/provisioning/datasource.yml
+    env_file:
+      - ./config.monitoring
+    networks:
+      example-network:
+        ipv4_address: 172.16.238.12
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=debug
+    networks:
+      example-network:
+        ipv4_address: 172.16.238.99
+
+
+networks:
+  example-network:
+    name: example-network
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
+
+
+#docker run -d --name jaeger -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 -p 5775:5775/udp -p 6831:6831/udp -p 6832:6832/udp -p 5778:5778 -p 16686:16686 -p 14268:14268 -p 14250:14250 -p 9411:9411 jaegertracing/all-in-one:1.23

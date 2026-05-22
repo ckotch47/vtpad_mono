@@ -1,0 +1,2 @@
+
+{"data": ["alter table notificationmodel alter column data type json using data::json;"], "state": 0}

@@ -1,0 +1,29 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.log
+.env
+venv/
+.venv/
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (backend runtime data)
+vtpad_backend/uploads/*
+!vtpad_backend/uploads/readme.md

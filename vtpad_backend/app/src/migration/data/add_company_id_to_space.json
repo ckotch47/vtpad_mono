@@ -1,0 +1,8 @@
+{
+"data":
+  [
+    "alter table spacemodel add company_id uuid;",
+    "alter table spacemodel add constraint spacemodel_companymodel_id_fk foreign key (company_id) references companymodel on delete cascade;"
+  ],
+  "state": 0
+}

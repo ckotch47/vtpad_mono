@@ -1,0 +1,1 @@
+{"data": ["alter table commentmodel add view text default 'comment' not null;"], "state": 1}

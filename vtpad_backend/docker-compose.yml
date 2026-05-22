@@ -1,0 +1,57 @@
+version: "3.9"
+services:
+  postgres:
+    container_name: vtpad_db
+    image: postgres:14-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${db_name}
+      POSTGRES_USER: ${db_user}
+      POSTGRES_PASSWORD: ${db_password}
+      PGDATA: /var/lib/postgresql/data/vtpad/
+    ports:
+      - "127.0.0.1:5449:5432"
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    networks:
+      vtpad-network:
+
+
+  redis:
+    image: redis:6
+    container_name: vtpad_redis
+    restart: always
+    ports:
+      - "0.0.0.0:6379:6379"
+    volumes:
+      - vtpad_redis:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    expose:
+      - 6379
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+    networks:
+      vtpad-network:
+
+  backend:
+    build: .
+    container_name: vtpad_backend
+    external_links:
+      - vtpad_db:vtpad_db
+      - vtpad_redis:vtpad_redis
+    command: uvicorn app.main:app --host 0.0.0.0 --workers 2  --proxy-headers
+    volumes:
+      - ./uploads:/uploads
+    ports:
+      - "127.0.0.1:${backend_port}:8000"
+    networks:
+      vtpad-network:
+
+volumes:
+  vtpad_redis:
+
+networks:
+  vtpad-network:
+    name: vtpad-network
+    driver: bridge
+

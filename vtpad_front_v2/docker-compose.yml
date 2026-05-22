@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+  client:
+    container_name: vtpadV2
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - '/src/node_modules'
+    ports:
+      - '127.0.0.1:3000:3000'
+    command: npm run prod
+
+networks:
+  default:

@@ -1,0 +1,7 @@
+{
+"data":
+  [
+    "alter table itemsmodel\n    add description text;"
+  ],
+  "state": 0
+}

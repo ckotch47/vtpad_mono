@@ -1,0 +1,22 @@
+name: dev-deploy
+
+on:
+  pull_request:
+    branches: [ dev ]
+    types: [ closed ]
+
+env:
+  env_var: ${{ vars.ENV_CONTEXT_VAR }}
+
+jobs:
+  up-serve:
+    if: github.event.pull_request.merged == true
+    name: up
+    runs-on: self-hosted
+    steps:
+      - name: pull
+        run: git pull
+      - name: copy_env
+        run: cat ${{ vars.DEV_ENV }} > .env
+      - name: down
+        run: docker-compose up -d --build backend

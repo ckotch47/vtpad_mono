@@ -34,7 +34,7 @@ import app.src.report as report
 import app.src.testcases as testcases
 import app.src.testcases_runitem as testcases_runitem
 import app.src.testcases_paditem as testcases_paditem
-import app.src.qa_report as qa_report
+from app.src.qa_report import router as qa_report_router
 
 # end import
 
@@ -137,7 +137,6 @@ config_orm = {
 
 
 # register app
-@asynccontextmanager
 async def lifespan(app: FastAPI):
     # server start
 
@@ -241,7 +240,7 @@ app_utils.register_router(
         user_company_router,
 
         router_company_admin,
-        qa_report,
+        qa_report_router,
 
     ], app, global_prefix='/api')
 
@@ -250,26 +249,26 @@ app_utils.register_router(
 app.mount('/uploads', StaticFiles(directory="uploads"), name="uploads")
 
 # register modules
-app.include_router(items.items_router)
-app.include_router(pad.pad_router)
+app.include_router(items.router)
+app.include_router(pad.router)
 app.include_router(padfolder.router)
 app.include_router(space.space_router)
-app.include_router(run.runs_router)
+app.include_router(run.router)
 app.include_router(runitems.router)
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(file.router)
 app.include_router(note.router)
 app.include_router(bug.router)
-app.include_router(comments_bug.comments_router)
-app.include_router(tag.tag_router)
+app.include_router(comments_bug.router)
+app.include_router(tag.router)
 app.include_router(notification.router)
 app.include_router(news.router)
 app.include_router(report.router)
 app.include_router(testcases.router)
 app.include_router(testcases_runitem.router)
 app.include_router(testcases_paditem.router)
-app.include_router(qa_report.router)
+app.include_router(qa_report_router)
 # end
 
 

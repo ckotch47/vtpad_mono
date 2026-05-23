@@ -13,8 +13,17 @@ router = APIRouter(
 
 
 @router.get('/space/{space_id}', dependencies=[Depends(bearer)])
-async def get_by_space(space_id: str, type: Optional[str] = None):
-    return await TestCaseService.get_by_space(space_id, type)
+async def get_by_space(
+    space_id: str,
+    type: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+    sort_by: Optional[str] = 'created_at',
+    sort_order: Optional[str] = 'desc',
+    search: Optional[str] = None
+):
+    return await TestCaseService.get_by_space(space_id, type, status, page, page_size, sort_by, sort_order, search)
 
 
 @router.get('/suite/{suite_id}', dependencies=[Depends(bearer)])

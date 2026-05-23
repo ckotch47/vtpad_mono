@@ -1,3 +1,12 @@
+<route>
+{
+  meta: {
+    layout: "spaces",
+    tabValue: "test-suites"
+  }
+}
+</route>
+
 <template>
   <v-container fluid>
     <v-row>

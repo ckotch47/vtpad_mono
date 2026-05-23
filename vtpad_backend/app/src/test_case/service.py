@@ -1,6 +1,8 @@
 from fastapi import HTTPException
 from typing import Optional
 
+from tortoise.expressions import Q
+
 from .model import TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
@@ -60,11 +62,37 @@ class TestCaseService:
         return testcase
 
     @staticmethod
-    async def get_by_space(space_id: str, type_filter: Optional[str] = None) -> list[TestCaseModel]:
+    async def get_by_space(
+        space_id: str,
+        type_filter: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 25,
+        sort_by: Optional[str] = 'created_at',
+        sort_order: Optional[str] = 'desc',
+        search: Optional[str] = None
+    ) -> dict:
         q = TestCaseModel.filter(space_id=space_id)
         if type_filter:
             q = q.filter(type=type_filter)
-        return await q.order_by('sort')
+        if status_filter:
+            q = q.filter(status=status_filter)
+        if search:
+            q = q.filter(Q(title__icontains=search) | Q(short_name__icontains=search))
+
+        order = f'{"-" if sort_order == "desc" else ""}{sort_by}'
+        q = q.order_by(order)
+
+        total = await q.count()
+        items = await q.offset((page - 1) * page_size).limit(page_size).all()
+
+        return {
+            'items': items,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'pages': (total + page_size - 1) // page_size
+        }
 
     @staticmethod
     async def get_by_suite(suite_id: str) -> list[TestCaseModel]:

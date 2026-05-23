@@ -1,3 +1,11 @@
+<route>
+{
+  meta: {
+    layout: "spaces"
+  }
+}
+</route>
+
 <template >
 
 </template>

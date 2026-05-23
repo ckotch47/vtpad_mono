@@ -1,3 +1,12 @@
+<route>
+{
+  meta: {
+    layout: "spaces",
+    tabValue: "test-runs"
+  }
+}
+</route>
+
 <template>
   <v-container fluid>
     <v-row>

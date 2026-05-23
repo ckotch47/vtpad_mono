@@ -2,6 +2,8 @@ from fastapi import HTTPException
 from typing import Optional, List
 from datetime import datetime
 
+from tortoise.expressions import Q
+
 from .model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
@@ -45,8 +47,31 @@ class TestRunService:
         return run
 
     @staticmethod
-    async def get_by_space(space_id: str) -> list[TestRunModel]:
-        return await TestRunModel.filter(space_id=space_id).order_by('-created_at')
+    async def get_by_space(
+        space_id: str,
+        page: int = 1,
+        page_size: int = 25,
+        sort_by: Optional[str] = 'created_at',
+        sort_order: Optional[str] = 'desc',
+        search: Optional[str] = None
+    ) -> dict:
+        q = TestRunModel.filter(space_id=space_id)
+        if search:
+            q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
+
+        order = f'{"-" if sort_order == "desc" else ""}{sort_by}'
+        q = q.order_by(order)
+
+        total = await q.count()
+        items = await q.offset((page - 1) * page_size).limit(page_size).all()
+
+        return {
+            'items': items,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'pages': (total + page_size - 1) // page_size
+        }
 
     @staticmethod
     async def get_by_id(run_id: str) -> TestRunModel:

@@ -1,3 +1,12 @@
+<route>
+{
+  meta: {
+    layout: "spaces",
+    tabValue: "test-suites"
+  }
+}
+</route>
+
 <template>
   <test-suite-detail-component />
 </template>

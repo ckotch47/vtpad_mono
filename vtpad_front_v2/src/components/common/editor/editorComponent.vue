@@ -75,7 +75,7 @@ export default {
     minHeight: String,
     isDelete: Boolean,
   },
-  emits: ["editorSaveFromMenu", 'editorDeleteFromMenu'],
+  emits: ["editorSaveFromMenu", 'editorDeleteFromMenu', 'editor-update'],
   name: "editorComponent",
   components: {
     EditorContent,
@@ -91,8 +91,12 @@ export default {
   created () {
     window.addEventListener('scroll', this.handleScroll);
   },
-  updated() {
-    this.editor.commands.setContent(this.text)
+  watch: {
+    text(newVal) {
+      if (this.editor && newVal !== this.editor.getHTML()) {
+        this.editor.commands.setContent(newVal)
+      }
+    }
   },
   mounted() {
 
@@ -100,6 +104,9 @@ export default {
       content: this.text,
       editable: this.edit,
       selectShow: this.edit,
+      onUpdate: ({ editor }) => {
+        this.$emit('editor-update', editor.getHTML());
+      },
       extensions: [
         Image.configure({
           allowBase64: false,

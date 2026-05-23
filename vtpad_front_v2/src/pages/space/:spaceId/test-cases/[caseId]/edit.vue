@@ -1,3 +1,12 @@
+<route>
+{
+  meta: {
+    layout: "spaces",
+    tabValue: "test-cases"
+  }
+}
+</route>
+
 <template>
   <div v-if="loader">
     <v-progress-linear color="primary" indeterminate />

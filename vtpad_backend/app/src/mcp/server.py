@@ -17,6 +17,7 @@ from ..embedding.service import EmbeddingService
 from ..tech_doc.model import TechDocModel
 from ..tech_doc.service import TechDocService
 from ..test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from ..space.model import SpaceModel
 from ..test_run.service import TestRunService, TestResultService
 from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto
 
@@ -74,6 +75,24 @@ def _case_to_dict(case: TestCaseModel) -> dict:
 
 
 # ─── Tools ───────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_spaces() -> list[dict]:
+    """List all available spaces.
+
+    Returns:
+        List of spaces with id, name, short_name
+    """
+    spaces = await SpaceModel.all().order_by("sort")
+    items = []
+    for s in spaces:
+        items.append({
+            "id": str(s.id),
+            "name": s.name,
+            "short_name": s.short_name,
+        })
+    return items
+
 
 @mcp.tool()
 async def search_test_cases(

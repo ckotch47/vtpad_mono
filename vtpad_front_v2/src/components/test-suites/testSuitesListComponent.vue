@@ -46,6 +46,10 @@
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
+      <template v-slot:item.actions="{ item }">
+        <v-btn icon="mdi-pencil" size="x-small" variant="text" @click.stop="editSuite(item)" />
+        <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click.stop="deleteSuite(item)" />
+      </template>
     </v-data-table-server>
 
     <v-dialog v-model="openCreate" max-width="500">
@@ -59,6 +63,28 @@
           <v-spacer />
           <v-btn text @click="openCreate = false">Cancel</v-btn>
           <v-btn color="primary" @click="createSuite">Create</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="openEdit" max-width="500">
+      <v-card>
+        <v-card-title>Edit Test Suite</v-card-title>
+        <v-card-text>
+          <v-text-field v-model="editSuiteData.name" label="Name" required autofocus />
+          <v-textarea v-model="editSuiteData.description" label="Description" rows="2" />
+          <v-select
+            v-model="editSuiteData.status"
+            :items="[{title:'Active', value:'active'}, {title:'Archived', value:'archived'}]"
+            item-title="title"
+            item-value="value"
+            label="Status"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="openEdit = false">Cancel</v-btn>
+          <v-btn color="primary" @click="saveSuite">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -83,12 +109,15 @@ export default {
     searchDebounce: null,
     optionsDebounce: null,
     openCreate: false,
+    openEdit: false,
     newSuite: { name: '', description: '' },
+    editSuiteData: { id: null, name: '', description: '', status: 'active' },
     headers: [
       { title: 'Name', key: 'name', sortable: true },
       { title: 'Cases', key: 'cases_count', width: '100px', sortable: false },
       { title: 'Sections', key: 'sections_count', width: '100px', sortable: false },
-      { title: 'Created', key: 'created_at', width: '150px', sortable: true }
+      { title: 'Created', key: 'created_at', width: '150px', sortable: true },
+      { title: 'Actions', key: 'actions', width: '120px', sortable: false }
     ]
   }),
   created() {
@@ -158,6 +187,26 @@ export default {
       }).then(() => {
         this.openCreate = false;
         this.newSuite = { name: '', description: '' };
+        this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
+      });
+    },
+    editSuite(item) {
+      this.editSuiteData = { ...item };
+      this.openEdit = true;
+    },
+    saveSuite() {
+      axios.patch(`/api/v2/test-suite/${this.editSuiteData.id}`, {
+        name: this.editSuiteData.name,
+        description: this.editSuiteData.description,
+        status: this.editSuiteData.status
+      }).then(() => {
+        this.openEdit = false;
+        this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
+      });
+    },
+    deleteSuite(item) {
+      if (!confirm(`Archive test suite "${item.name}"?`)) return;
+      axios.delete(`/api/v2/test-suite/${item.id}`).then(() => {
         this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
       });
     },

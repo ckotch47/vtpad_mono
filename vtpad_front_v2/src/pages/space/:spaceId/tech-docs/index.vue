@@ -44,6 +44,26 @@
                   {{ item.title }}
                 </span>
               </template>
+              <template v-slot:append="{ item }">
+                <v-menu location="end" :close-on-content-click="true">
+                  <template v-slot:activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      icon="mdi-dots-vertical"
+                      size="x-small"
+                      variant="text"
+                      density="compact"
+                      class="tree-action-btn"
+                    />
+                  </template>
+                  <v-list density="compact" min-width="140">
+                    <v-list-item prepend-icon="mdi-plus" title="Add subpage" @click="openCreateSubpage(item.id)" />
+                    <v-list-item prepend-icon="mdi-pencil" title="Rename" @click="renameDoc(item.id)" />
+                    <v-divider />
+                    <v-list-item prepend-icon="mdi-delete" title="Delete" class="text-error" @click="deleteDocById(item.id)" />
+                  </v-list>
+                </v-menu>
+              </template>
             </v-treeview>
           </v-card-text>
         </v-card>
@@ -277,7 +297,7 @@ export default {
       this.activeId = []
       this.editing = true
     },
-    openCreateSubpage() {
+    openCreateSubpage(parentId = null) {
       this.isCreating = true
       this.editForm = {
         title: '',
@@ -285,9 +305,40 @@ export default {
         doc_type: 'other',
         source_url: '',
         version: '',
-        parent_id: this.selectedDoc?.id || null,
+        parent_id: parentId || this.selectedDoc?.id || null,
       }
       this.editing = true
+    },
+    async renameDoc(docId) {
+      await this.loadDoc(docId)
+      this.startEdit()
+    },
+    async deleteDocById(docId) {
+      const doc = this.findDocInTree(this.tree, docId)
+      const title = doc?.title || 'this page'
+      if (!confirm(`Delete "${title}"?\n\nSubpages will become root-level pages.`)) return
+      try {
+        await axios.delete(`/api/v2/tech-doc/${docId}`)
+        if (this.selectedDoc?.id === docId) {
+          this.selectedDoc = null
+          this.activeId = []
+          this.$router.replace({ query: {} })
+        }
+        await this.loadTree()
+      } catch (e) {
+        console.error(e)
+        alert(e.response?.data?.detail || 'Failed to delete')
+      }
+    },
+    findDocInTree(nodes, id) {
+      for (const node of nodes) {
+        if (node.id === id) return node
+        if (node.children) {
+          const found = this.findDocInTree(node.children, id)
+          if (found) return found
+        }
+      }
+      return null
     },
     cancelEdit() {
       this.editing = false
@@ -396,5 +447,12 @@ export default {
 }
 .tech-doc-tree :deep(.v-treeview-node__root) {
   min-height: 32px;
+}
+.tech-action-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+:deep(.v-treeview-node__root:hover) .tree-action-btn {
+  opacity: 1;
 }
 </style>

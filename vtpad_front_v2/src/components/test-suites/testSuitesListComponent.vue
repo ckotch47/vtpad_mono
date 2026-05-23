@@ -20,7 +20,7 @@
     </v-toolbar>
 
     <v-data-table-server
-      :items-per-page="itemsPerPage"
+      v-model:items-per-page="itemsPerPage"
       v-model:page="page"
       :headers="headers"
       :items="suites"

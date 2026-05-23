@@ -53,7 +53,7 @@
 
     <v-data-table-server
       v-model="selectedCases"
-      :items-per-page="itemsPerPage"
+      v-model:items-per-page="itemsPerPage"
       v-model:page="page"
       :headers="headers"
       :items="cases"

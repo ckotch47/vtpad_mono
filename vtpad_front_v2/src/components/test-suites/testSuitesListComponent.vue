@@ -20,8 +20,8 @@
     </v-toolbar>
 
     <v-data-table-server
-      v-model:items-per-page="itemsPerPage"
-      v-model:page="page"
+      :items-per-page="itemsPerPage"
+      :page="page"
       :headers="headers"
       :items="suites"
       :items-length="totalSuites"
@@ -80,6 +80,7 @@ export default {
     tableLoading: false,
     search: '',
     searchDebounce: null,
+    optionsDebounce: null,
     openCreate: false,
     newSuite: { name: '', description: '' },
     headers: [
@@ -101,7 +102,13 @@ export default {
   },
   methods: {
     loadSuites(options) {
-      if (!this.spaceId) return;
+      clearTimeout(this.optionsDebounce);
+      this.optionsDebounce = setTimeout(() => {
+        this._doLoadSuites(options);
+      }, 80);
+    },
+    _doLoadSuites(options) {
+      if (!this.spaceId || this.tableLoading) return;
       this.tableLoading = true;
       const page = options?.page || this.page;
       const pageSize = options?.itemsPerPage || this.itemsPerPage;

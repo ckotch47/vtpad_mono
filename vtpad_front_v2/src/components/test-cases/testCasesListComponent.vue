@@ -53,8 +53,8 @@
 
     <v-data-table-server
       v-model="selectedCases"
-      v-model:items-per-page="itemsPerPage"
-      v-model:page="page"
+      :items-per-page="itemsPerPage"
+      :page="page"
       :headers="headers"
       :items="cases"
       :items-length="totalCases"
@@ -136,6 +136,7 @@ export default {
     filterType: '',
     filterStatus: '',
     searchDebounce: null,
+    optionsDebounce: null,
     openCreate: false,
     newCase: { title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' },
     selectedCases: [],
@@ -163,7 +164,13 @@ export default {
   },
   methods: {
     loadCases(options) {
-      if (!this.spaceId) return;
+      clearTimeout(this.optionsDebounce);
+      this.optionsDebounce = setTimeout(() => {
+        this._doLoadCases(options);
+      }, 80);
+    },
+    _doLoadCases(options) {
+      if (!this.spaceId || this.tableLoading) return;
       this.tableLoading = true;
       const page = options?.page || this.page;
       const pageSize = options?.itemsPerPage || this.itemsPerPage;

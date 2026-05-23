@@ -50,6 +50,7 @@ export default {
     tableLoading: false,
     search: '',
     searchDebounce: null,
+    optionsDebounce: null,
     headers: [
       { title: 'Name', key: 'name', sortable: true },
       { title: 'Status', key: 'status', width: '140px', sortable: true },
@@ -61,7 +62,13 @@ export default {
   },
   methods: {
     loadRuns(options) {
-      if (!this.spaceId) return;
+      clearTimeout(this.optionsDebounce);
+      this.optionsDebounce = setTimeout(() => {
+        this._doLoadRuns(options);
+      }, 80);
+    },
+    _doLoadRuns(options) {
+      if (!this.spaceId || this.tableLoading) return;
       this.tableLoading = true;
       const page = options?.page || this.page;
       const pageSize = options?.itemsPerPage || this.itemsPerPage;

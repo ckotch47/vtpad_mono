@@ -12,7 +12,11 @@
       <v-spacer />
       <v-chip size="small" :color="typeColor(testcase.type)" class="mr-2">{{ testcase.type }}</v-chip>
       <v-chip size="small" :color="statusColor(testcase.status)">{{ testcase.status }}</v-chip>
-      <v-btn icon class="ml-2" @click="openEdit = true">
+      <v-btn
+        icon
+        class="ml-2"
+        :to="`/space/${spaceId}/test-cases/${caseId}/edit`"
+      >
         <v-icon>mdi-pencil</v-icon>
       </v-btn>
     </v-toolbar>
@@ -23,28 +27,52 @@
           <v-card class="mb-4">
             <v-card-title>Description</v-card-title>
             <v-card-text>
-              <div v-html="testcase.text || 'No description'" />
+              <editor-component
+                :text="testcase.text || ''"
+                :edit="false"
+                :show-menu-bubble="false"
+                :show-menu-floating="false"
+                :show-menu-fixed="false"
+              />
             </v-card-text>
           </v-card>
 
           <v-card class="mb-4">
             <v-card-title>Preconditions</v-card-title>
             <v-card-text>
-              <div v-html="testcase.preconditions || 'None'" />
+              <editor-component
+                :text="testcase.preconditions || ''"
+                :edit="false"
+                :show-menu-bubble="false"
+                :show-menu-floating="false"
+                :show-menu-fixed="false"
+              />
             </v-card-text>
           </v-card>
 
           <v-card class="mb-4">
             <v-card-title>Steps</v-card-title>
             <v-card-text>
-              <div v-html="testcase.steps || 'None'" />
+              <editor-component
+                :text="testcase.steps || ''"
+                :edit="false"
+                :show-menu-bubble="false"
+                :show-menu-floating="false"
+                :show-menu-fixed="false"
+              />
             </v-card-text>
           </v-card>
 
           <v-card class="mb-4">
             <v-card-title>Expected Results</v-card-title>
             <v-card-text>
-              <div v-html="testcase.expected_results || 'None'" />
+              <editor-component
+                :text="testcase.expected_results || ''"
+                :edit="false"
+                :show-menu-bubble="false"
+                :show-menu-floating="false"
+                :show-menu-fixed="false"
+              />
             </v-card-text>
           </v-card>
         </v-col>
@@ -99,53 +127,22 @@
         </v-col>
       </v-row>
     </v-container>
-
-    <v-dialog v-model="openEdit" max-width="700">
-      <v-card>
-        <v-card-title>Edit Test Case</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="editCase.title" label="Title" required />
-          <v-select
-            v-model="editCase.type"
-            :items="['manual','checklist','automated']"
-            label="Type"
-          />
-          <v-select
-            v-model="editCase.status"
-            :items="['draft','active','deprecated']"
-            label="Status"
-          />
-          <v-text-field v-model="editCase.short_name" label="Short Name" />
-          <v-text-field v-model="editCase.external_id" label="External ID" />
-          <v-text-field v-model="editCase.link" label="Link" />
-          <v-textarea v-model="editCase.text" label="Description" rows="3" />
-          <v-textarea v-model="editCase.preconditions" label="Preconditions" rows="2" />
-          <v-textarea v-model="editCase.steps" label="Steps" rows="4" />
-          <v-textarea v-model="editCase.expected_results" label="Expected Results" rows="3" />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn text @click="openEdit = false">Cancel</v-btn>
-          <v-btn color="primary" @click="saveCase">Save</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
 <script>
 import axios from "axios";
+import EditorComponent from "@/components/common/editor/editorComponent.vue";
 
 export default {
   name: "testCaseDetailComponent",
+  components: { EditorComponent },
   data: () => ({
     testcase: {},
     versions: [],
     spaceId: undefined,
     caseId: undefined,
-    loader: true,
-    openEdit: false,
-    editCase: {}
+    loader: true
   }),
   mounted() {
     this.spaceId = this.$route.params.spaceId;
@@ -156,15 +153,8 @@ export default {
     loadCase() {
       axios.get(`/api/v2/test-case/${this.caseId}`).then(res => {
         this.testcase = res.data;
-        this.editCase = { ...res.data };
         this.loader = false;
       }).catch(() => { this.loader = false; });
-    },
-    saveCase() {
-      axios.patch(`/api/v2/test-case/${this.caseId}`, this.editCase).then(() => {
-        this.openEdit = false;
-        this.loadCase();
-      });
     },
     typeColor(type) {
       const map = { manual: 'primary', checklist: 'warning', automated: 'success' };

@@ -135,9 +135,9 @@ export default {
           search: this.search || undefined
         }
       }).then(res => {
-        this.suites = res.data.items;
-        this.totalSuites = res.data.total;
-        this.itemsPerPage = res.data.page_size;
+        this.suites = res.data.items || res.data;
+        this.totalSuites = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
+        this.itemsPerPage = res.data.page_size || this.itemsPerPage;
         this.tableLoading = false;
       }).catch(() => {
         this.tableLoading = false;

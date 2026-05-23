@@ -202,9 +202,9 @@ export default {
           status: this.filterStatus || undefined
         }
       }).then(res => {
-        this.cases = res.data.items;
-        this.totalCases = res.data.total;
-        this.itemsPerPage = res.data.page_size;
+        this.cases = res.data.items || res.data;
+        this.totalCases = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
+        this.itemsPerPage = res.data.page_size || this.itemsPerPage;
         this.tableLoading = false;
       }).catch(() => {
         this.tableLoading = false;

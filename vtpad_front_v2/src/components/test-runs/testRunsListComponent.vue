@@ -87,9 +87,9 @@ export default {
           search: this.search || undefined
         }
       }).then(res => {
-        this.runs = res.data.items;
-        this.totalRuns = res.data.total;
-        this.itemsPerPage = res.data.page_size;
+        this.runs = res.data.items || res.data;
+        this.totalRuns = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
+        this.itemsPerPage = res.data.page_size || this.itemsPerPage;
         this.tableLoading = false;
       }).catch(() => {
         this.tableLoading = false;

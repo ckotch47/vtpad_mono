@@ -83,7 +83,7 @@ class TestRunService:
     @staticmethod
     async def get_with_results(run_id: str) -> dict:
         run = await TestRunService.get_by_id(run_id)
-        results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase', 'testcase__section')
+        results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase', 'testcase__section').order_by('testcase__section__sort', 'testcase__sort')
         stats = {
             'total': len(results),
             'not_run': sum(1 for r in results if r.status == TestResultStatus.not_run),

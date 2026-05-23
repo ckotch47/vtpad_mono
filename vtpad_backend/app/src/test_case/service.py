@@ -6,6 +6,7 @@ from tortoise.expressions import Q
 from .model import TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
+from ..embedding.service import EmbeddingService
 
 
 class TestCaseService:
@@ -59,6 +60,16 @@ class TestCaseService:
             created_by_id=user_id,
         )
 
+        # Index for semantic search
+        await EmbeddingService.index_test_case(
+            case_id=str(testcase.id),
+            space_id=dto.space_id,
+            title=dto.title,
+            text=dto.text,
+            steps=dto.steps,
+            expected_results=dto.expected_results,
+            preconditions=dto.preconditions,
+        )
         return testcase
 
     @staticmethod
@@ -130,7 +141,19 @@ class TestCaseService:
         data = dto.model_dump(exclude_unset=True)
         if data:
             await TestCaseModel.filter(id=testcase_id).update(**data)
-        return await TestCaseService.get_by_id(testcase_id)
+
+        # Re-index for semantic search
+        updated = await TestCaseService.get_by_id(testcase_id)
+        await EmbeddingService.index_test_case(
+            case_id=testcase_id,
+            space_id=str(updated.space_id),
+            title=updated.title,
+            text=updated.text,
+            steps=updated.steps,
+            expected_results=updated.expected_results,
+            preconditions=updated.preconditions,
+        )
+        return updated
 
     @staticmethod
     async def delete(testcase_id: str) -> bool:

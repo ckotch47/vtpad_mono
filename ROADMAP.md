@@ -16,6 +16,45 @@
 
 ---
 
+## 🤖 AI Integration
+
+### MCP Server (FastAPI)
+- [ ] **MCP Server** — встроенный в FastAPI или отдельный сервис
+  - `search_cases(query: str)` — семантический поиск по test cases
+  - `find_similar_cases(case_id: str)` — найти похожие кейсы
+  - `create_case(suite_id, section_id, title, steps, ...)` — создание кейса
+  - `update_case(id, ...)` — редактирование
+  - `get_suite_tree(suite_id)` — структура suite + sections
+  - `create_run(suite_id, filters)` — запустить run
+  - `get_case_history(case_id)` — история запусков
+  - `link_bug(result_id, bug_short_name)` — связать баг
+  - `search_checklists(query)` — найти reusable checklist templates
+  - `get_run_results(run_id)` — результаты run со статусами
+
+### Tech Docs + RAG
+- [ ] **Tech Docs хранилище** — документация по проекту, который тестируется
+  - Хранить как отдельную сущность `TechDoc` (space_id, title, content, source_url)
+  - Поддержка Markdown / HTML / Confluence import
+  - Версионирование tech docs
+- [ ] **pgvector** — векторное расширение PostgreSQL
+  - Векторизовать: test cases (title + text + steps), suites, sections, tech docs
+  - Embeddings через OpenAI / local model (text-embedding-3-small или nomic-embed-text)
+  - Semantic search по всему контенту space
+- [ ] **RAG Pipeline**
+  - При создании нового кейса → ИИ ищет похожие существующие + релевантные tech docs
+  - При ответе на вопрос "есть ли тест на X?" → semantic search
+  - При генерации steps → ИИ читает tech docs по фиче
+- [ ] **AI Assistant UI**
+  - Чат-виджет в правом нижнем углу (или side panel)
+  - Контекст: текущий suite / section / case
+  - Команды: 
+    - "Создай тест-кейс для [фича] на основе документации"
+    - "Найди похожие кейсы на этот"
+    - "Сгенерируй чеклист для [фича]"
+    - "Какие тесты падают чаще всего?"
+
+---
+
 ## 📋 Test Plan
 - [ ] **Test Plan сущность** — промежуточный слой между Suite и Run
   - Plan = выборка кейсов из suite(s) с фильтрами
@@ -77,3 +116,4 @@
 - [ ] **Analytics aggregations** (counts by status over time)
 - [ ] **Full-text search** по description/steps (PostgreSQL tsvector)
 - [ ] **Import/Export** — CSV/JSON для suites/cases
+- [ ] **Tech Docs endpoints** — CRUD для документации по проекту

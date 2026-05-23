@@ -38,6 +38,9 @@ import app.src.custom_field as custom_field
 import app.src.attachment as attachment
 import app.src.api_token as api_token
 
+# MCP server
+from app.src.mcp.server import get_mcp_app
+
 # end import
 
 
@@ -151,12 +154,14 @@ async def lifespan(app: FastAPI):
     # server stop
 
 
+mcp_app = get_mcp_app()
+
 app = FastAPI(
     redoc_url='',
     dependencies=[],
     title='vtpad',
     docs_url='/docs',
-
+    lifespan=lifespan,
 )
 
 register_tortoise(app, config=config_orm, generate_schemas=False, add_exception_handlers=True)
@@ -244,6 +249,9 @@ app_utils.register_router(
 
 # mount static file for app
 app.mount('/uploads', StaticFiles(directory="uploads"), name="uploads")
+
+# Mount MCP server
+app.mount('/mcp', mcp_app)
 
 # register modules
 app.include_router(users.router)

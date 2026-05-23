@@ -48,7 +48,8 @@ class ApiTokenService:
         api_token = await ApiTokenModel.get_or_none(token_hash=token_hash)
         if not api_token:
             raise HTTPException(status_code=401, detail="Invalid token")
-        if api_token.expires_at and api_token.expires_at < datetime.utcnow():
+        from datetime import timezone
+        if api_token.expires_at and api_token.expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail="Token expired")
-        await ApiTokenModel.filter(id=api_token.id).update(last_used_at=datetime.utcnow())
+        await ApiTokenModel.filter(id=api_token.id).update(last_used_at=datetime.now(timezone.utc))
         return api_token

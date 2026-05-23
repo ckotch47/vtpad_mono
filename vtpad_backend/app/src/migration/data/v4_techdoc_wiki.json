@@ -1,0 +1,8 @@
+{
+  "data": [
+    "ALTER TABLE tech_doc ADD COLUMN IF NOT EXISTS parent_id UUID",
+    "ALTER TABLE tech_doc ADD COLUMN IF NOT EXISTS sort INT DEFAULT 0",
+    "CREATE INDEX IF NOT EXISTS idx_techdoc_parent ON tech_doc (parent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_techdoc_space_sort ON tech_doc (space_id, sort)"
+  ]
+}

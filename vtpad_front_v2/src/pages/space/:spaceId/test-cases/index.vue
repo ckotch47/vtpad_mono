@@ -1,0 +1,14 @@
+<template>
+  <v-container fluid>
+    <v-row>
+      <v-col cols="12">
+        <h1 class="text-h4 mb-4">Test Cases</h1>
+        <test-cases-list-component />
+      </v-col>
+    </v-row>
+  </v-container>
+</template>
+
+<script setup>
+import TestCasesListComponent from "@/components/test-cases/testCasesListComponent.vue";
+</script>

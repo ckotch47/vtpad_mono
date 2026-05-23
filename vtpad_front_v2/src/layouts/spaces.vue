@@ -9,6 +9,7 @@
       >
         <v-tab :to="`/space/${spaceId}/bugs`"  value="bugs">Bugs</v-tab>
         <v-tab :to="`/space/${spaceId}/test-suites`"  value="test-suites" >Test Suites</v-tab>
+        <v-tab :to="`/space/${spaceId}/test-cases`"  value="test-cases" >Test Cases</v-tab>
         <v-tab :to="`/space/${spaceId}/test-runs`"  value="test-runs">Test Runs</v-tab>
       </v-tabs>
 

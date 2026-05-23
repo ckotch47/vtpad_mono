@@ -224,6 +224,114 @@ async def get_tech_doc_tree(space_id: str) -> list[dict]:
 
 
 @mcp.tool()
+async def create_tech_doc(
+    space_id: str,
+    title: str,
+    content: str | None = None,
+    doc_type: str = "other",
+    source_url: str | None = None,
+    version: str | None = None,
+    parent_id: str | None = None,
+) -> dict:
+    """Create a new technical documentation page.
+
+    Args:
+        space_id: UUID of the space
+        title: Title of the doc
+        content: HTML content (Tiptap format)
+        doc_type: Type: api_doc, prd, manual, wiki, migration, other
+        source_url: Optional source URL
+        version: Optional version string
+        parent_id: Optional parent doc UUID for nesting
+
+    Returns:
+        Created doc details
+    """
+    from ..tech_doc.dto import TechDocCreateDto
+
+    dto = TechDocCreateDto(
+        space_id=space_id,
+        title=title,
+        content=content,
+        doc_type=doc_type,
+        source_url=source_url,
+        version=version,
+        parent_id=parent_id,
+    )
+    doc = await TechDocService.create(dto)
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
+        "parent_id": str(doc.parent_id) if doc.parent_id else None,
+        "sort": doc.sort,
+    }
+
+
+@mcp.tool()
+async def update_tech_doc(
+    doc_id: str,
+    title: str | None = None,
+    content: str | None = None,
+    doc_type: str | None = None,
+    source_url: str | None = None,
+    version: str | None = None,
+    parent_id: str | None = None,
+) -> dict:
+    """Update a technical documentation page.
+
+    Args:
+        doc_id: UUID of the doc
+        title: New title
+        content: New HTML content
+        doc_type: New type
+        source_url: New source URL
+        version: New version
+        parent_id: New parent UUID (move in tree)
+
+    Returns:
+        Updated doc details
+    """
+    from ..tech_doc.dto import TechDocUpdateDto
+
+    dto = TechDocUpdateDto(
+        title=title,
+        content=content,
+        doc_type=doc_type,
+        source_url=source_url,
+        version=version,
+        parent_id=parent_id,
+    )
+    doc = await TechDocService.update(doc_id, dto)
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
+        "parent_id": str(doc.parent_id) if doc.parent_id else None,
+        "sort": doc.sort,
+    }
+
+
+@mcp.tool()
+async def delete_tech_doc(doc_id: str) -> dict:
+    """Delete a technical documentation page.
+
+    Cannot delete if page has subpages.
+
+    Args:
+        doc_id: UUID of the doc
+
+    Returns:
+        Success or error
+    """
+    try:
+        await TechDocService.delete(doc_id)
+        return {"deleted": True, "id": doc_id}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@mcp.tool()
 async def search_tech_docs(
     query: str,
     space_id: str,

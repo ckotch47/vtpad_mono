@@ -37,6 +37,7 @@ import app.src.milestone as milestone
 import app.src.custom_field as custom_field
 import app.src.attachment as attachment
 import app.src.api_token as api_token
+import app.src.tech_doc as tech_doc
 
 # MCP server
 from app.src.mcp.server import get_mcp_app
@@ -248,6 +249,7 @@ app_utils.register_router(
         custom_field.router,
         attachment.router,
         api_token.router,
+        tech_doc.router,
 
     ], app, global_prefix='/api')
 
@@ -258,30 +260,9 @@ app.mount('/uploads', StaticFiles(directory="uploads"), name="uploads")
 # Mount MCP server
 app.mount('/v1', mcp_app)
 
-# register modules
-app.include_router(users.router)
-app.include_router(auth.router)
-app.include_router(file.router)
-app.include_router(note.router)
-app.include_router(bug.router)
-app.include_router(comments_bug.router)
-app.include_router(tag.router)
-app.include_router(notification.router)
-app.include_router(news.router)
-app.include_router(report.router)
-app.include_router(qa_report_router)
 
-# new v2 routers
-app.include_router(test_suite.router)
-app.include_router(section.router)
-app.include_router(test_case.router)
-app.include_router(test_run.router)
-app.include_router(environment.router)
-app.include_router(milestone.router)
-app.include_router(custom_field.router)
-app.include_router(attachment.router)
-app.include_router(api_token.router)
-# end
+
+
 
 
 # register prom

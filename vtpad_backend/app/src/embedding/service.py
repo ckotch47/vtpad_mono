@@ -1,9 +1,10 @@
-"""EmbeddingService — manages vector embeddings for semantic search."""
+"""EmbeddingService — manages vector embeddings for semantic search via pgvector."""
 
 import json
 import math
 from typing import Optional
 
+from tortoise import Tortoise
 from tortoise.expressions import Q
 
 from .model import EmbeddingModel
@@ -14,8 +15,27 @@ class EmbeddingService:
     provider = EmbeddingProvider()
 
     @staticmethod
+    async def _get_raw_conn():
+        """Get raw asyncpg connection from pool."""
+        conn = Tortoise.get_connection("default")
+        # Ensure pool is created
+        if conn._pool is None:
+            await conn.execute_query("SELECT 1")
+        return conn._pool.acquire()
+
+    @staticmethod
+    async def _set_pgvector(record_id: str, vector: list[float]) -> None:
+        """Write vector into pgvector column via raw SQL."""
+        vec_str = "[" + ",".join(str(v) for v in vector) + "]"
+        async with await EmbeddingService._get_raw_conn() as raw_conn:
+            await raw_conn.execute(
+                "UPDATE embedding SET embedding_vector = $1::vector WHERE id = $2",
+                vec_str, record_id,
+            )
+
+    @staticmethod
     def _cosine_similarity(a: list[float], b: list[float]) -> float:
-        """Compute cosine similarity between two vectors."""
+        """Compute cosine similarity between two vectors (Python fallback)."""
         dot = sum(x * y for x, y in zip(a, b))
         norm_a = math.sqrt(sum(x * x for x in a))
         norm_b = math.sqrt(sum(x * x for x in b))
@@ -79,7 +99,7 @@ class EmbeddingService:
         if embedding is None:
             return
 
-        await EmbeddingModel.create(
+        record = await EmbeddingModel.create(
             space_id=space_id,
             source_type="test_case",
             source_id=case_id,
@@ -87,6 +107,7 @@ class EmbeddingService:
             text_chunk=content[:8000],
             embedding=json.dumps(embedding),
         )
+        await cls._set_pgvector(str(record.id), embedding)
 
     @classmethod
     async def index_tech_doc(
@@ -102,7 +123,6 @@ class EmbeddingService:
         if not content or not content.strip():
             return
 
-        # Simple chunking: whole doc if < 4000 chars, else split by paragraphs
         chunks = cls._chunk_text(content, max_length=3000, overlap=200)
         texts = [f"{title}\n\n{chunk}" for chunk in chunks]
 
@@ -111,7 +131,7 @@ class EmbeddingService:
             return
 
         for chunk, emb in zip(chunks, embeddings):
-            await EmbeddingModel.create(
+            record = await EmbeddingModel.create(
                 space_id=space_id,
                 source_type="tech_doc",
                 source_id=doc_id,
@@ -119,11 +139,58 @@ class EmbeddingService:
                 text_chunk=chunk[:8000],
                 embedding=json.dumps(emb),
             )
+            await cls._set_pgvector(str(record.id), emb)
 
     @classmethod
     async def delete_embeddings(cls, source_type: str, source_id: str) -> None:
         """Delete all embeddings for a source entity."""
         await EmbeddingModel.filter(source_type=source_type, source_id=source_id).delete()
+
+    @classmethod
+    async def _search_pgvector(
+        cls,
+        space_id: str,
+        query_embedding: list[float],
+        source_types: list[str] | None = None,
+        top_k: int = 10,
+        min_score: float = 0.7,
+    ) -> list[dict]:
+        """Native pgvector cosine similarity search."""
+        vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
+        source_filter = ""
+        params = [vec_str, space_id, top_k * 3]  # fetch more for filtering
+
+        if source_types:
+            placeholders = ",".join(f"${i + 4}" for i in range(len(source_types)))
+            source_filter = f"AND source_type = ANY(ARRAY[{placeholders}])"
+            params.extend(source_types)
+
+        sql = f"""
+            SELECT id, source_type, source_id, source_field, text_chunk,
+                   1 - (embedding_vector <=> $1::vector) AS score
+            FROM embedding
+            WHERE space_id = $2
+              AND embedding_vector IS NOT NULL
+              {source_filter}
+            ORDER BY embedding_vector <=> $1::vector
+            LIMIT $3
+        """
+
+        async with await cls._get_raw_conn() as raw_conn:
+            rows = await raw_conn.fetch(sql, *params)
+
+        results = []
+        for row in rows:
+            score = row["score"]
+            if score is not None and score >= min_score:
+                results.append({
+                    "source_type": row["source_type"],
+                    "source_id": str(row["source_id"]),
+                    "source_field": row["source_field"],
+                    "text_chunk": row["text_chunk"],
+                    "score": round(score, 4),
+                })
+        return results[:top_k]
 
     @classmethod
     async def semantic_search(
@@ -134,14 +201,23 @@ class EmbeddingService:
         top_k: int = 10,
         min_score: float = 0.7,
     ) -> list[dict]:
-        """Semantic search via cosine similarity in Python.
-
-        NOTE: For production with large datasets, switch to pgvector native
-        vector operations (embedding_vector column with VECTOR type).
-        """
+        """Semantic search via pgvector cosine similarity."""
         query_embedding = await cls.provider.embed_single(query)
         if query_embedding is None:
             return []
+
+        # Try pgvector native search first
+        try:
+            return await cls._search_pgvector(
+                space_id=space_id,
+                query_embedding=query_embedding,
+                source_types=source_types,
+                top_k=top_k,
+                min_score=min_score,
+            )
+        except Exception:
+            # Fallback to Python cosine similarity
+            pass
 
         q = EmbeddingModel.filter(space_id=space_id)
         if source_types:

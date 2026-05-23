@@ -75,7 +75,7 @@
       <template v-slot:item.updated_at="{ item }">
         {{ formatDate(item.updated_at) }}
       </template>
-    </v-data-table-server>
+    </v-data-table>
 
     <v-dialog v-model="openCreate" max-width="700">
       <v-card>

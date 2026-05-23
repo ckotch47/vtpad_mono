@@ -19,12 +19,12 @@
       </v-btn>
     </v-toolbar>
 
-    <v-data-table-server
+    <v-data-table
       v-model:items-per-page="itemsPerPage"
       v-model:page="page"
       :headers="headers"
       :items="suites"
-      :items-length="totalSuites"
+      :server-items-length="totalSuites"
       :loading="tableLoading"
       :sort-by="sortBy"
       hover
@@ -46,7 +46,7 @@
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
-    </v-data-table-server>
+    </v-data-table>
 
     <v-dialog v-model="openCreate" max-width="500">
       <v-card>

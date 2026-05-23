@@ -14,11 +14,11 @@
       />
     </v-toolbar>
 
-    <v-data-table-server
+    <v-data-table
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="runs"
-      :items-length="totalRuns"
+      :server-items-length="totalRuns"
       :loading="tableLoading"
       :page="page"
       hover
@@ -32,7 +32,7 @@
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
-    </v-data-table-server>
+    </v-data-table>
   </div>
 </template>
 

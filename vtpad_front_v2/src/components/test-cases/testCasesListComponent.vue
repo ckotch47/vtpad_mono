@@ -167,7 +167,7 @@ export default {
       clearTimeout(this.optionsDebounce);
       this.optionsDebounce = setTimeout(() => {
         this._doLoadCases(options);
-      }, 80);
+      }, 150);
     },
     _doLoadCases(options) {
       if (!this.spaceId || this.tableLoading) return;
@@ -202,7 +202,6 @@ export default {
       }).then(res => {
         this.cases = res.data.items;
         this.totalCases = res.data.total;
-        this.page = res.data.page;
         this.itemsPerPage = res.data.page_size;
         this.tableLoading = false;
       }).catch(() => {

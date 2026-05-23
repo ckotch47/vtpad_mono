@@ -105,7 +105,7 @@ export default {
       clearTimeout(this.optionsDebounce);
       this.optionsDebounce = setTimeout(() => {
         this._doLoadSuites(options);
-      }, 80);
+      }, 150);
     },
     _doLoadSuites(options) {
       if (!this.spaceId || this.tableLoading) return;
@@ -135,7 +135,6 @@ export default {
       }).then(res => {
         this.suites = res.data.items;
         this.totalSuites = res.data.total;
-        this.page = res.data.page;
         this.itemsPerPage = res.data.page_size;
         this.tableLoading = false;
       }).catch(() => {

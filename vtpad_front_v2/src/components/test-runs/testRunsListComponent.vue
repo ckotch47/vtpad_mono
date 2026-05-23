@@ -65,7 +65,7 @@ export default {
       clearTimeout(this.optionsDebounce);
       this.optionsDebounce = setTimeout(() => {
         this._doLoadRuns(options);
-      }, 80);
+      }, 150);
     },
     _doLoadRuns(options) {
       if (!this.spaceId || this.tableLoading) return;
@@ -87,7 +87,6 @@ export default {
       }).then(res => {
         this.runs = res.data.items;
         this.totalRuns = res.data.total;
-        this.page = res.data.page;
         this.itemsPerPage = res.data.page_size;
         this.tableLoading = false;
       }).catch(() => {

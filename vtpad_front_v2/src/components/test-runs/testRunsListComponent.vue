@@ -18,7 +18,7 @@
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="runs"
-      :server-items-length="totalRuns"
+      :items-length="totalRuns"
       :loading="tableLoading"
       :page="page"
       hover

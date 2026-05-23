@@ -57,7 +57,7 @@
       v-model:page="page"
       :headers="headers"
       :items="cases"
-      :server-items-length="totalCases"
+      :items-length="totalCases"
       :loading="tableLoading"
       :sort-by="sortBy"
       hover

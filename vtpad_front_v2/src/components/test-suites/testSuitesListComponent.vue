@@ -24,7 +24,7 @@
       v-model:page="page"
       :headers="headers"
       :items="suites"
-      :server-items-length="totalSuites"
+      :items-length="totalSuites"
       :loading="tableLoading"
       :sort-by="sortBy"
       hover

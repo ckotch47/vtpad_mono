@@ -54,7 +54,7 @@
     <v-data-table-server
       v-model="selectedCases"
       :items-per-page="itemsPerPage"
-      :page="page"
+      v-model:page="page"
       :headers="headers"
       :items="cases"
       :items-length="totalCases"

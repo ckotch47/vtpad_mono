@@ -21,7 +21,7 @@
 
     <v-data-table-server
       :items-per-page="itemsPerPage"
-      :page="page"
+      v-model:page="page"
       :headers="headers"
       :items="suites"
       :items-length="totalSuites"

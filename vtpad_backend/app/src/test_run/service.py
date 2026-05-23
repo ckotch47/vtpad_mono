@@ -83,7 +83,7 @@ class TestRunService:
     @staticmethod
     async def get_with_results(run_id: str) -> dict:
         run = await TestRunService.get_by_id(run_id)
-        results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase')
+        results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase', 'testcase__section')
         stats = {
             'total': len(results),
             'not_run': sum(1 for r in results if r.status == TestResultStatus.not_run),
@@ -105,6 +105,10 @@ class TestRunService:
                     'id': str(testcase.id),
                     'title': testcase.title,
                     'type': testcase.type,
+                    'section': {
+                        'id': str(testcase.section.id),
+                        'name': testcase.section.name,
+                    } if testcase.section else None,
                 } if testcase else None,
                 'executed_at': r.executed_at.isoformat() if r.executed_at else None,
             })

@@ -20,6 +20,9 @@ from ..test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestR
 from ..space.model import SpaceModel
 from ..test_run.service import TestRunService, TestResultService
 from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto
+from ..test_case.dto import TestCaseUpdateDto
+from ..test_suite.dto import TestSuiteUpdateDto
+from ..section.dto import SectionUpdateDto
 
 
 class MCPAuthMiddleware(BaseHTTPMiddleware):
@@ -776,6 +779,168 @@ async def create_section(
         "parent_id": str(section.parent_id) if section.parent_id else None,
         "sort": section.sort,
     }
+
+
+@mcp.tool()
+async def update_test_case(
+    case_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    preconditions: str | None = None,
+    steps: str | None = None,
+    expected_results: str | None = None,
+    postconditions: str | None = None,
+    type: str | None = None,
+    status: str | None = None,
+    section_id: str | None = None,
+    suite_id: str | None = None,
+    short_name: str | None = None,
+    external_id: str | None = None,
+) -> dict:
+    """Update a test case.
+
+    Args:
+        case_id: UUID of the test case
+        title: New title
+        description: New description
+        preconditions: New preconditions
+        steps: New test steps
+        expected_results: New expected results
+        postconditions: New postconditions
+        type: New type: manual | automated | checklist
+        status: New status: draft | active | deprecated
+        section_id: New section UUID
+        suite_id: New suite UUID
+        short_name: New short identifier
+        external_id: New external ID
+
+    Returns:
+        Updated test case details
+    """
+    dto = TestCaseUpdateDto(
+        title=title,
+        text=description,
+        preconditions=preconditions,
+        steps=steps,
+        expected_results=expected_results,
+        postconditions=postconditions,
+        type=type,
+        status=status,
+        section_id=section_id,
+        suite_id=suite_id,
+        short_name=short_name,
+        external_id=external_id,
+    )
+    case = await TestCaseService.update(case_id, dto)
+    return _case_to_dict(case)
+
+
+@mcp.tool()
+async def delete_test_case(case_id: str) -> dict:
+    """Delete (deprecate) a test case.
+
+    Args:
+        case_id: UUID of the test case
+
+    Returns:
+        Success status
+    """
+    await TestCaseService.delete(case_id)
+    return {"deleted": True, "id": case_id}
+
+
+@mcp.tool()
+async def update_suite(
+    suite_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    status: str | None = None,
+) -> dict:
+    """Update a test suite.
+
+    Args:
+        suite_id: UUID of the test suite
+        name: New name
+        description: New description
+        status: New status: active | archived
+
+    Returns:
+        Updated suite details
+    """
+    dto = TestSuiteUpdateDto(
+        name=name,
+        description=description,
+        status=status,
+    )
+    suite = await TestSuiteService.update(suite_id, dto)
+    return {
+        "id": str(suite.id),
+        "name": suite.name,
+        "description": suite.description,
+        "status": suite.status.value if hasattr(suite.status, "value") else suite.status,
+        "space_id": str(suite.space_id) if suite.space_id else None,
+    }
+
+
+@mcp.tool()
+async def delete_suite(suite_id: str) -> dict:
+    """Delete (archive) a test suite.
+
+    Args:
+        suite_id: UUID of the test suite
+
+    Returns:
+        Success status
+    """
+    await TestSuiteService.delete(suite_id)
+    return {"deleted": True, "id": suite_id}
+
+
+@mcp.tool()
+async def update_section(
+    section_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    parent_id: str | None = None,
+) -> dict:
+    """Update a section in a test suite.
+
+    Args:
+        section_id: UUID of the section
+        name: New name
+        description: New description
+        parent_id: New parent section UUID
+
+    Returns:
+        Updated section details
+    """
+    dto = SectionUpdateDto(
+        name=name,
+        description=description,
+        parent_id=parent_id,
+    )
+    section = await SectionService.update(section_id, dto)
+    return {
+        "id": str(section.id),
+        "name": section.name,
+        "suite_id": str(section.suite_id) if section.suite_id else None,
+        "parent_id": str(section.parent_id) if section.parent_id else None,
+        "sort": section.sort,
+    }
+
+
+@mcp.tool()
+async def delete_section(section_id: str) -> dict:
+    """Delete a section.
+
+    Args:
+        section_id: UUID of the section
+
+    Returns:
+        Success status
+    """
+    await SectionService.delete(section_id)
+    return {"deleted": True, "id": section_id}
 
 
 # ─── HTTP App for mounting ───────────────────────────────────────────────────

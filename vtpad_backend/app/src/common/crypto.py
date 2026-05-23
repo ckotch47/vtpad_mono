@@ -66,5 +66,14 @@ def user_payload(token: str):
 
 
 async def get_user_id_by_token(token: str) -> str:
+    # Try API token first (MCP auth)
+    try:
+        from ..api_token.service import ApiTokenService
+        api_token = await ApiTokenService.validate_token(token)
+        return str(api_token.user_id)
+    except Exception:
+        pass
+
+    # Fallback to JWT (web auth)
     payload = user_payload(token)
     return payload.get("id", "")

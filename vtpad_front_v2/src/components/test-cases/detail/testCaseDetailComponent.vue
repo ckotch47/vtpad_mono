@@ -15,7 +15,7 @@
       <v-btn
         icon
         class="ml-2"
-        :to="`/space/${spaceId}/test-cases/${caseId}/edit`"
+        :to="`/space/${spaceId}/test-cases/edit-${caseId}`"
       >
         <v-icon>mdi-pencil</v-icon>
       </v-btn>

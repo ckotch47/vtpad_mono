@@ -92,10 +92,34 @@ class TestRunService:
             'blocked': sum(1 for r in results if r.status == TestResultStatus.blocked),
             'skipped': sum(1 for r in results if r.status == TestResultStatus.skipped),
         }
+        results_data = []
+        for r in results:
+            testcase = r.testcase
+            results_data.append({
+                'id': str(r.id),
+                'status': r.status,
+                'duration_seconds': r.duration_seconds,
+                'comment': r.comment,
+                'testcase_id': str(r.testcase_id),
+                'testcase': {
+                    'id': str(testcase.id),
+                    'title': testcase.title,
+                    'type': testcase.type,
+                } if testcase else None,
+                'executed_at': r.executed_at.isoformat() if r.executed_at else None,
+            })
         return {
-            'run': run,
+            'run': {
+                'id': str(run.id),
+                'name': run.name,
+                'description': run.description,
+                'status': run.status,
+                'created_at': run.created_at.isoformat() if run.created_at else None,
+                'started_at': run.started_at.isoformat() if run.started_at else None,
+                'completed_at': run.completed_at.isoformat() if run.completed_at else None,
+            },
             'stats': stats,
-            'results': results,
+            'results': results_data,
         }
 
     @staticmethod

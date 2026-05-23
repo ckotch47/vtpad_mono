@@ -156,7 +156,7 @@ class BugsService:
 
         str_q += "GROUP BY bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, \
                  bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, bugsmodel.title, \
-                 bugsmodel.external_link, bugsmodel.create_user_id, \
+                 bugsmodel.external_link, bugsmodel.create_user_id, bugsmodel.assigner_id, \
                  bugsmodel.spaces_id, create_user.id, create_avatar.filepath, \
                  assigner_user.id, assigner_avatar.filepath "
 

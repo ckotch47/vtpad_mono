@@ -141,7 +141,10 @@ config_orm = {
 }
 
 
-# register app
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     # server start
 
@@ -156,12 +159,14 @@ async def lifespan(app: FastAPI):
 
 mcp_app = get_mcp_app()
 
+from fastmcp.utilities.lifespan import combine_lifespans
+
 app = FastAPI(
     redoc_url='',
     dependencies=[],
     title='vtpad',
     docs_url='/docs',
-    lifespan=lifespan,
+    lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
 )
 
 register_tortoise(app, config=config_orm, generate_schemas=False, add_exception_handlers=True)
@@ -251,7 +256,7 @@ app_utils.register_router(
 app.mount('/uploads', StaticFiles(directory="uploads"), name="uploads")
 
 # Mount MCP server
-app.mount('/mcp', mcp_app)
+app.mount('/v1', mcp_app)
 
 # register modules
 app.include_router(users.router)

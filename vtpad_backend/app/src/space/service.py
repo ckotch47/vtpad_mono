@@ -6,13 +6,8 @@ from tortoise import Tortoise
 from .model import SpaceModel
 from .dto import *
 
-from ..pad.model import PadModel
-from ..pad.service import PadService
-from ..run.service import RunService
-from ..runitems import RunItemsService
 from ..spacesuser.model import SpacesUserModel, SpacesUserRole
 from ..users.model import UserModel
-from ..run.model import RunModel
 
 
 async def translate(name):
@@ -296,78 +291,64 @@ class SpaceService:
 
     @staticmethod
     async def get_all_runs_spaces(space_id):
-        conn = Tortoise.get_connection('default')
+        from ..test_run.model import TestRunModel, TestResultModel
         space = await SpaceService.get_space_by_id({}, space_id)
-
-        pad: dict = await PadService.get_all_pad(space_id)
-
+        runs = await TestRunModel.filter(space_id=space_id).order_by('-created_at')
         res = []
-
-        for i in pad:
-            runs = []
-
-            run = await RunService.get_all_run(i.id)
-            for j in run:
-                runs.append({
-                    "name": j.name,
-                    "id": j.id,
-                    "date": j.date,
-                    "items_count": {
-                        "pass": await RunItemsService.get_count_state_item(j.id, 'pass'),
-                        "fail": await RunItemsService.get_count_state_item(j.id, 'fail'),
-                        "all": await RunItemsService.get_count_state_item(j.id, None)
-                    }
-                })
+        for run in runs:
+            results = await TestResultModel.filter(run_id=str(run.id))
+            passed = sum(1 for r in results if str(r.status) == 'passed')
+            failed = sum(1 for r in results if str(r.status) == 'failed')
+            total = len(results)
             res.append({
-                "pad_id": i.id,
-                "pad_name": i.name,
-                "run": runs
+                "run_id": str(run.id),
+                "run_name": run.name,
+                "date": run.created_at.isoformat() if run.created_at else None,
+                "items_count": {
+                    "pass": passed,
+                    "fail": failed,
+                    "all": total
+                }
             })
-
         return {
-            "space_id": space.id,
+            "space_id": str(space.id),
             "space_name": space.name,
             "pad": res
         }
 
     @staticmethod
     async def get_statistic_for_space(space_id: str):
+        from ..test_suite.model import TestSuiteModel
+        from ..section.model import SectionModel
+        from ..test_run.model import TestRunModel, TestResultModel
         conn = Tortoise.get_connection('default')
 
-        sql_pads = "SELECT count(DISTINCT padmodel.id) as count, count(i.id) as items_count FROM padmodel \
-                    LEFT OUTER JOIN itemsmodel i on padmodel.id = i.pad_id \
-                    WHERE spaces_id = $1"
+        suite_count = await TestSuiteModel.filter(space_id=space_id).count()
+        section_count = await SectionModel.filter(suite__space_id=space_id).count()
 
-        sql_runs_state = "SELECT count(r.id) as item_count, r.state FROM runmodel \
-                    LEFT JOIN padmodel p on p.id = runmodel.pads_id \
-                    LEFT JOIN runitemsmodel r on runmodel.id = r.run_id \
-                    WHERE p.spaces_id = $1 \
-                    GROUP BY r.state;"
-
-        sql_all_runs = "SELECT count(runmodel.id) FROM runmodel \
-                        LEFT JOIN padmodel p on p.id = runmodel.pads_id \
-                        WHERE p.spaces_id = $1;"
+        run_count = await TestRunModel.filter(space_id=space_id).count()
+        runs = await TestRunModel.filter(space_id=space_id).all()
+        run_ids = [str(r.id) for r in runs]
+        results = await TestResultModel.filter(run_id__in=run_ids) if run_ids else []
+        runs_state_map = {}
+        for r in results:
+            st = str(r.status)
+            runs_state_map[st] = runs_state_map.get(st, 0) + 1
+        runs_state = [{"item_count": v, "state": k} for k, v in runs_state_map.items()]
 
         sql_bugs = "SELECT count(bugsmodel.id) as item_count, state FROM bugsmodel \
                     WHERE bugsmodel.spaces_id = $1 \
                     GROUP BY state;"
-
         sql_all_bugs = "SELECT count(bugsmodel.id) FROM bugsmodel \
                             WHERE bugsmodel.spaces_id = $1;"
 
-        pads = await conn.execute_query_dict(sql_pads, [space_id])
-
-        runs_state = await conn.execute_query_dict(sql_runs_state, [space_id])
-        all_runs = await conn.execute_query_dict(sql_all_runs, [space_id])
-
         bugs = await conn.execute_query_dict(sql_bugs, [space_id])
-
         all_bugs = await conn.execute_query_dict(sql_all_bugs, [space_id])
 
         return {
-            'pads': pads[0] if pads[0] else 0,
+            'pads': {"count": suite_count, "items_count": section_count},
             'runs': {
-                'count': SpaceService.get_arg(all_runs, 'count'),
+                'count': run_count,
                 'state': runs_state
             },
             'bugs': {
@@ -414,76 +395,38 @@ class SpaceService:
 
     @staticmethod
     async def get_pads_count(space_id):
-        temp = await PadModel.filter(spaces_id=space_id)
-        count_pad = len(temp)
+        from ..test_suite.model import TestSuiteModel
+        from ..section.model import SectionModel
+        suites = await TestSuiteModel.filter(space_id=space_id)
+        suite_ids = [str(s.id) for s in suites]
+        sections_count = 0
+        if suite_ids:
+            sections_count = await SectionModel.filter(suite_id__in=suite_ids).count()
         return {
-            "count": count_pad,
-            "items_count": await SpaceService.get_items_count_into_pad(await collect_ids_pad(temp))
+            "count": len(suites),
+            "items_count": sections_count
         }
-
-    @staticmethod
-    async def get_items_count_into_pad(pads_id: list):
-        if not pads_id:
-            return 0
-        conn = Tortoise.get_connection('default')
-        sql = "SELECT count(id) FROM itemsmodel WHERE pad_id = ANY($1::uuid[])"
-        return (await conn.execute_query_dict(sql, [pads_id]))[0]['count']
 
     @staticmethod
     async def get_runs_statistic(space_id: str):
-        temp_pads = await PadModel.filter(spaces_id=space_id)
-        temp_runs = await SpaceService.get_runs_by_pad_ids(await collect_ids_pad(temp_pads))
-
-        temp_runs_ids = await collect_ids_runs(temp_runs)
-
-        runs_count = len(temp_runs)
-
+        from ..test_run.model import TestRunModel, TestResultModel
+        runs = await TestRunModel.filter(space_id=space_id)
+        run_ids = [str(r.id) for r in runs]
+        total = 0
+        passed = 0
+        failed = 0
+        not_run = 0
+        if run_ids:
+            results = await TestResultModel.filter(run_id__in=run_ids)
+            total = len(results)
+            passed = sum(1 for r in results if str(r.status) == 'passed')
+            failed = sum(1 for r in results if str(r.status) == 'failed')
+            not_run = sum(1 for r in results if str(r.status) == 'not_run')
         return {
-            "count": runs_count,
-            "items_count": await SpaceService.get_run_items_count_status(temp_runs_ids),
-            "passed": await SpaceService.get_run_items_count_status(temp_runs_ids, 'pass'),
-            "fail": await SpaceService.get_run_items_count_status(temp_runs_ids, 'fail'),
-            "not_status": await SpaceService.get_run_items_count_status(temp_runs_ids, 'null')
+            "count": len(runs),
+            "items_count": total,
+            "passed": passed,
+            "fail": failed,
+            "not_status": not_run
         }
-
-    @staticmethod
-    async def get_runs_by_pad_ids(pad_ids: list):
-        try:
-            conn = Tortoise.get_connection('default')
-            sql = "SELECT * FROM runmodel WHERE pads_id = ANY($1::uuid[])"
-            return await conn.execute_query_dict(sql, [pad_ids])
-        except Exception:
-            return []
-
-    @staticmethod
-    async def get_run_items_count_status(runs_ids: list, state=None):
-        try:
-            conn = Tortoise.get_connection('default')
-
-            sql = "SELECT count(id) FROM runitemsmodel WHERE run_id = ANY($1::uuid[])"
-            params = [runs_ids]
-            if state == 'pass' or state == 'fail':
-                sql += " AND state = $2"
-                params.append(state)
-            if state == 'null':
-                sql += " AND state is NULL"
-            return (await conn.execute_query_dict(sql, params))[0]['count']
-        except Exception:
-            return 0
-
-
-async def collect_ids_pad(pad):
-    if len(pad) <= 0:
-        return []
-    res = [str(pad.pop().id)]
-    for i in pad:
-        res.append(str(i.id))
-    return res
-
-
-async def collect_ids_runs(runs):
-    try:
-        return [str(i['id']) for i in runs]
-    except Exception:
-        return []
 

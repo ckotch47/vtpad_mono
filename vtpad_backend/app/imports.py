@@ -14,34 +14,35 @@ from tortoise.contrib.fastapi import register_tortoise  # tortoise ORM
 # cprofiler import
 # from fastapi_cprofile.profiler import CProfileMiddleware
 
-# imporn modules
+# core modules (kept)
 import app.src.common as common
-import app.src.items as items
-
-import app.src.pad as pad
 import app.src.space as space
-import app.src.run as run
-import app.src.runitems as runitems
 import app.src.users as users
 import app.src.auth as auth
 import app.src.file as file
-import app.src.notes as note
 import app.src.bug as bug
 import app.src.comments as comments_bug
 import app.src.tag as tag
 import app.src.notification as notification
-import app.src.padfolder as padfolder
+import app.src.notes as note
 import app.src.news as news
 import app.src.report as report
-import app.src.testcases as testcases
-import app.src.testcases_runitem as testcases_runitem
-import app.src.testcases_paditem as testcases_paditem
 import app.utils.register_router as app_utils
 
-import app.src.checklist as checklist
 import app.src.qa_report.router as qa_report
 
 from app.src.admin import company_router, user_company_router, router_company_admin
+
+# new v2 modules
+import app.src.test_suite as test_suite
+import app.src.section as section
+import app.src.test_case as test_case
+import app.src.test_run as test_run
+import app.src.environment as environment
+import app.src.milestone as milestone
+import app.src.custom_field as custom_field
+import app.src.attachment as attachment
+import app.src.api_token as api_token
 # end import
 
 

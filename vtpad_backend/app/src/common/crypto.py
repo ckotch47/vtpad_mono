@@ -63,3 +63,8 @@ def user_payload(token: str):
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except Exception:
         raise HTTPException(status_code=401, detail="not auth")
+
+
+async def get_user_id_by_token(token: str) -> str:
+    payload = user_payload(token)
+    return payload.get("id", "")

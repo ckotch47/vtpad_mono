@@ -14,12 +14,7 @@ from tortoise.contrib.fastapi import register_tortoise  # tortoise ORM
 
 # imporn modules
 import app.src.common as common
-import app.src.items as items
-
-import app.src.pad as pad
 import app.src.space as space
-import app.src.run as run
-import app.src.runitems as runitems
 import app.src.users as users
 import app.src.auth as auth
 import app.src.file as file
@@ -28,13 +23,20 @@ import app.src.bug as bug
 import app.src.comments as comments_bug
 import app.src.tag as tag
 import app.src.notification as notification
-import app.src.padfolder as padfolder
 import app.src.news as news
 import app.src.report as report
-import app.src.testcases as testcases
-import app.src.testcases_runitem as testcases_runitem
-import app.src.testcases_paditem as testcases_paditem
 from app.src.qa_report import router as qa_report_router
+
+# new v2 modules
+import app.src.test_suite as test_suite
+import app.src.section as section
+import app.src.test_case as test_case
+import app.src.test_run as test_run
+import app.src.environment as environment
+import app.src.milestone as milestone
+import app.src.custom_field as custom_field
+import app.src.attachment as attachment
+import app.src.api_token as api_token
 
 # end import
 
@@ -214,33 +216,28 @@ app_utils.register_router(
         space.space_router,
         bug.router,
         bug.router_v2,
-        checklist.router,
         comments_bug.router,
         tag.router,
-        padfolder.router,
-        pad.router,
-        items.router,
-        items.routerV2,
-        run.router,
-        run.routerV2,
-        runitems.router,
-        testcases.router,
-        testcases_runitem.router,
-        testcases_paditem.router,
-
         note.router,
         file.router,
-
         notification.router,
-
         news.router,
         report.router,
-
         company_router,
         user_company_router,
-
         router_company_admin,
         qa_report_router,
+
+        # new v2 routers
+        test_suite.router,
+        section.router,
+        test_case.router,
+        test_run.router,
+        environment.router,
+        milestone.router,
+        custom_field.router,
+        attachment.router,
+        api_token.router,
 
     ], app, global_prefix='/api')
 
@@ -249,12 +246,6 @@ app_utils.register_router(
 app.mount('/uploads', StaticFiles(directory="uploads"), name="uploads")
 
 # register modules
-app.include_router(items.router)
-app.include_router(pad.router)
-app.include_router(padfolder.router)
-app.include_router(space.space_router)
-app.include_router(run.router)
-app.include_router(runitems.router)
 app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(file.router)
@@ -265,10 +256,18 @@ app.include_router(tag.router)
 app.include_router(notification.router)
 app.include_router(news.router)
 app.include_router(report.router)
-app.include_router(testcases.router)
-app.include_router(testcases_runitem.router)
-app.include_router(testcases_paditem.router)
 app.include_router(qa_report_router)
+
+# new v2 routers
+app.include_router(test_suite.router)
+app.include_router(section.router)
+app.include_router(test_case.router)
+app.include_router(test_run.router)
+app.include_router(environment.router)
+app.include_router(milestone.router)
+app.include_router(custom_field.router)
+app.include_router(attachment.router)
+app.include_router(api_token.router)
 # end
 
 

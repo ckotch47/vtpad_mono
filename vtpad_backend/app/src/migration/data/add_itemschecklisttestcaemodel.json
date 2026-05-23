@@ -1,9 +1,0 @@
-{
-"data":
-  [
-"   create table itemschecklisttestcasemodel\n(\n    id           uuid default gen_random_uuid() not null,\n    item_id uuid\n        constraint item__id\n            references itemsmodel,\n    checklist_id uuid\n        constraint items_checklist_id\n            references checklistmodel,\n    testcase_id  uuid\n        constraint items_testcase_id\n            references testcasesmodel\n);"
-
-
-  ],
-  "state": 0
-}

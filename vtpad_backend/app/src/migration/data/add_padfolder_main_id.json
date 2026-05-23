@@ -1,8 +1,0 @@
-{
-"data":
-  [
-    "alter table padfoldermodel add main_id uuid;",
-    "alter table padfoldermodel add constraint padfoldermodel_padfoldermodel_id_fk foreign key (main_id) references padfoldermodel on delete cascade;"
-  ],
-  "state": 0
-}

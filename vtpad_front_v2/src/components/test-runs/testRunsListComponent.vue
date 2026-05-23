@@ -14,7 +14,7 @@
       />
     </v-toolbar>
 
-    <v-data-table
+    <v-data-table-server
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="runs"
@@ -32,7 +32,7 @@
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
-    </v-data-table>
+    </v-data-table-server>
   </div>
 </template>
 
@@ -48,6 +48,7 @@ export default {
     itemsPerPage: 25,
     spaceId: undefined,
     tableLoading: false,
+    firstLoad: true,
     search: '',
     searchDebounce: null,
     optionsDebounce: null,
@@ -70,8 +71,9 @@ export default {
     _doLoadRuns(options) {
       if (!this.spaceId || this.tableLoading) return;
       this.tableLoading = true;
-      const page = options?.page || this.page;
-      const pageSize = options?.itemsPerPage || this.itemsPerPage;
+      const page = this.firstLoad ? this.page : (options?.page || this.page);
+      const pageSize = this.firstLoad ? this.itemsPerPage : (options?.itemsPerPage || this.itemsPerPage);
+      this.firstLoad = false;
       const sortBy = options?.sortBy?.[0];
       const sortKey = sortBy?.key || 'created_at';
       const sortOrder = sortBy?.order || 'desc';

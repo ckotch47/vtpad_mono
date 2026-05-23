@@ -51,7 +51,7 @@
       </v-btn>
     </v-toolbar>
 
-    <v-data-table
+    <v-data-table-server
       v-model="selectedCases"
       v-model:items-per-page="itemsPerPage"
       v-model:page="page"
@@ -75,7 +75,7 @@
       <template v-slot:item.updated_at="{ item }">
         {{ formatDate(item.updated_at) }}
       </template>
-    </v-data-table>
+    </v-data-table-server>
 
     <v-dialog v-model="openCreate" max-width="700">
       <v-card>
@@ -132,6 +132,7 @@ export default {
     sortBy: [{ key: 'created_at', order: 'desc' }],
     spaceId: undefined,
     tableLoading: false,
+    firstLoad: true,
     search: '',
     filterType: '',
     filterStatus: '',
@@ -172,8 +173,9 @@ export default {
     _doLoadCases(options) {
       if (!this.spaceId || this.tableLoading) return;
       this.tableLoading = true;
-      const page = options?.page || this.page;
-      const pageSize = options?.itemsPerPage || this.itemsPerPage;
+      const page = this.firstLoad ? this.page : (options?.page || this.page);
+      const pageSize = this.firstLoad ? this.itemsPerPage : (options?.itemsPerPage || this.itemsPerPage);
+      this.firstLoad = false;
       const sortBy = options?.sortBy?.[0];
       const sortKey = sortBy?.key || 'created_at';
       const sortOrder = sortBy?.order || 'desc';

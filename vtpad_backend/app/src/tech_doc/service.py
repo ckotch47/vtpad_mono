@@ -106,6 +106,7 @@ class TechDocService:
     async def update(doc_id: str, dto: TechDocUpdateDto) -> TechDocModel:
         doc = await TechDocService.get_by_id(doc_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
 
         if "content" in data:
             data["content_hash"] = hashlib.sha256((data["content"] or "").encode()).hexdigest()

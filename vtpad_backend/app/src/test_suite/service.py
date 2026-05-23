@@ -64,6 +64,7 @@ class TestSuiteService:
     async def update(suite_id: str, dto: TestSuiteUpdateDto) -> TestSuiteModel:
         suite = await TestSuiteService.get_by_id(suite_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await TestSuiteModel.filter(id=suite_id).update(**data)
         return await TestSuiteService.get_by_id(suite_id)

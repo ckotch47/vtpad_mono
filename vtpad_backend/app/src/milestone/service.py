@@ -33,6 +33,7 @@ class MilestoneService:
     async def update(milestone_id: str, dto: MilestoneUpdateDto) -> MilestoneModel:
         await MilestoneService.get_by_id(milestone_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await MilestoneModel.filter(id=milestone_id).update(**data)
         return await MilestoneService.get_by_id(milestone_id)

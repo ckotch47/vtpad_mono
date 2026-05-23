@@ -37,6 +37,7 @@ class CustomFieldService:
     async def update(field_id: str, dto: CustomFieldUpdateDto) -> CustomFieldModel:
         await CustomFieldService.get_by_id(field_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await CustomFieldModel.filter(id=field_id).update(**data)
         return await CustomFieldService.get_by_id(field_id)

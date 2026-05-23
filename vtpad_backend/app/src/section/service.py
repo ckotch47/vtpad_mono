@@ -66,6 +66,7 @@ class SectionService:
     async def update(section_id: str, dto: SectionUpdateDto) -> SectionModel:
         await SectionService.get_by_id(section_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await SectionModel.filter(id=section_id).update(**data)
         return await SectionService.get_by_id(section_id)

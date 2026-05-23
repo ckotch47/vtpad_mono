@@ -130,6 +130,7 @@ class TestRunService:
     async def update(run_id: str, dto: TestRunUpdateDto) -> TestRunModel:
         await TestRunService.get_by_id(run_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await TestRunModel.filter(id=run_id).update(**data)
         return await TestRunService.get_by_id(run_id)
@@ -167,6 +168,7 @@ class TestResultService:
             raise HTTPException(status_code=404, detail="Test result not found")
 
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         data['executed_by_id'] = user_id
         data['executed_at'] = datetime.utcnow()
         await TestResultModel.filter(id=result_id).update(**data)

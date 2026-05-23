@@ -943,6 +943,121 @@ async def delete_section(section_id: str) -> dict:
     return {"deleted": True, "id": section_id}
 
 
+@mcp.tool()
+async def get_section(section_id: str) -> dict | None:
+    """Get section details by ID.
+
+    Args:
+        section_id: UUID of the section
+
+    Returns:
+        Section details or None
+    """
+    section = await SectionModel.get_or_none(id=section_id)
+    if not section:
+        return None
+    return {
+        "id": str(section.id),
+        "name": section.name,
+        "description": section.description,
+        "suite_id": str(section.suite_id) if section.suite_id else None,
+        "parent_id": str(section.parent_id) if section.parent_id else None,
+        "sort": section.sort,
+    }
+
+
+@mcp.tool()
+async def get_doc(doc_id: str) -> dict | None:
+    """Get tech doc details by ID.
+
+    Args:
+        doc_id: UUID of the tech doc
+
+    Returns:
+        Doc details or None
+    """
+    doc = await TechDocService.get_by_id(doc_id)
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "content": doc.content,
+        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
+        "source_url": doc.source_url,
+        "version": doc.version,
+        "parent_id": str(doc.parent_id) if doc.parent_id else None,
+        "sort": doc.sort,
+    }
+
+
+@mcp.tool()
+async def move_test_case(
+    case_id: str,
+    suite_id: str | None = None,
+    section_id: str | None = None,
+) -> dict:
+    """Move a test case to another suite or section.
+
+    Args:
+        case_id: UUID of the test case
+        suite_id: Optional new suite UUID
+        section_id: Optional new section UUID
+
+    Returns:
+        Updated test case
+    """
+    dto = TestCaseUpdateDto(suite_id=suite_id, section_id=section_id)
+    case = await TestCaseService.update(case_id, dto)
+    return _case_to_dict(case)
+
+
+@mcp.tool()
+async def hard_delete_test_case(case_id: str) -> dict:
+    """Permanently delete a test case and all related versions/results.
+
+    WARNING: This cannot be undone.
+
+    Args:
+        case_id: UUID of the test case
+
+    Returns:
+        Success status
+    """
+    await TestCaseModel.filter(id=case_id).delete()
+    return {"hard_deleted": True, "id": case_id}
+
+
+@mcp.tool()
+async def hard_delete_suite(suite_id: str) -> dict:
+    """Permanently delete a suite and all related sections/cases/runs.
+
+    WARNING: This cannot be undone. Use with extreme caution.
+
+    Args:
+        suite_id: UUID of the test suite
+
+    Returns:
+        Success status
+    """
+    await TestSuiteModel.filter(id=suite_id).delete()
+    return {"hard_deleted": True, "id": suite_id}
+
+
+@mcp.tool()
+async def hard_delete_section(section_id: str) -> dict:
+    """Permanently delete a section.
+
+    Cases in this section will have section_id set to null.
+
+    Args:
+        section_id: UUID of the section
+
+    Returns:
+        Success status
+    """
+    await SectionModel.filter(id=section_id).delete()
+    return {"hard_deleted": True, "id": section_id}
+
+
 # ─── HTTP App for mounting ───────────────────────────────────────────────────
 
 def get_mcp_app():

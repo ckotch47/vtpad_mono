@@ -139,6 +139,7 @@ class TestCaseService:
         )
 
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await TestCaseModel.filter(id=testcase_id).update(**data)
 

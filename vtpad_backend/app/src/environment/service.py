@@ -34,6 +34,7 @@ class EnvironmentService:
     async def update(env_id: str, dto: EnvironmentUpdateDto) -> EnvironmentModel:
         await EnvironmentService.get_by_id(env_id)
         data = dto.model_dump(exclude_unset=True)
+        data = {k: v for k, v in data.items() if v is not None}
         if data:
             await EnvironmentModel.filter(id=env_id).update(**data)
         return await EnvironmentService.get_by_id(env_id)

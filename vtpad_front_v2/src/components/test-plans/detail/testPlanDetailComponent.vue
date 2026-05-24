@@ -108,6 +108,31 @@
                 clearable
               />
 
+              <div class="d-flex align-center mb-2">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  prepend-icon="mdi-checkbox-multiple-marked"
+                  @click="selectAllAvailable"
+                  :disabled="filteredAvailableCases.length === 0"
+                >
+                  Select All
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  prepend-icon="mdi-checkbox-multiple-blank-outline"
+                  @click="deselectAll"
+                  :disabled="selectedCases.length === 0"
+                >
+                  Deselect All
+                </v-btn>
+                <v-spacer />
+                <span class="text-caption text-medium-emphasis">
+                  {{ selectedCases.length }} selected
+                </span>
+              </div>
+
               <v-list density="compact" style="max-height: 350px; overflow-y: auto;">
                 <v-list-item
                   v-for="tc in filteredAvailableCases"
@@ -270,6 +295,17 @@ export default {
       } catch (e) {
         console.error(e);
       }
+    },
+    selectAllAvailable() {
+      const availableIds = this.filteredAvailableCases
+        .filter(tc => !this.isCaseInPlan(tc.id))
+        .map(tc => tc.id);
+      // Add only new ids, preserving existing selection
+      const newSelection = new Set([...this.selectedCases, ...availableIds]);
+      this.selectedCases = Array.from(newSelection);
+    },
+    deselectAll() {
+      this.selectedCases = [];
     },
     async removeCase(caseId) {
       const newIds = this.cases.filter(c => c.id !== caseId).map(c => c.id);

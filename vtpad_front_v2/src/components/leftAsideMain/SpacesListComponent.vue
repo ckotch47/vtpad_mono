@@ -103,18 +103,16 @@ export default {
 }
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .hide-v-input__details{
   .v-input__details {
     display: none;
   }
 }
-.v-list-item__append{
+:deep(.v-list-item__append){
   display: none;
 }
-.v-list-item:hover{
-  .v-list-item__append{
-    display: unset;
-  }
+:deep(.v-list-item:hover .v-list-item__append){
+  display: unset;
 }
 </style>

@@ -19,20 +19,16 @@
       :loading="loading"
       item-value="id"
       @update:options="loadPlans"
+      @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-plans/${item.id}`)"
     >
       <template v-slot:item.name="{ item }">
-        <router-link :to="`/space/${spaceId}/test-plans/${item.id}`" class="font-weight-medium">
-          {{ item.name }}
-        </router-link>
+        <span class="font-weight-medium">{{ item.name }}</span>
       </template>
       <template v-slot:item.case_count="{ item }">
         <v-chip size="small" color="primary">{{ (item.case_ids || []).length }}</v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-btn icon size="small" variant="text" :to="`/space/${spaceId}/test-plans/${item.id}`">
-          <v-icon>mdi-eye</v-icon>
-        </v-btn>
-        <v-btn icon size="small" variant="text" @click="deletePlan(item.id)">
+        <v-btn icon size="small" variant="text" @click.stop="deletePlan(item.id)">
           <v-icon color="error">mdi-delete</v-icon>
         </v-btn>
       </template>

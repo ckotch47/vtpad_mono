@@ -1,11 +1,11 @@
 {
   "data": [
-    "CREATE TABLE IF NOT EXISTS test_plan (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, description TEXT, filters JSONB, space_id UUID NOT NULL, suite_id UUID, created_by_id UUID, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW())",
+    "CREATE TABLE IF NOT EXISTS test_plan (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, description TEXT, filters JSONB, space_id UUID NOT NULL, suite_id UUID, created_by_id UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
     "CREATE INDEX IF NOT EXISTS idx_test_plan_space ON test_plan (space_id)",
     "CREATE INDEX IF NOT EXISTS idx_test_plan_suite ON test_plan (suite_id)",
     "ALTER TABLE test_run ADD COLUMN IF NOT EXISTS plan_id UUID",
     "CREATE INDEX IF NOT EXISTS idx_test_run_plan ON test_run (plan_id)",
-    "CREATE TABLE IF NOT EXISTS test_step_result (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), step_index INT NOT NULL DEFAULT 0, step_text TEXT, status VARCHAR(20) NOT NULL DEFAULT 'not_run', comment TEXT, screenshot_url TEXT, result_id UUID NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW())",
+    "CREATE TABLE IF NOT EXISTS test_step_result (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), step_index INT NOT NULL DEFAULT 0, step_text TEXT, status VARCHAR(20) NOT NULL DEFAULT 'not_run', comment TEXT, screenshot_url TEXT, result_id UUID NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
     "CREATE INDEX IF NOT EXISTS idx_test_step_result_result ON test_step_result (result_id)"
   ]
 }

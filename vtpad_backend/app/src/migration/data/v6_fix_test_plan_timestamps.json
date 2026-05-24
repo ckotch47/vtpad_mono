@@ -1,0 +1,8 @@
+{
+  "data": [
+    "ALTER TABLE test_plan ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE",
+    "ALTER TABLE test_plan ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE",
+    "ALTER TABLE test_step_result ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE",
+    "ALTER TABLE test_step_result ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE"
+  ]
+}

@@ -44,14 +44,14 @@
                 <v-list-item
                   v-for="tc in cases"
                   :key="tc.id"
+                  class="case-item"
+                  @click="openCaseDialog(tc.id)"
                 >
                   <template v-slot:prepend>
                     <v-icon :color="typeColor(tc.type)">{{ typeIcon(tc.type) }}</v-icon>
                   </template>
                   <v-list-item-title>
-                    <a href="javascript:void(0)" @click="openCaseDialog(tc.id)" class="case-link">
-                      {{ tc.title }}
-                    </a>
+                    {{ tc.title }}
                   </v-list-item-title>
                   <v-list-item-subtitle>
                     <v-chip size="x-small" :color="statusColor(tc.status)">{{ tc.status }}</v-chip>
@@ -60,7 +60,7 @@
                     </span>
                   </v-list-item-subtitle>
                   <template v-slot:append>
-                    <v-btn icon size="x-small" variant="text" color="error" @click="removeCase(tc.id)">
+                    <v-btn icon size="x-small" variant="text" color="error" @click.stop="removeCase(tc.id)">
                       <v-icon>mdi-close</v-icon>
                     </v-btn>
                   </template>
@@ -401,12 +401,11 @@ export default {
 </script>
 
 <style scoped>
-.case-link {
-  color: rgb(var(--v-theme-primary));
-  text-decoration: none;
+.case-item {
   cursor: pointer;
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.case-link:hover {
-  text-decoration: underline;
+.case-item:last-child {
+  border-bottom: none;
 }
 </style>

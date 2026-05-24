@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { userService } from '@/services'
 
 export default {
   name: "settingsUserFindUserComponent",
@@ -26,7 +26,7 @@ export default {
   },
   methods:{
     searchUser(event){
-      axios.get(`/api/v1/user/search/by-mail?mail=`+event).then(res => {
+      userService.searchByMail(event).then(res => {
         this.searchUserItem = res.data
       })
     },

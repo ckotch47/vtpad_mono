@@ -125,7 +125,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testCaseService } from '@/services';
 
 export default {
   name: "testCasesListComponent",
@@ -197,16 +197,14 @@ export default {
       }
       this.$router.replace({ query });
 
-      axios.get(`/api/v2/test-case/space/${this.spaceId}`, {
-        params: {
-          page,
-          page_size: pageSize,
-          sort_by: sortKey,
-          sort_order: sortOrder,
-          search: this.search || undefined,
-          type: this.filterType || undefined,
-          status: this.filterStatus || undefined
-        }
+      testCaseService.listBySpace(this.spaceId, {
+        page,
+        page_size: pageSize,
+        sort_by: sortKey,
+        sort_order: sortOrder,
+        search: this.search || undefined,
+        type: this.filterType || undefined,
+        status: this.filterStatus || undefined
       }).then(res => {
         this.cases = res.data.items || res.data;
         this.totalCases = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
@@ -228,7 +226,7 @@ export default {
       this.loadCases({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
     },
     createCase() {
-      axios.post('/api/v2/test-case/', {
+      testCaseService.create({
         ...this.newCase,
         space_id: this.spaceId
       }).then(() => {
@@ -239,7 +237,7 @@ export default {
     },
     bulkDelete() {
       if (!confirm(`Delete ${this.selectedCases.length} test cases?`)) return;
-      Promise.all(this.selectedCases.map(id => axios.delete(`/api/v2/test-case/${id}`)))
+      Promise.all(this.selectedCases.map(id => testCaseService.delete(id)))
         .then(() => {
           this.selectedCases = [];
           this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
@@ -247,7 +245,7 @@ export default {
     },
     bulkChangeStatus() {
       Promise.all(this.selectedCases.map(id =>
-        axios.patch(`/api/v2/test-case/${id}`, { status: this.bulkStatus })
+        testCaseService.update(id, { status: this.bulkStatus })
       )).then(() => {
         this.selectedCases = [];
         this.bulkStatusDialog = false;
@@ -255,7 +253,7 @@ export default {
       });
     },
     duplicateCase(id) {
-      axios.post(`/api/v2/test-case/${id}/duplicate`).then(() => {
+      testCaseService.duplicate(id).then(() => {
         this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
       });
     },

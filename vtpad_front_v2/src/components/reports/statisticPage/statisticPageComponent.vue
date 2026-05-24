@@ -33,7 +33,7 @@ import StatisticPagePadComponent from "@/components/reports/statisticPage/statis
 import StatisticPageRunComponent from "@/components/reports/statisticPage/statisticPageRunComponent.vue";
 import StatisticPageBugsComponent from "@/components/reports/statisticPage/statisticPageBugsComponent.vue";
 import ReportsPieChartComponent from "@/components/reports/reportsPieChartComponent.vue";
-import axios from "axios";
+import { spaceService } from '@/services'
 import {color} from "@/components/common/collorList";
 
 export default {
@@ -69,7 +69,7 @@ export default {
   },
   methods:{
     getStatistics(){
-      axios.get(`/api/v1/space/${this.spaceId}/statistic`).then(res => {
+      spaceService.getStatistic(this.spaceId).then(res => {
         this.statisticItem = res.data;
         this.updateChartsRuns();
         this.updateChartsBugs();

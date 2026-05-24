@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testCaseService, testSuiteService, testRunService } from '@/services'
 
 export default {
   name: "commandPaletteComponent",
@@ -106,9 +106,7 @@ export default {
 
       // Search test cases
       try {
-        const casesRes = await axios.get(`/api/v2/test-case/space/${spaceId}`, {
-          params: { search: q, page: 1, page_size: 5 }
-        });
+        const casesRes = await testCaseService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 });
         (casesRes.data.items || []).forEach(c => {
           results.push({
             id: c.id,
@@ -124,9 +122,7 @@ export default {
 
       // Search suites
       try {
-        const suitesRes = await axios.get(`/api/v2/test-suite/space/${spaceId}`, {
-          params: { search: q, page: 1, page_size: 5 }
-        });
+        const suitesRes = await testSuiteService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 });
         (suitesRes.data.items || []).forEach(s => {
           results.push({
             id: s.id,
@@ -142,9 +138,7 @@ export default {
 
       // Search runs
       try {
-        const runsRes = await axios.get(`/api/v2/test-run/space/${spaceId}`, {
-          params: { search: q, page: 1, page_size: 5 }
-        });
+        const runsRes = await testRunService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 });
         (runsRes.data.items || []).forEach(r => {
           results.push({
             id: r.id,

@@ -16,7 +16,7 @@ import AqaReportSuiteCardTitleComponent
   from "@/components/reports/aqa-report/aqaReportSuite/aqaReportSuiteCardTitleComponent.vue";
 import AqaReportSuiteTableComponent
   from "@/components/reports/aqa-report/aqaReportSuite/aqaReportSuiteTableComponent.vue";
-import axios from "axios";
+import { reportService } from '@/services'
 
 export default {
   name: "aqaReportSuiteCardComponent",
@@ -34,7 +34,7 @@ export default {
   methods:{
     showSuiteTable(){
       if(!this.itemsDetail)
-      axios.get(`/api/v2/report/${this.spaceId}/test/suite/${this.suiteItem.id}/detail`).then(res => {
+      reportService.getSuiteDetail(this.spaceId, this.suiteItem.id).then(res => {
         this.itemsDetail = res.data
       })
 

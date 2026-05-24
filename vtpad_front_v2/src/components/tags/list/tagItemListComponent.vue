@@ -24,7 +24,7 @@
 
 <script>
 import CustomChipComponent from "@/components/common/chips/customChipComponent.vue";
-import axios from "axios";
+import { tagService } from '@/services'
 
 export default {
   name: "tagItemListComponent",
@@ -35,12 +35,12 @@ export default {
   },
   methods:{
     deleteTag(){
-      axios.delete(`/api/v1/tag/${this.tag.id}`).then(res => {
+      tagService.delete(this.tag.id).then(res => {
         this.$emit('deleteTagEmit')
       })
     },
     updateTag(){
-      axios.put(`/api/v1/tag/${this.tag.id}`, {
+      tagService.update(this.tag.id, {
         title: this.tag.title,
         color: this.tag.color
       }).then(res => {

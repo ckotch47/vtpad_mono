@@ -1,7 +1,7 @@
 import api from '@/plugins/axios'
 
 export const testPlanService = {
-  listBySpace: (spaceId) => api.get(`/api/v2/test-plan/space/${spaceId}`),
+  listBySpace: (spaceId, params) => api.get(`/api/v2/test-plan/space/${spaceId}`, { params }),
   getById: (id) => api.get(`/api/v2/test-plan/${id}`),
   getCases: (id) => api.get(`/api/v2/test-plan/${id}/cases`),
   create: (data) => api.post('/api/v2/test-plan/', data),

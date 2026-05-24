@@ -39,7 +39,7 @@
 
 <script>
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
-import axios from "axios";
+import { bugService } from '@/services'
 
 
 export default {
@@ -70,7 +70,7 @@ export default {
           value = this.$refs.editorBugTextLink.$data.editor.getHTML()
           break;
       }
-      axios.patch(`/api/v2/bugs/${this.bug.id}`,{
+      bugService.update(this.bug.id,{
         [name]: value
       }).then( () => {
         this.$emit('updateBugTextEmit')

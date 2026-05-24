@@ -12,7 +12,7 @@
 <script>
 
 import BugsModalComponent from "@/components/bugs/modal/bugsModalComponent.vue";
-import axios from "axios";
+import { bugService } from '@/services'
 import {useAppStore} from "@/stores/app";
 export default {
   name: "indexIssuePage",
@@ -32,7 +32,7 @@ export default {
   },
   methods:{
     getBugDetail(){
-      axios.get(`/api/v2/bugs/short/${this.shortName}`).then(res => {
+      bugService.getByShort(this.shortName).then(res => {
         this.bugItem = res.data;
         this.store = res.data;
         this.getFilter()
@@ -40,7 +40,7 @@ export default {
     },
     getFilter(){
       if(!this.bugItem) return
-      axios.get(`/api/v1/bugs/filters?space_id=${this.bugItem.spaces_id}`).then(res => {
+      bugService.getFilters(this.bugItem.spaces_id).then(res => {
         this.filters = res.data
       })
     }

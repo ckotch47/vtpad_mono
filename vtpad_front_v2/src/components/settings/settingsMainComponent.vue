@@ -37,7 +37,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { spaceService } from '@/services'
 
 export default {
   name: "settingsMainComponent",
@@ -71,13 +71,13 @@ export default {
   },
   methods:{
     getSpaceSetting(){
-      axios.get(`/api/v1/space/${this.spaceId}`).then(res => {
+      spaceService.getById(this.spaceId).then(res => {
         this.space = res.data
         this.loader = false;
       })
     },
     saveName(){
-      axios.put(`/api/v1/space/${this.spaceId}`,{
+      spaceService.update(this.spaceId,{
         name: this.space.name,
         short_name: this.space.short_name
       }).then(res => {
@@ -89,7 +89,7 @@ export default {
         this.deleteSpace = null
         return false
       }else{
-        axios.delete(`/api/v1/space/${this.spaceId}`).then(()=>{
+        spaceService.delete(this.spaceId).then(()=>{
           location.href = '/space'
         })
       }

@@ -57,7 +57,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { companyUserService } from '@/services'
 
 export default {
   name: "companyUserListModalComponent",
@@ -77,17 +77,17 @@ export default {
   },
   methods:{
     deleteUser(){
-      axios.delete(`/api/v2/company-user/${this.user.user.id}`).then(res => {
+      companyUserService.delete(this.user.user.id).then(res => {
         this.$emit('closeUserModalEmit', this.isActive)
       })
     },
     restPasswordUser(){
-      axios.put(`/api/v2/company-user/${this.user.user.id}/reset-password`).then(res => {
+      companyUserService.resetPassword(this.user.user.id).then(res => {
         this.password = res.data.password
       })
     },
     saveUser(){
-      axios.put(`/api/v2/company-user/${this.user.user.id}`,{
+      companyUserService.update(this.user.user.id,{
         username: this.user.user.username,
         mail: this.user.user.mail,
         status: this.status ? 'active' : 'deactivate'

@@ -278,7 +278,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testRunService, bugService } from '@/services';
 
 export default {
   name: "testRunDetailComponent",
@@ -319,7 +319,7 @@ export default {
   },
   methods: {
     loadRun() {
-      axios.get(`/api/v2/test-run/${this.runId}/detail`).then(res => {
+      testRunService.getDetail(this.runId).then(res => {
         this.run = res.data.run;
         this.stats = res.data.stats;
         this.results = res.data.results;
@@ -327,12 +327,10 @@ export default {
       }).catch(() => { this.loader = false; });
     },
     loadBugs() {
-      axios.get(`/api/v1/bugs`, {
-        params: {
-          space_id: this.spaceId,
-          state: ['OPEN', 'REOPEN', 'FIXED'],
-          limit: 100
-        }
+      bugService.list({
+        space_id: this.spaceId,
+        state: ['OPEN', 'REOPEN', 'FIXED'],
+        limit: 100
       }).then(res => {
         this.spaceBugs = res.data || [];
       }).catch(() => {
@@ -340,10 +338,10 @@ export default {
       });
     },
     startRun() {
-      axios.post(`/api/v2/test-run/${this.runId}/start`).then(() => this.loadRun());
+      testRunService.start(this.runId).then(() => this.loadRun());
     },
     completeRun() {
-      axios.post(`/api/v2/test-run/${this.runId}/complete`).then(() => this.loadRun());
+      testRunService.complete(this.runId).then(() => this.loadRun());
     },
     openResultModal(result) {
       this.editingResult = {
@@ -356,7 +354,7 @@ export default {
       this.editModal = true;
     },
     loadStepResults(resultId) {
-      axios.get(`/api/v2/test-run/result/${resultId}/steps`).then(res => {
+      testRunService.getStepResults(resultId).then(res => {
         this.stepResults = res.data;
       }).catch(() => {
         this.stepResults = [];
@@ -364,7 +362,7 @@ export default {
     },
     saveResult() {
       // Save main result
-      axios.patch(`/api/v2/test-run/result/${this.editingResult.id}`, {
+      testRunService.updateResult(this.editingResult.id, {
         status: this.editingResult.status,
         duration_seconds: parseInt(this.editingResult.duration_seconds) || null,
         comment: this.editingResult.comment,
@@ -372,7 +370,7 @@ export default {
       }).then(() => {
         // Save step results if any
         if (this.stepResults.length > 0) {
-          return axios.patch(`/api/v2/test-run/result/${this.editingResult.id}/steps`, {
+          return testRunService.updateStepResults(this.editingResult.id, {
             steps: this.stepResults.map(s => ({
               step_index: s.step_index,
               step_text: s.step_text,
@@ -397,7 +395,7 @@ export default {
       this.bugModal = true;
     },
     createBug() {
-      axios.post('/api/v1/bugs', {
+      bugService.create({
         title: this.newBug.title,
         text: this.newBug.actual,
         steps: this.newBug.steps,
@@ -407,7 +405,7 @@ export default {
         const bugShortName = res.data.short_name;
         // Link bug to result
         const bugs = [...(this.editingResult.linked_bug_ids || []), bugShortName];
-        return axios.patch(`/api/v2/test-run/result/${this.editingResult.id}`, {
+        return testRunService.updateResult(this.editingResult.id, {
           linked_bug_ids: bugs
         });
       }).then(() => {

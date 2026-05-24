@@ -1,6 +1,6 @@
 // Utilities
 import { defineStore } from 'pinia'
-import axios from "axios";
+import { spaceService } from '@/services'
 
 export const useAppStore = defineStore('app', {
 
@@ -31,7 +31,7 @@ export const useAppStore = defineStore('app', {
           this.openSpaceId = this.shortName;
           return this.openSpaceId;
         }
-        const tmp = await axios.get(`/api/v1/space/by-short/${this.shortName}`)
+        const tmp = await spaceService.getByShort(this.shortName)
         this.openSpaceId = tmp.data.short_name
         return this.openSpaceId;
       }

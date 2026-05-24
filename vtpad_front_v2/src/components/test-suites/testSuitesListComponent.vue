@@ -92,7 +92,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testSuiteService } from '@/services';
 
 export default {
   name: "testSuitesListComponent",
@@ -155,14 +155,12 @@ export default {
       }
       this.$router.replace({ query });
 
-      axios.get(`/api/v2/test-suite/space/${this.spaceId}`, {
-        params: {
-          page,
-          page_size: pageSize,
-          sort_by: sortKey,
-          sort_order: sortOrder,
-          search: this.search || undefined
-        }
+      testSuiteService.listBySpace(this.spaceId, {
+        page,
+        page_size: pageSize,
+        sort_by: sortKey,
+        sort_order: sortOrder,
+        search: this.search || undefined
       }).then(res => {
         this.suites = res.data.items || res.data;
         this.totalSuites = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
@@ -180,7 +178,7 @@ export default {
       }, 400);
     },
     createSuite() {
-      axios.post('/api/v2/test-suite/', {
+      testSuiteService.create({
         name: this.newSuite.name,
         description: this.newSuite.description,
         space_id: this.spaceId
@@ -195,7 +193,7 @@ export default {
       this.openEdit = true;
     },
     saveSuite() {
-      axios.patch(`/api/v2/test-suite/${this.editSuiteData.id}`, {
+      testSuiteService.update(this.editSuiteData.id, {
         name: this.editSuiteData.name,
         description: this.editSuiteData.description,
         status: this.editSuiteData.status
@@ -206,7 +204,7 @@ export default {
     },
     deleteSuite(item) {
       if (!confirm(`Archive test suite "${item.name}"?`)) return;
-      axios.delete(`/api/v2/test-suite/${item.id}`).then(() => {
+      testSuiteService.delete(item.id).then(() => {
         this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
       });
     },

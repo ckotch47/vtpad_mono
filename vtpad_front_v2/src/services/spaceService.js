@@ -2,6 +2,7 @@ import api from '@/plugins/axios'
 
 export const spaceService = {
   list: () => api.get('/api/v1/space'),
+  listCompany: () => api.get('/api/v1/company/spaces'),
   create: (data) => api.post('/api/v1/space', data),
   getById: (id) => api.get(`/api/v1/space/${id}`),
   getByShort: (shortName) => api.get(`/api/v1/space/by-short/${shortName}`),

@@ -18,7 +18,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { spaceService } from '@/services'
 
 export default {
   name: "settingsUserRightMenuComponent",
@@ -64,7 +64,7 @@ export default {
         this.rightObj[rightElem.name] = rightElem.value
       }
 
-      axios.patch(`/api/v1/space/${this.spaceId}/user/${this.userId}`, this.rightObj).then(res => {
+      spaceService.updateUser(this.spaceId, this.userId, this.rightObj).then(res => {
         this.$emit('updateUserRightEmit')
       })
     }

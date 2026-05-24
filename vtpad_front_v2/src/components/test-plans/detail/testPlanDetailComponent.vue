@@ -237,7 +237,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testPlanService, testCaseService, testSuiteService, testRunService } from '@/services';
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
 
 export default {
@@ -278,15 +278,13 @@ export default {
       this.loader = true;
       try {
         const [planRes, casesRes] = await Promise.all([
-          axios.get(`/api/v2/test-plan/${this.planId}`),
-          axios.get(`/api/v2/test-plan/${this.planId}/cases`)
+          testPlanService.getById(this.planId),
+          testPlanService.getCases(this.planId)
         ]);
         this.plan = planRes.data;
         this.cases = casesRes.data;
         // Load runs that were created from this plan
-        const runsRes = await axios.get(`/api/v2/test-run/space/${this.spaceId}`, {
-          params: { page: 1, page_size: 100 }
-        });
+        const runsRes = await testRunService.listBySpace(this.spaceId, { page: 1, page_size: 100 });
         this.runs = (runsRes.data.items || []).filter(r => r.plan_id === this.planId);
       } catch (e) {
         console.error(e);
@@ -296,9 +294,7 @@ export default {
     },
     async loadSuites() {
       try {
-        const res = await axios.get(`/api/v2/test-suite/space/${this.spaceId}`, {
-          params: { page: 1, page_size: 1000 }
-        });
+        const res = await testSuiteService.listBySpace(this.spaceId, { page: 1, page_size: 1000 });
         this.suites = res.data.items || [];
       } catch (e) {
         console.error(e);
@@ -312,7 +308,7 @@ export default {
       }
       try {
         const promises = this.selectedSuites.map(suiteId =>
-          axios.get(`/api/v2/test-case/suite/${suiteId}`)
+          testCaseService.listBySuite(suiteId)
         );
         const responses = await Promise.all(promises);
         const allCases = responses.flatMap(r => r.data);
@@ -335,7 +331,7 @@ export default {
       const currentIds = this.cases.map(c => c.id);
       const newIds = [...currentIds, ...this.selectedCases];
       try {
-        await axios.patch(`/api/v2/test-plan/${this.planId}`, { case_ids: newIds });
+        await testPlanService.update(this.planId, { case_ids: newIds });
         this.selectedCases = [];
         this.loadPlan();
       } catch (e) {
@@ -356,7 +352,7 @@ export default {
     async removeCase(caseId) {
       const newIds = this.cases.filter(c => c.id !== caseId).map(c => c.id);
       try {
-        await axios.patch(`/api/v2/test-plan/${this.planId}`, { case_ids: newIds });
+        await testPlanService.update(this.planId, { case_ids: newIds });
         this.loadPlan();
       } catch (e) {
         console.error(e);
@@ -364,7 +360,7 @@ export default {
     },
     async createRun() {
       try {
-        const res = await axios.post('/api/v2/test-run/', {
+        const res = await testRunService.create({
           name: `Run for ${this.plan.name}`,
           space_id: this.spaceId,
           plan_id: this.planId
@@ -375,7 +371,7 @@ export default {
       }
     },
     openCaseDialog(id) {
-      axios.get(`/api/v2/test-case/${id}`).then(res => {
+      testCaseService.getById(id).then(res => {
         this.selectedCase = res.data;
         this.caseDialogOpen = true;
       });

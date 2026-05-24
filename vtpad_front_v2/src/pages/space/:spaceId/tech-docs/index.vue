@@ -181,7 +181,7 @@
 </template>
 
 <script>
-import axios from 'axios'
+import { techDocService } from '@/services'
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
 
 export default {
@@ -244,7 +244,7 @@ export default {
     async loadTree() {
       this.treeLoading = true
       try {
-        const res = await axios.get(`/api/v2/tech-doc/space/${this.spaceId}/tree`)
+        const res = await techDocService.getTree(this.spaceId)
         this.tree = res.data || []
       } catch (e) {
         console.error(e)
@@ -254,7 +254,7 @@ export default {
     },
     async loadDoc(docId) {
       try {
-        const res = await axios.get(`/api/v2/tech-doc/${docId}`)
+        const res = await techDocService.getById(docId)
         this.selectedDoc = res.data
       } catch (e) {
         console.error(e)
@@ -318,7 +318,7 @@ export default {
       const title = doc?.title || 'this page'
       if (!confirm(`Delete "${title}"?\n\nSubpages will become root-level pages.`)) return
       try {
-        await axios.delete(`/api/v2/tech-doc/${docId}`)
+        await techDocService.delete(docId)
         if (this.selectedDoc?.id === docId) {
           this.selectedDoc = null
           this.activeId = []
@@ -353,7 +353,7 @@ export default {
       }
       try {
         if (this.isCreating) {
-          const res = await axios.post('/api/v2/tech-doc/', {
+          const res = await techDocService.create({
             ...this.editForm,
             space_id: this.spaceId,
           })
@@ -361,7 +361,7 @@ export default {
           await this.loadTree()
           this.$router.replace({ query: { doc: res.data.id } })
         } else {
-          await axios.patch(`/api/v2/tech-doc/${this.selectedDoc.id}`, this.editForm)
+          await techDocService.update(this.selectedDoc.id, this.editForm)
           this.editing = false
           await this.loadDoc(this.selectedDoc.id)
           await this.loadTree()
@@ -375,7 +375,7 @@ export default {
       if (!this.selectedDoc) return
       if (!confirm(`Delete "${this.selectedDoc.title}"?`)) return
       try {
-        await axios.delete(`/api/v2/tech-doc/${this.selectedDoc.id}`)
+        await techDocService.delete(this.selectedDoc.id)
         this.selectedDoc = null
         this.activeId = []
         this.$router.replace({ query: {} })

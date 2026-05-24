@@ -13,7 +13,7 @@ import AqaReportSelectComponent from "@/components/reports/aqa-report/aqaReportS
 import AqaReportStatisticTestComponent from "@/components/reports/aqa-report/aqaReportStatisticTestComponent.vue";
 import AqaReportSuiteMainComponent
   from "@/components/reports/aqa-report/aqaReportSuite/aqaReportSuiteMainComponent.vue";
-import axios from "axios";
+import { reportService } from '@/services'
 
 export default {
   name: "reportAqaSpaceComponent",
@@ -32,18 +32,18 @@ export default {
   },
   methods:{
     getTestList(){
-      axios.get(`/api/v2/report/${this.spaceId}/test/list`).then(res => {
+      reportService.listTests(this.spaceId).then(res => {
         this.testList = res.data
       })
     },
     getTestDetail(){
       if(!this.testId) return
-      axios.get(`/api/v2/report/${this.spaceId}/test/${this.testId}/detail`).then(res => {
+      reportService.getTestDetail(this.spaceId, this.testId).then(res => {
         this.testDetail = res.data
       })
     },
     getSuiteList(){
-      axios.get(`/api/v2/report/${this.spaceId}/test/${this.testId}/suite/list`).then(res => {
+      reportService.getTestSuites(this.spaceId, this.testId).then(res => {
         this.suiteList = res.data;
       })
     },

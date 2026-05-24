@@ -25,7 +25,7 @@
 <script>
 
 import CustomChipComponent from "@/components/common/chips/customChipComponent.vue";
-import axios from "axios";
+import { tagService } from '@/services'
 
 export default {
   name: "tagsNewTagComponent",
@@ -42,7 +42,7 @@ export default {
   },
   methods:{
     createTag(){
-      axios.post(`/api/v1/tag/${this.spaceId}`,{
+      tagService.create(this.spaceId,{
         title: this.titleValue,
         color: this.colorValue
       }).then(res => {

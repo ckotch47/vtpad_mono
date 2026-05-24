@@ -28,7 +28,7 @@
 
 <script>
 import ReportsPieChartComponent from "@/components/reports/reportsPieChartComponent.vue";
-import axios from "axios";
+import { qaReportService } from '@/services'
 import {color} from "@/components/common/collorList";
 
 export default {
@@ -77,7 +77,7 @@ export default {
   },
   methods:{
     getUserForFilter(){
-      axios.get(`/api/v1/qa-report/users?space_id=${this.spaceId}`).then(res => {
+      qaReportService.getUsers(this.spaceId).then(res => {
         this.userList = res.data;
       })
     },

@@ -58,7 +58,7 @@
 <script>
 
 import ProfileModalComponent from "@/components/leftAsideMain/profile/profileModalComponent.vue";
-import axios from "axios";
+import { userService } from '@/services'
 import NotificationRingsComponent from "@/components/notifications/notificationRingsComponent.vue";
 
 export default {
@@ -97,7 +97,7 @@ export default {
       this.showProfileModal = false
     },
     getUserProfile(){
-      axios.get('/api/v2/user').then(res => {
+      userService.getCurrent().then(res => {
         this.profile = res.data
       })
     },

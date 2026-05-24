@@ -53,7 +53,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testPlanService } from '@/services';
 
 export default {
   name: "testPlansListComponent",
@@ -91,9 +91,7 @@ export default {
       this.page = page;
       this.pageSize = itemsPerPage;
       try {
-        const res = await axios.get(`/api/v2/test-plan/space/${this.spaceId}`, {
-          params: { page, page_size: itemsPerPage }
-        });
+        const res = await testPlanService.listBySpace(this.spaceId, { page, page_size: itemsPerPage });
         this.plans = res.data.items;
         this.total = res.data.total;
       } catch (e) {
@@ -104,7 +102,7 @@ export default {
     },
     async createPlan() {
       try {
-        await axios.post('/api/v2/test-plan/', {
+        await testPlanService.create({
           name: this.newPlan.name,
           description: this.newPlan.description,
           space_id: this.spaceId
@@ -119,7 +117,7 @@ export default {
     async deletePlan(id) {
       if (!confirm('Delete this test plan?')) return;
       try {
-        await axios.delete(`/api/v2/test-plan/${id}`);
+        await testPlanService.delete(id);
         this.loadPlans({ page: this.page, itemsPerPage: this.pageSize });
       } catch (e) {
         console.error(e);

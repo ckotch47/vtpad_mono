@@ -56,7 +56,7 @@
 
 <script>
 import { VDateInput } from 'vuetify/labs/VDateInput'
-import axios from "axios";
+import { bugService } from '@/services'
 
 export default {
   name: "bugsModalSettingComponent",
@@ -99,7 +99,7 @@ export default {
           value = event;
           break;
       }
-      axios.patch(`/api/v2/bugs/${this.bug.id}`,{
+      bugService.update(this.bug.id,{
         [name]: value
       }).then(res => {
         this.openBugItem = res.data

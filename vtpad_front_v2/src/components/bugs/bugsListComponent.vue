@@ -118,8 +118,7 @@ const isVisible = ref(false)
 import BugsModalComponent from "@/components/bugs/modal/bugsModalComponent.vue";
 import BugsListRowComponent from "@/components/bugs/list/bugsListRowComponent.vue";
 import BugsListFilterTableComponent from "@/components/bugs/list/bugsListFilterTableComponent.vue";
-import axios from "axios";
-import qs from 'qs'
+import { bugService } from '@/services'
 import {useAppStore} from "@/stores/app";
 
 
@@ -299,7 +298,7 @@ export default {
 
     },
     async getFilter(){
-      axios.get('/api/v1/bugs/filters?space_id='+this.spaceId).then(res => {
+      bugService.getFilters(this.spaceId).then(res => {
         this.filter = res.data;
         for(const item of this.filter.user){
           item.title = item.username
@@ -311,7 +310,7 @@ export default {
         this.filterParam.skip = 0;
 
       }
-      axios.get(`/api/v1/bugs?${qs.stringify(this.filterParam, {arrayFormat: "repeat"})}`).then(res => {
+      bugService.list(this.filterParam).then(res => {
         if(append)
           this.desserts = this.desserts.concat(res.data)
         else
@@ -331,7 +330,7 @@ export default {
       })
     },
     createBug(){
-      axios.post(`/api/v1/bugs`, {
+      bugService.create({
         space_id: this.spaceId,
         state: 'OPEN',
         title: ''

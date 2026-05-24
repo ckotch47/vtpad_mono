@@ -67,7 +67,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testRunService, testSuiteService } from '@/services';
 
 export default {
   name: "testRunsListComponent",
@@ -112,14 +112,12 @@ export default {
       const sortKey = sortBy?.key || 'created_at';
       const sortOrder = sortBy?.order || 'desc';
 
-      axios.get(`/api/v2/test-run/space/${this.spaceId}`, {
-        params: {
-          page,
-          page_size: pageSize,
-          sort_by: sortKey,
-          sort_order: sortOrder,
-          search: this.search || undefined
-        }
+      testRunService.listBySpace(this.spaceId, {
+        page,
+        page_size: pageSize,
+        sort_by: sortKey,
+        sort_order: sortOrder,
+        search: this.search || undefined
       }).then(res => {
         this.runs = res.data.items || res.data;
         this.totalRuns = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
@@ -153,14 +151,12 @@ export default {
       this.openCreate = true;
     },
     loadSuites() {
-      axios.get(`/api/v2/test-suite/space/${this.spaceId}`, {
-        params: { page: 1, page_size: 100, status: 'active' }
-      }).then(res => {
+      testSuiteService.listBySpace(this.spaceId, { page: 1, page_size: 100, status: 'active' }).then(res => {
         this.suites = res.data.items || [];
       });
     },
     createRun() {
-      axios.post('/api/v2/test-run/', {
+      testRunService.create({
         name: this.newRun.name,
         description: this.newRun.description,
         suite_id: this.newRun.suite_id,
@@ -172,7 +168,7 @@ export default {
     },
     deleteRun(item) {
       if (!confirm(`Delete test run "${item.name}"?`)) return;
-      axios.delete(`/api/v2/test-run/${item.id}`).then(() => {
+      testRunService.delete(item.id).then(() => {
         this.loadRuns({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: [] });
       });
     }

@@ -216,7 +216,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { analyticsService } from '@/services'
 
 export default {
   name: "dashboardComponent",
@@ -243,9 +243,9 @@ export default {
       this.loader = true;
       try {
         const [statsRes, topRes, trendRes] = await Promise.all([
-          axios.get(`/api/v2/analytics/space/${this.spaceId}`),
-          axios.get(`/api/v2/analytics/space/${this.spaceId}/top-failed`),
-          axios.get(`/api/v2/analytics/space/${this.spaceId}/trend`)
+          analyticsService.getSpaceStats(this.spaceId),
+          analyticsService.getTopFailed(this.spaceId),
+          analyticsService.getTrend(this.spaceId)
         ]);
         this.stats = statsRes.data;
         this.topFailed = topRes.data;

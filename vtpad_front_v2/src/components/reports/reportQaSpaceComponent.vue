@@ -7,7 +7,7 @@
 <script>
 import ReportQaFilterComponent from "@/components/reports/qa-report/reportQaFilterComponent.vue";
 import ReportQaListComponent from "@/components/reports/qa-report/reportQaListComponent.vue";
-import axios from "axios";
+import { qaReportService } from '@/services'
 
 export default {
   name: "reportQaSpaceComponent",
@@ -23,9 +23,7 @@ export default {
   },
   methods:{
     selectFilter(data){
-      axios.get(`/api/v1/qa-report/bug-list`, {
-        params: data
-      }).then(res => {
+      qaReportService.getBugList(data).then(res => {
         this.listItems = res.data
       })
     }

@@ -44,7 +44,7 @@ import { vElementVisibility } from '@vueuse/components'
 </script>
 <script>
 
-import axios from "axios";
+import { notificationService } from '@/services'
 import NotificationListItemAssignComponent
   from "@/components/notifications/listItem/notificationListItemAssignComponent.vue";
 import NotificationListItemCommentComponent
@@ -70,18 +70,16 @@ export default {
   },
   methods:{
     readAllNotification(){
-      axios.put('/api/v1/notification/read-all').then(()=>{
+      notificationService.markAllRead().then(()=>{
         this.loader = true;
         this.getNotification()
       })
     },
     getNotification(append=false){
-      axios.get('/api/v1/notification', {
-        params: {
+      notificationService.list({
           limit: this.limit,
           skip: this.offset
-        }
-      }).then(res => {
+        }).then(res => {
         if(res.data.length === 0 || res.data.length < this.pageItems){
           this.isInfiniteScroll = false
         }else{
@@ -98,7 +96,7 @@ export default {
       })
     },
     readNotification(event){
-      axios.put(`/api/v1/notification/${event}/read`).then(res => {
+      notificationService.markRead(event).then(res => {
         if(res.status && res.status === 200){
           this.items.find(value => value.id === event).read = true;
         }

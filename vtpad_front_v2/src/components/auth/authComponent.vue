@@ -41,7 +41,7 @@
 
 <script>
 
-import axios from "axios";
+import { authService } from '@/services'
 
 export default {
   name: "authComponent",
@@ -58,7 +58,7 @@ export default {
   methods:{
     loginUser(){
       this.errorMessage = null;
-      axios.post('/api/v1/auth', {
+      authService.login({
         mail: this.loginData.mail,
         password: this.loginData.password
       }).then(res => {

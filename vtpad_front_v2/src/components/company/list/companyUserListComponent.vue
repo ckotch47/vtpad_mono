@@ -57,7 +57,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { companyUserService } from '@/services'
 import CompanyUserListModalComponent from "@/components/company/list/companyUserListModalComponent.vue";
 import CompanyUserNewModal from "@/components/company/list/companyUserNewModal.vue";
 
@@ -79,7 +79,7 @@ export default {
   },
   methods:{
     getUserList(){
-      axios.get(`/api/v2/company-user/list`).then(res => {
+      companyUserService.list().then(res => {
         this.items = res.data
       })
     },
@@ -94,7 +94,7 @@ export default {
       console.log(this.activeUser)
     },
     saveNewUserModal(user){
-      axios.post(`/api/v2/company-user`, user).then(()=>this.getUserList())
+      companyUserService.create(user).then(()=>this.getUserList())
       this.isNewUserModal = false
     }
   },

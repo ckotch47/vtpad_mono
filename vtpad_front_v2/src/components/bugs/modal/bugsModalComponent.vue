@@ -101,7 +101,7 @@
 
 import BugsModalEditorListComponent from "@/components/bugs/modal/bugsModalEditorListComponent.vue";
 import BugsModalSettingComponent from "@/components/bugs/modal/bugsModalSettingComponent.vue";
-import axios from "axios";
+import { bugService, commentService } from '@/services'
 import BugsModalCommentComponent from "@/components/bugs/modal/bugsModalCommentComponent.vue";
 import BugsModalHistoryComponentV2 from "@/components/bugs/modal/bugsModalHistoryComponentV2.vue";
 
@@ -146,14 +146,14 @@ export default {
       this.getHistory().then();
     },
     async getHistory(){
-      this.history = (await axios.get(`/api/v1/comment/${this.bugItem.id}`)).data.reverse()
+      this.history = (await commentService.list(this.bugItem.id)).data.reverse()
     },
     updateBug(bug){
       this.$emit('updateBug', bug);
       this.getHistory().then()
     },
     updateBugTitle(event){
-      axios.patch(`/api/v2/bugs/${this.bugItem.id}`,{
+      bugService.update(this.bugItem.id,{
         title: event.target.value
       }).then(res => {
         this.openBugElem = res.data
@@ -171,7 +171,7 @@ export default {
         return
       }
       const bugId = this.bugItem.id;
-      axios.get(`/api/v1/bugs/detail/${bugId}`).then(res => {
+      bugService.getById(bugId).then(res => {
         this.openBugElem = res.data
         this.loader = false
       })

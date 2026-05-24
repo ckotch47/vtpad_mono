@@ -394,7 +394,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { testSuiteService, sectionService, testCaseService, testRunService } from '@/services';
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
 import BreadcrumbsComponent from "@/components/common/breadcrumbsComponent.vue";
 
@@ -456,7 +456,7 @@ export default {
   },
   methods: {
     loadSuite() {
-      axios.get(`/api/v2/test-suite/${this.suiteId}`).then(res => {
+      testSuiteService.getById(this.suiteId).then(res => {
         this.suite = res.data;
         this.breadcrumbItems = [
           { title: 'Test Suites', to: `/space/${this.spaceId}/test-suites` },
@@ -466,13 +466,13 @@ export default {
       });
     },
     loadSections() {
-      axios.get(`/api/v2/section/suite/${this.suiteId}/tree`).then(res => {
+      sectionService.getTree(this.suiteId).then(res => {
         this.sectionTree = res.data;
         this.flatSections = this.flattenTree(res.data);
       });
     },
     loadAllCases() {
-      axios.get(`/api/v2/test-case/suite/${this.suiteId}`).then(res => {
+      testCaseService.listBySuite(this.suiteId).then(res => {
         this.allCases = res.data;
       }).catch(() => {
         this.allCases = [];
@@ -491,7 +491,7 @@ export default {
       this.loadTestCases(id);
     },
     loadTestCases(sectionId) {
-      axios.get(`/api/v2/test-case/section/${sectionId}`).then(res => {
+      testCaseService.listBySection(sectionId).then(res => {
         this.testCases = res.data;
       });
     },
@@ -532,7 +532,7 @@ export default {
     },
     saveSection() {
       if (this.sectionDialog.isRename) {
-        axios.patch(`/api/v2/section/${this.sectionDialog.id}`, {
+        sectionService.update(this.sectionDialog.id, {
           name: this.sectionDialog.name,
           description: this.sectionDialog.description || null
         }).then(() => {
@@ -540,7 +540,7 @@ export default {
           this.loadSections();
         });
       } else {
-        axios.post('/api/v2/section/', {
+        sectionService.create({
           name: this.sectionDialog.name,
           description: this.sectionDialog.description || null,
           suite_id: this.suiteId,
@@ -553,7 +553,7 @@ export default {
     },
     deleteSection(id) {
       if (!confirm('Delete this section? Test cases will remain but become unassigned.')) return;
-      axios.delete(`/api/v2/section/${id}`).then(() => {
+      sectionService.delete(id).then(() => {
         this.selectedSection = null;
         this.testCases = [];
         this.loadSections();
@@ -561,7 +561,7 @@ export default {
       });
     },
     removeCaseFromSection(id) {
-      axios.patch(`/api/v2/test-case/${id}`, {
+      testCaseService.update(id, {
         section_id: null,
         suite_id: null
       }).then(() => {
@@ -570,7 +570,7 @@ export default {
       });
     },
     loadExistingCases() {
-      axios.get(`/api/v2/test-case/space/${this.spaceId}`).then(res => {
+      testCaseService.listBySpace(this.spaceId).then(res => {
         const currentIds = new Set(this.testCases.map(tc => tc.id));
         this.existingCases = res.data.filter(tc => !currentIds.has(tc.id));
         this.selectedExistingCases = [];
@@ -578,7 +578,7 @@ export default {
     },
     addExistingCases() {
       const promises = this.selectedExistingCases.map(id =>
-        axios.patch(`/api/v2/test-case/${id}`, {
+        testCaseService.update(id, {
           suite_id: this.suiteId,
           section_id: this.selectedSection.id
         })
@@ -590,7 +590,7 @@ export default {
       });
     },
     addTestCase() {
-      axios.post('/api/v2/test-case/', {
+      testCaseService.create({
         title: this.newCase.title,
         type: this.newCase.type,
         steps: this.newCase.steps,
@@ -605,13 +605,13 @@ export default {
       });
     },
     openCaseDialog(id) {
-      axios.get(`/api/v2/test-case/${id}`).then(res => {
+      testCaseService.getById(id).then(res => {
         this.selectedCase = res.data;
         this.caseDialogOpen = true;
       });
     },
     createRun() {
-      axios.post('/api/v2/test-run/', {
+      testRunService.create({
         name: `Run for ${this.suite.name}`,
         space_id: this.spaceId,
         suite_id: this.suiteId
@@ -625,7 +625,7 @@ export default {
     },
     saveInlineRename() {
       if (!this.editingSectionId) return;
-      axios.patch(`/api/v2/section/${this.editingSectionId}`, {
+      sectionService.update(this.editingSectionId, {
         name: this.editingSectionName
       }).then(() => {
         this.editingSectionId = null;

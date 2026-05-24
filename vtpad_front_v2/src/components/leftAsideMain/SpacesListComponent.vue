@@ -54,7 +54,7 @@
 
 
 <script>
-import axios from "axios";
+import { spaceService } from '@/services'
 
 export default {
   name: "SpacesListComponent",
@@ -76,12 +76,12 @@ export default {
   }),
   beforeMount() {
     if(!this.company) {
-      axios.get('/api/v1/space').then(res => {
+      spaceService.list().then(res => {
         this.items = res.data;
         this.resItems = this.items
       })
     }else{
-      axios.get('/api/v1/company/spaces').then(res => {
+      spaceService.listCompany().then(res => {
         this.items = res.data;
         this.resItems = this.items
       })
@@ -92,9 +92,9 @@ export default {
       this.resItems = this.items.filter(value => value.name.toLowerCase().includes(event.toLowerCase()))
     },
     async createSpace(){
-      const temp = (await axios.post('/api/v1/space', {
+      const temp = (await spaceService.create({
         name: 'new space'
-      } )).data;
+      })).data;
       location.href = `/space/${temp.id}/settings`
 
     },

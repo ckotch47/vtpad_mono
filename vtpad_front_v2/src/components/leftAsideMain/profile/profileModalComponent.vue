@@ -61,7 +61,7 @@
 
 <script>
 import {useTheme} from "vuetify";
-import axios from "axios";
+import { fileService } from '@/services'
 
 export default {
   name: "profileModalComponent",
@@ -98,8 +98,7 @@ export default {
     uploadAvatar(event){
       const form = new FormData();
       form.append('file', event);
-      axios.post('/api/v1/file', form,
-        {headers: {"Content-Type": "multipart/form-data",}}).then(value => {
+      fileService.upload(form).then(value => {
           this.$emit('updateUserProfileEmit')
       })
     }

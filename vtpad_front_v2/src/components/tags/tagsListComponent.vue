@@ -23,7 +23,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { tagService } from '@/services'
 import TagsNewTagComponent from "@/components/tags/list/tagsNewTagComponent.vue";
 import TagItemListComponent from "@/components/tags/list/tagItemListComponent.vue";
 
@@ -43,7 +43,7 @@ export default {
   methods:{
     getTagForSpace(){
       this.loader = true
-      axios.get(`/api/v1/tag/${this.spaceId}`).then(res => {
+      tagService.list(this.spaceId).then(res => {
         this.tagItems = res.data;
         this.loader = false
       })

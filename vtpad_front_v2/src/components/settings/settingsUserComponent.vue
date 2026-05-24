@@ -57,7 +57,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { spaceService } from '@/services'
 import SettingsUserRightMenuComponent from "@/components/settings/user/settingsUserRightMenuComponent.vue";
 import SettingsUserFindUserComponent from "@/components/settings/user/settingsUserFindUserComponent.vue";
 
@@ -76,21 +76,21 @@ export default {
   },
   methods:{
     getUsers(){
-      axios.get(`/api/v1/space/${this.spaceId}/users`).then(res => {
+      spaceService.getUsers(this.spaceId).then(res => {
         this.users = res.data
         this.loader = false
       })
     },
     makeOwnerUser(userId){
       this.loader = true
-      axios.put(`/api/v1/space/${this.spaceId}/user-make-owner/${userId}`).then(res => {
+      spaceService.makeOwner(this.spaceId, userId).then(res => {
         this.users = res.data
         this.loader = false
       })
     },
     deleteUserFromSpace(userId){
       this.loader = true
-      axios.delete(`/api/v1/space/${this.spaceId}/user/${userId}`).then(res => {
+      spaceService.removeUser(this.spaceId, userId).then(res => {
         this.users = res.data
         this.loader = false
       }).catch(()=>{
@@ -99,7 +99,7 @@ export default {
     addUserIntoSpace(userMail){
       if(!userMail) return
       this.loader = true
-      axios.put(`/api/v1/space/${this.spaceId}/user`,{
+      spaceService.addUser(this.spaceId,{
         mail: userMail
       }).then(res => {
         if(!res.data) {

@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { notificationService } from '@/services'
 import {toast} from "vue3-toastify";
 import { EventSource } from 'extended-eventsource';
 
@@ -32,7 +32,7 @@ export default {
   },
   methods:{
     getNotificationCount(){
-      axios.get('/api/v1/notification/unread-count').then(res => {
+      notificationService.unreadCount().then(res => {
         if(res.data)
           this.unreadCount = res.data
       })

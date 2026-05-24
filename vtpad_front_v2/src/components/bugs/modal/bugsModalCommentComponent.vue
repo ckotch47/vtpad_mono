@@ -29,7 +29,7 @@
 
 <script>
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
-import axios from "axios";
+import { commentService } from '@/services'
 
 export default {
   name: "bugsModalCommentComponent",
@@ -51,14 +51,14 @@ export default {
   },
   methods:{
     async updateComment(){
-      await axios.put(`/api/v1/comment/${this.comment.id}`,{
+      await commentService.update(this.comment.id,{
         text: this.$refs.newCommentRef.$data.editor.getHTML()
       })
       this.isEdit = false
       this.$emit('newComment')
     },
     async deleteComment(){
-      await axios.delete(`/api/v1/comment/${this.comment.id}`)
+      await commentService.delete(this.comment.id)
       this.isEdit = false
       this.$emit('newComment')
     },
@@ -69,7 +69,7 @@ export default {
       }
       if(this.$refs.newCommentRef.$data.editor.getHTML() === '<p></p>')
         return
-      await axios.post(`/api/v1/comment/${this.bug.id}`,{
+      await commentService.create(this.bug.id,{
         text: this.$refs.newCommentRef.$data.editor.getHTML()
       })
       this.$emit('newComment')

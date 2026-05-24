@@ -138,83 +138,80 @@
   </v-container>
 </template>
 
-<script>
-import axios from "axios";
-import EditorComponent from "@/components/common/editor/editorComponent.vue";
+<script setup>
+import { ref, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useApi } from '@/composables/useApi'
+import EditorComponent from '@/components/common/editor/editorComponent.vue'
 
-export default {
-  name: "testCaseEditPage",
-  components: { EditorComponent },
-  data: () => ({
-    testcase: {},
-    versions: [],
-    form: {},
-    spaceId: undefined,
-    caseId: undefined,
-    loader: true,
-    draftKey: '',
-    autoSaveTimer: null,
-    hasDraft: false
-  }),
-  mounted() {
-    this.spaceId = this.$route.params.spaceId;
-    this.caseId = this.$route.params.caseId;
-    this.draftKey = `case-draft-${this.caseId}`;
-    this.loadCase();
-  },
-  watch: {
-    form: {
-      deep: true,
-      handler() {
-        this.scheduleAutoSave();
-      }
-    }
-  },
-  methods: {
-    loadCase() {
-      axios.get(`/api/v2/test-case/${this.caseId}`).then(res => {
-        this.testcase = res.data;
-        // Check for draft
-        const draft = localStorage.getItem(this.draftKey);
-        if (draft) {
-          try {
-            const parsed = JSON.parse(draft);
-            // Only restore if draft is newer than last server save
-            if (parsed._savedAt && new Date(parsed._savedAt) > new Date(res.data.updated_at)) {
-              if (confirm('You have an unsaved draft. Restore it?')) {
-                this.form = parsed;
-                this.hasDraft = true;
-                this.loader = false;
-                return;
-              }
-            }
-          } catch (e) {
-            // ignore parse error
+const route = useRoute()
+const router = useRouter()
+const api = useApi()
+
+const spaceId = route.params.spaceId
+const caseId = route.params.caseId
+const draftKey = `case-draft-${caseId}`
+
+const loader = ref(true)
+const testcase = ref({})
+const versions = ref([])
+const form = ref({})
+const hasDraft = ref(false)
+let autoSaveTimer = null
+
+function loadCase() {
+  api.get(`/api/v2/test-case/${caseId}`).then(res => {
+    testcase.value = res.data
+    versions.value = res.data.versions || []
+    const draft = localStorage.getItem(draftKey)
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft)
+        if (parsed._savedAt && new Date(parsed._savedAt) > new Date(res.data.updated_at)) {
+          if (confirm('You have an unsaved draft. Restore it?')) {
+            form.value = parsed
+            hasDraft.value = true
+            loader.value = false
+            return
           }
         }
-        this.form = { ...res.data };
-        this.loader = false;
-      }).catch(() => { this.loader = false; });
-    },
-    scheduleAutoSave() {
-      clearTimeout(this.autoSaveTimer);
-      this.autoSaveTimer = setTimeout(() => {
-        this.saveDraft();
-      }, 3000);
-    },
-    saveDraft() {
-      const draft = { ...this.form, _savedAt: new Date().toISOString() };
-      localStorage.setItem(this.draftKey, JSON.stringify(draft));
-    },
-    save() {
-      axios.patch(`/api/v2/test-case/${this.caseId}`, this.form).then(() => {
-        localStorage.removeItem(this.draftKey);
-        this.$router.push(`/space/${this.spaceId}/test-cases/${this.caseId}`);
-      });
-    },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleDateString() : '';
+      } catch (e) {
+        // ignore parse error
+      }
     }
-  }
+    form.value = { ...res.data }
+    loader.value = false
+  }).catch(() => { loader.value = false })
 }
+
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => {
+    saveDraft()
+  }, 3000)
+}
+
+function saveDraft() {
+  const draft = { ...form.value, _savedAt: new Date().toISOString() }
+  localStorage.setItem(draftKey, JSON.stringify(draft))
+}
+
+function save() {
+  api.patch(`/api/v2/test-case/${caseId}`, form.value).then(() => {
+    localStorage.removeItem(draftKey)
+    router.push(`/space/${spaceId}/test-cases/${caseId}`)
+  })
+}
+
+function formatDate(date) {
+  return date ? new Date(date).toLocaleDateString() : ''
+}
+
+watch(form, () => {
+  scheduleAutoSave()
+}, { deep: true })
+
+onMounted(() => {
+  loadCase()
+})
 </script>

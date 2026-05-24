@@ -171,84 +171,84 @@
   </div>
 </template>
 
-<script>
-import axios from "axios";
-import EditorComponent from "@/components/common/editor/editorComponent.vue";
-import BreadcrumbsComponent from "@/components/common/breadcrumbsComponent.vue";
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useApi } from '@/composables/useApi'
+import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
 
-export default {
-  name: "testCaseDetailComponent",
-  components: { EditorComponent, BreadcrumbsComponent },
-  data: () => ({
-    testcase: {},
-    versions: [],
-    spaceId: undefined,
-    caseId: undefined,
-    loader: true,
-    activeTab: 'details',
-    runHistory: [],
-    historyTotal: 0,
-    historyPageSize: 25,
-    historyLoading: false,
-    breadcrumbItems: []
-  }),
-  computed: {
-    historyHeaders() {
-      return [
-        { title: 'Run', key: 'run_name', sortable: false },
-        { title: 'Status', key: 'status', sortable: false },
-        { title: 'Duration (s)', key: 'duration_seconds', sortable: false },
-        { title: 'Comment', key: 'comment', sortable: false },
-        { title: 'Executed', key: 'executed_at', sortable: false }
-      ];
-    }
-  },
-  mounted() {
-    this.spaceId = this.$route.params.spaceId;
-    this.caseId = this.$route.params.caseId;
-    this.loadCase();
-  },
-  methods: {
-    loadCase() {
-      axios.get(`/api/v2/test-case/${this.caseId}`).then(res => {
-        this.testcase = res.data;
-        this.versions = res.data.versions || [];
-        this.breadcrumbItems = [
-          { title: 'Test Cases', to: `/space/${this.spaceId}/test-cases` },
-          { title: this.testcase.title }
-        ];
-        this.loader = false;
-      }).catch(() => { this.loader = false; });
-    },
-    async loadRunHistory({ page, itemsPerPage }) {
-      this.historyLoading = true;
-      try {
-        const res = await axios.get(`/api/v2/test-case/${this.caseId}/runs`, {
-          params: { page, page_size: itemsPerPage }
-        });
-        this.runHistory = res.data.items;
-        this.historyTotal = res.data.total;
-      } catch (e) {
-        console.error(e);
-      } finally {
-        this.historyLoading = false;
-      }
-    },
-    typeColor(type) {
-      const map = { manual: 'primary', checklist: 'warning', automated: 'success' };
-      return map[type] || 'grey';
-    },
-    statusColor(status) {
-      const map = { active: 'success', draft: 'grey', deprecated: 'error' };
-      return map[status] || 'grey';
-    },
-    resultStatusColor(status) {
-      const map = { passed: 'success', failed: 'error', blocked: 'warning', skipped: 'grey', not_run: 'grey' };
-      return map[status] || 'grey';
-    },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleDateString() : '';
-    }
+const route = useRoute()
+const api = useApi()
+
+const spaceId = route.params.spaceId
+const caseId = route.params.caseId
+
+const loader = ref(true)
+const testcase = ref({})
+const versions = ref([])
+const activeTab = ref('details')
+const runHistory = ref([])
+const historyTotal = ref(0)
+const historyPageSize = ref(25)
+const historyLoading = ref(false)
+const breadcrumbItems = ref([])
+
+const historyHeaders = computed(() => [
+  { title: 'Run', key: 'run_name', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Duration (s)', key: 'duration_seconds', sortable: false },
+  { title: 'Comment', key: 'comment', sortable: false },
+  { title: 'Executed', key: 'executed_at', sortable: false }
+])
+
+function loadCase() {
+  api.get(`/api/v2/test-case/${caseId}`).then(res => {
+    testcase.value = res.data
+    versions.value = res.data.versions || []
+    breadcrumbItems.value = [
+      { title: 'Test Cases', to: `/space/${spaceId}/test-cases` },
+      { title: res.data.title }
+    ]
+    loader.value = false
+  }).catch(() => { loader.value = false })
+}
+
+async function loadRunHistory({ page, itemsPerPage }) {
+  historyLoading.value = true
+  try {
+    const res = await api.get(`/api/v2/test-case/${caseId}/runs`, {
+      params: { page, page_size: itemsPerPage }
+    })
+    runHistory.value = res.data.items
+    historyTotal.value = res.data.total
+  } catch (e) {
+    console.error(e)
+  } finally {
+    historyLoading.value = false
   }
 }
+
+function typeColor(type) {
+  const map = { manual: 'primary', checklist: 'warning', automated: 'success' }
+  return map[type] || 'grey'
+}
+
+function statusColor(status) {
+  const map = { active: 'success', draft: 'grey', deprecated: 'error' }
+  return map[status] || 'grey'
+}
+
+function resultStatusColor(status) {
+  const map = { passed: 'success', failed: 'error', blocked: 'warning', skipped: 'grey', not_run: 'grey' }
+  return map[status] || 'grey'
+}
+
+function formatDate(date) {
+  return date ? new Date(date).toLocaleDateString() : ''
+}
+
+onMounted(() => {
+  loadCase()
+})
 </script>

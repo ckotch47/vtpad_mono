@@ -38,71 +38,7 @@ const drawer = ref(null)
 </script>
 
 <script>
-import axios from "axios";
-
-
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
-
-axios.defaults.headers = {
-  Accept: "application/json",
-  "Content-Type": "application/json",
-  responseType: "json",
-}
-axios.interceptors.request.use((config) => {
-  const tokens = localStorage.getItem('auth_token');
-
-  if (!tokens) {
-    return config;
-  }
-  config.headers.Authorization = `Bearer ${tokens}`;
-  return config;
-});
-
-axios.interceptors.response.use(function (response) {
-  if(response.config.method === 'put' ||
-    response.config.method === 'post' ||
-    response.config.method === 'patch' ||
-    response.config.method === 'delete'  &&
-    response.status === 200 ||
-    response.status === 201){
-    toast.success('Success', {
-      theme: vuetify.theme.name.value,
-      transition: "flip",
-      autoClose: 200
-    })
-  }
-
-  return response
-}, function (error) {
-  if(error.response.status === 401 && location.pathname !== '/auth'){
-    const refreshToken = localStorage.getItem('refresh_token')
-    if(!refreshToken)
-      location.href = '/auth'
-    axios.post('/api/v1/auth/refresh', {
-      refresh_token: refreshToken
-    }).then((res)=>{
-      if(!res) location.href = '/auth'
-      if(res.status === 200) {
-        localStorage.setItem('auth_token', res.data.access_token)
-        localStorage.setItem('refresh_token', res.data.refresh_token)
-        // eslint-disable-next-line no-self-assign
-        // location.href = location.href
-      }
-    }).catch(()=>{
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('refresh_token')
-      location.href = '/auth'
-    })
-  }
-    toast.error(`${error.response.status} ${error.response.data}`, {
-      theme: vuetify.theme.name.value,
-      transition: "flip",
-      autoClose: 200
-    })
-})
 import {useRouter} from "vue-router";
-import {toast} from "vue3-toastify";
-import vuetify from "@/plugins/vuetify";
 
 
 export default {

@@ -30,9 +30,17 @@ class TestSuiteService:
         page_size: int = 25,
         sort_by: Optional[str] = 'created_at',
         sort_order: Optional[str] = 'desc',
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        status: Optional[str] = None
     ) -> dict:
-        q = TestSuiteModel.filter(space_id=space_id, status=TestSuiteStatus.active).annotate(
+        filters = {'space_id': space_id}
+        if status == 'archived':
+            filters['status'] = TestSuiteStatus.archived
+        elif status == 'all':
+            pass
+        else:
+            filters['status'] = TestSuiteStatus.active
+        q = TestSuiteModel.filter(**filters).annotate(
             cases_count=Count('test_cases'),
             sections_count=Count('sections')
         )

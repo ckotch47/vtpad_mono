@@ -18,9 +18,10 @@ async def get_by_space(
     page_size: int = 25,
     sort_by: Optional[str] = 'created_at',
     sort_order: Optional[str] = 'desc',
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    status: Optional[str] = None
 ):
-    return await TestSuiteService.get_by_space(space_id, page, page_size, sort_by, sort_order, search)
+    return await TestSuiteService.get_by_space(space_id, page, page_size, sort_by, sort_order, search, status)
 
 
 @router.get('/{suite_id}', dependencies=[Depends(bearer)])

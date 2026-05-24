@@ -13,6 +13,18 @@
         @update:model-value="onSearch"
         style="max-width: 260px"
       />
+      <v-btn-toggle
+        v-model="statusFilter"
+        density="compact"
+        variant="outlined"
+        divided
+        mandatory
+        @update:model-value="onStatusChange"
+      >
+        <v-btn value="active">Active</v-btn>
+        <v-btn value="archived">Archived</v-btn>
+        <v-btn value="all">All</v-btn>
+      </v-btn-toggle>
       <v-spacer />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
         New Test Suite
@@ -42,6 +54,9 @@
       </template>
       <template v-slot:item.sections_count="{ item }">
         <v-chip size="small" color="info">{{ item.sections_count || 0 }}</v-chip>
+      </template>
+      <template v-slot:item.status="{ item }">
+        <v-chip size="small" :color="item.status === 'archived' ? 'grey' : 'success'">{{ item.status }}</v-chip>
       </template>
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
@@ -112,10 +127,12 @@ export default {
     openEdit: false,
     newSuite: { name: '', description: '' },
     editSuiteData: { id: null, name: '', description: '', status: 'active' },
+    statusFilter: 'active',
     headers: [
       { title: 'Name', key: 'name', sortable: true },
       { title: 'Cases', key: 'cases_count', width: '100px', sortable: false },
       { title: 'Sections', key: 'sections_count', width: '100px', sortable: false },
+      { title: 'Status', key: 'status', width: '100px', sortable: false },
       { title: 'Created', key: 'created_at', width: '150px', sortable: true },
       { title: 'Actions', key: 'actions', width: '120px', sortable: false }
     ]
@@ -160,7 +177,8 @@ export default {
         page_size: pageSize,
         sort_by: sortKey,
         sort_order: sortOrder,
-        search: this.search || undefined
+        search: this.search || undefined,
+        status: this.statusFilter !== 'all' ? this.statusFilter : undefined
       }).then(res => {
         this.suites = res.data.items || res.data;
         this.totalSuites = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
@@ -176,6 +194,10 @@ export default {
         this.page = 1;
         this.loadSuites({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
       }, 400);
+    },
+    onStatusChange() {
+      this.page = 1;
+      this.loadSuites({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
     },
     createSuite() {
       testSuiteService.create({

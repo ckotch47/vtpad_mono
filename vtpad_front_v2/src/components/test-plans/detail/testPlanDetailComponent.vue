@@ -49,9 +49,9 @@
                     <v-icon :color="typeColor(tc.type)">{{ typeIcon(tc.type) }}</v-icon>
                   </template>
                   <v-list-item-title>
-                    <router-link :to="`/space/${spaceId}/test-cases/${tc.id}`">
+                    <a href="javascript:void(0)" @click="openCaseDialog(tc.id)" class="case-link">
                       {{ tc.title }}
-                    </router-link>
+                    </a>
                   </v-list-item-title>
                   <v-list-item-subtitle>
                     <v-chip size="x-small" :color="statusColor(tc.status)">{{ tc.status }}</v-chip>
@@ -191,14 +191,58 @@
         </v-col>
       </v-row>
     </v-container>
+    <!-- View Test Case Dialog -->
+    <v-dialog v-model="caseDialogOpen" max-width="900" scrollable>
+      <v-card v-if="selectedCase">
+        <v-card-title class="d-flex align-center py-3">
+          <span class="text-truncate" style="max-width: 500px">{{ selectedCase.title }}</span>
+          <v-spacer />
+          <v-chip size="small" :color="typeColor(selectedCase.type)" class="mr-1">{{ selectedCase.type }}</v-chip>
+          <v-chip size="small" :color="statusColor(selectedCase.status)">{{ selectedCase.status }}</v-chip>
+          <v-btn
+            icon="mdi-pencil"
+            size="small"
+            variant="text"
+            class="ml-2"
+            :to="`/space/${spaceId}/test-cases/${selectedCase.id}/edit`"
+            @click="caseDialogOpen = false"
+          />
+          <v-btn icon="mdi-close" size="small" variant="text" @click="caseDialogOpen = false" />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="py-4">
+          <div v-if="selectedCase.text">
+            <div class="text-subtitle-2 text-medium-emphasis mb-2">Description</div>
+            <editor-component :text="selectedCase.text" :edit="false" />
+          </div>
+          <div v-if="selectedCase.preconditions" class="mt-4">
+            <div class="text-subtitle-2 text-medium-emphasis mb-2">Preconditions</div>
+            <editor-component :text="selectedCase.preconditions" :edit="false" />
+          </div>
+          <div v-if="selectedCase.steps" class="mt-4">
+            <div class="text-subtitle-2 text-medium-emphasis mb-2">Steps</div>
+            <editor-component :text="selectedCase.steps" :edit="false" />
+          </div>
+          <div v-if="selectedCase.expected_results" class="mt-4">
+            <div class="text-subtitle-2 text-medium-emphasis mb-2">Expected Results</div>
+            <editor-component :text="selectedCase.expected_results" :edit="false" />
+          </div>
+          <div v-if="!selectedCase.text && !selectedCase.preconditions && !selectedCase.steps && !selectedCase.expected_results" class="text-center text-grey py-8">
+            No content
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script>
 import axios from "axios";
+import EditorComponent from "@/components/common/editor/editorComponent.vue";
 
 export default {
   name: "testPlanDetailComponent",
+  components: { EditorComponent },
   data: () => ({
     plan: {},
     cases: [],
@@ -210,7 +254,9 @@ export default {
     selectedSuites: [],
     availableCases: [],
     selectedCases: [],
-    caseSearch: ''
+    caseSearch: '',
+    caseDialogOpen: false,
+    selectedCase: null
   }),
   computed: {
     filteredAvailableCases() {
@@ -328,6 +374,12 @@ export default {
         console.error(e);
       }
     },
+    openCaseDialog(id) {
+      axios.get(`/api/v2/test-case/${id}`).then(res => {
+        this.selectedCase = res.data;
+        this.caseDialogOpen = true;
+      });
+    },
     typeIcon(type) {
       const map = { manual: 'mdi-hand-back-right-outline', checklist: 'mdi-check-box-outline', automated: 'mdi-robot' };
       return map[type] || 'mdi-test-tube';
@@ -347,3 +399,14 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.case-link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+  cursor: pointer;
+}
+.case-link:hover {
+  text-decoration: underline;
+}
+</style>

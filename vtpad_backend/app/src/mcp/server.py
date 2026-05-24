@@ -19,10 +19,13 @@ from ..tech_doc.service import TechDocService
 from ..test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from ..space.model import SpaceModel
 from ..test_run.service import TestRunService, TestResultService
-from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto
+from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto, TestStepResultBulkUpdateDto
 from ..test_case.dto import TestCaseUpdateDto
 from ..test_suite.dto import TestSuiteUpdateDto
 from ..section.dto import SectionUpdateDto
+from ..test_plan.model import TestPlanModel
+from ..test_plan.service import TestPlanService
+from ..analytics.service import AnalyticsService
 
 
 class MCPAuthMiddleware(BaseHTTPMiddleware):
@@ -1056,6 +1059,264 @@ async def hard_delete_section(section_id: str) -> dict:
     """
     await SectionModel.filter(id=section_id).delete()
     return {"hard_deleted": True, "id": section_id}
+
+
+# ─── Test Plan Tools ──────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_test_plans(space_id: str) -> list[dict]:
+    """List all test plans in a space.
+
+    Args:
+        space_id: UUID of the space
+
+    Returns:
+        List of test plans with id, name, description, case_count
+    """
+    plans = await TestPlanModel.filter(space_id=space_id).order_by("-created_at")
+    return [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "description": p.description,
+            "case_count": len(p.case_ids or []),
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in plans
+    ]
+
+
+@mcp.tool()
+async def get_test_plan(plan_id: str) -> dict | None:
+    """Get a test plan by ID.
+
+    Args:
+        plan_id: UUID of the test plan
+
+    Returns:
+        Plan details or None
+    """
+    plan = await TestPlanService.get_by_id(plan_id)
+    return {
+        "id": str(plan.id),
+        "name": plan.name,
+        "description": plan.description,
+        "case_ids": plan.case_ids or [],
+        "space_id": str(plan.space_id) if plan.space_id else None,
+        "created_at": plan.created_at.isoformat() if plan.created_at else None,
+    }
+
+
+@mcp.tool()
+async def create_test_plan(
+    name: str,
+    space_id: str,
+    description: str | None = None,
+    case_ids: list[str] | None = None,
+) -> dict:
+    """Create a new test plan.
+
+    Args:
+        name: Plan name
+        space_id: Space UUID
+        description: Optional description
+        case_ids: Optional list of test case IDs to include
+
+    Returns:
+        Created plan details
+    """
+    from ..test_plan.dto import TestPlanCreateDto
+    token = _get_user_id()
+    dto = TestPlanCreateDto(
+        name=name,
+        space_id=space_id,
+        description=description,
+        case_ids=case_ids or [],
+    )
+    plan = await TestPlanService.create(dto, token)
+    return {
+        "id": str(plan.id),
+        "name": plan.name,
+        "description": plan.description,
+        "case_ids": plan.case_ids or [],
+    }
+
+
+@mcp.tool()
+async def update_test_plan(
+    plan_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    case_ids: list[str] | None = None,
+) -> dict:
+    """Update a test plan.
+
+    Args:
+        plan_id: UUID of the plan
+        name: Optional new name
+        description: Optional new description
+        case_ids: Optional new list of case IDs (replaces existing)
+
+    Returns:
+        Updated plan details
+    """
+    from ..test_plan.dto import TestPlanUpdateDto
+    dto = TestPlanUpdateDto()
+    if name is not None:
+        dto.name = name
+    if description is not None:
+        dto.description = description
+    if case_ids is not None:
+        dto.case_ids = case_ids
+    plan = await TestPlanService.update(plan_id, dto)
+    return {
+        "id": str(plan.id),
+        "name": plan.name,
+        "description": plan.description,
+        "case_ids": plan.case_ids or [],
+    }
+
+
+@mcp.tool()
+async def delete_test_plan(plan_id: str) -> dict:
+    """Delete a test plan.
+
+    Args:
+        plan_id: UUID of the plan
+
+    Returns:
+        Success status
+    """
+    await TestPlanService.delete(plan_id)
+    return {"deleted": True, "id": plan_id}
+
+
+@mcp.tool()
+async def get_test_plan_cases(plan_id: str) -> list[dict]:
+    """Get all test cases in a plan.
+
+    Args:
+        plan_id: UUID of the test plan
+
+    Returns:
+        List of test cases in plan order
+    """
+    cases = await TestPlanService.get_cases(plan_id)
+    return [_case_to_dict(c) for c in cases]
+
+
+@mcp.tool()
+async def duplicate_test_case(case_id: str) -> dict:
+    """Duplicate a test case.
+
+    Creates a copy with '(Copy)' suffix in title.
+
+    Args:
+        case_id: UUID of the test case to duplicate
+
+    Returns:
+        Duplicated test case
+    """
+    token = _get_user_id()
+    case = await TestCaseService.duplicate(case_id, token)
+    return _case_to_dict(case)
+
+
+@mcp.tool()
+async def get_step_results(result_id: str) -> list[dict]:
+    """Get step-level results for a test result.
+
+    Args:
+        result_id: UUID of the test result
+
+    Returns:
+        List of step results with index, text, status, comment
+    """
+    steps = await TestResultService.get_step_results(result_id)
+    return steps
+
+
+@mcp.tool()
+async def update_step_results(
+    result_id: str,
+    steps: list[dict],
+) -> list[dict]:
+    """Update step-level results for a test result.
+
+    Args:
+        result_id: UUID of the test result
+        steps: List of {step_index, status, comment?, screenshot_url?}
+
+    Returns:
+        Updated step results
+    """
+    from ..test_run.dto import TestStepResultUpdateDto
+    step_dtos = []
+    for s in steps:
+        step_dtos.append(TestStepResultUpdateDto(
+            step_index=s["step_index"],
+            status=s["status"],
+            step_text=s.get("step_text"),
+            comment=s.get("comment"),
+            screenshot_url=s.get("screenshot_url"),
+        ))
+    dto = TestStepResultBulkUpdateDto(steps=step_dtos)
+    token = _get_user_id()
+    return await TestResultService.update_step_results(result_id, dto, token)
+
+
+@mcp.tool()
+async def get_analytics_space(space_id: str) -> dict:
+    """Get high-level analytics for a space.
+
+    Args:
+        space_id: UUID of the space
+
+    Returns:
+        Stats: cases, suites, runs, latest results breakdown
+    """
+    return await AnalyticsService.get_space_stats(space_id)
+
+
+@mcp.tool()
+async def get_analytics_trend(space_id: str, days: int = 30) -> list[dict]:
+    """Get daily pass/fail trend for completed runs.
+
+    Args:
+        space_id: UUID of the space
+        days: Number of days to look back (default 30)
+
+    Returns:
+        List of daily run stats
+    """
+    return await AnalyticsService.get_space_trend(space_id, days)
+
+
+@mcp.tool()
+async def get_analytics_top_failed(space_id: str, limit: int = 10) -> list[dict]:
+    """Get cases with the most failures.
+
+    Args:
+        space_id: UUID of the space
+        limit: Max number of cases (default 10)
+
+    Returns:
+        List of cases with fail counts
+    """
+    return await AnalyticsService.get_top_failed_cases(space_id, limit)
+
+
+@mcp.tool()
+async def get_analytics_coverage(suite_id: str) -> dict:
+    """Get coverage breakdown for a suite (manual/automated/checklist percentages).
+
+    Args:
+        suite_id: UUID of the test suite
+
+    Returns:
+        Coverage stats with counts and percentages
+    """
+    return await AnalyticsService.get_suite_coverage(suite_id)
 
 
 # ─── HTTP App for mounting ───────────────────────────────────────────────────

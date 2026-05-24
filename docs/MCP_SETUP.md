@@ -81,7 +81,7 @@ Or use SSE directly (if client supports it):
 
 After adding the config, restart Claude Desktop. You should see VTPad tools available.
 
-## Available Tools (33 total)
+## Available Tools (46 total)
 
 ### Discovery
 | Tool | Description |
@@ -97,7 +97,10 @@ After adding the config, restart Claude Desktop. You should see VTPad tools avai
 | `update_test_case` | Update an existing test case |
 | `delete_test_case` | Soft delete a test case |
 | `hard_delete_test_case` | Permanently delete a test case |
+| `duplicate_test_case` | Duplicate a test case |
 | `find_similar_cases` | Find semantically similar cases |
+| `move_test_case` | Move case to another suite/section |
+| `get_case_history` | Get run history for a case |
 
 ### Test Suites
 | Tool | Description |
@@ -107,6 +110,7 @@ After adding the config, restart Claude Desktop. You should see VTPad tools avai
 | `update_suite` | Update a test suite |
 | `delete_suite` | Soft delete a suite |
 | `hard_delete_suite` | Permanently delete a suite |
+| `get_space_suites` | List suites in a space |
 
 ### Sections
 | Tool | Description |
@@ -115,6 +119,17 @@ After adding the config, restart Claude Desktop. You should see VTPad tools avai
 | `update_section` | Update a section |
 | `delete_section` | Delete a section |
 | `hard_delete_section` | Permanently delete a section |
+| `get_section` | Get section by ID |
+
+### Test Plans
+| Tool | Description |
+|------|-------------|
+| `get_test_plans` | List plans in a space |
+| `get_test_plan` | Get plan by ID |
+| `create_test_plan` | Create a new plan (case selection) |
+| `update_test_plan` | Update plan name/description/cases |
+| `delete_test_plan` | Delete a plan |
+| `get_test_plan_cases` | Get all cases in a plan |
 
 ### Test Runs & Results
 | Tool | Description |
@@ -122,6 +137,8 @@ After adding the config, restart Claude Desktop. You should see VTPad tools avai
 | `create_test_run` | Create a test run from suite or plan |
 | `get_run_results` | Get all results for a run |
 | `update_test_result` | Update a test result status/comment |
+| `update_step_results` | Update per-step pass/fail/skip |
+| `get_step_results` | Get step-level results |
 | `link_bug_to_result` | Link a bug to a test result |
 
 ### Tech Docs
@@ -132,12 +149,21 @@ After adding the config, restart Claude Desktop. You should see VTPad tools avai
 | `create_tech_doc` | Create a tech doc |
 | `update_tech_doc` | Update a tech doc |
 | `delete_tech_doc` | Delete a tech doc |
+| `get_tech_doc_tree` | Get tech doc tree for a space |
 
 ### Semantic Search
 | Tool | Description |
 |------|-------------|
 | `semantic_search_tech_docs` | Vector search in tech docs |
 | `semantic_search_cases` | Vector search in test cases |
+
+### Analytics
+| Tool | Description |
+|------|-------------|
+| `get_analytics` | Get space high-level stats |
+| `get_analytics_trend` | Daily pass/fail trend |
+| `get_analytics_top_failed` | Cases with most failures |
+| `get_analytics_coverage` | Suite coverage breakdown |
 
 ### Analytics
 | Tool | Description |

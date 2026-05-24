@@ -13,18 +13,19 @@
         @update:model-value="onSearch"
         style="max-width: 260px"
       />
-      <v-btn-toggle
-        v-model="statusFilter"
+      <v-select
+        v-model="filterStatus"
+        :items="[{title:'All', value:''}, {title:'Active', value:'active'}, {title:'Archived', value:'archived'}]"
+        item-title="title"
+        item-value="value"
+        label="Status"
         density="compact"
-        variant="outlined"
-        divided
-        mandatory
-        @update:model-value="onStatusChange"
-      >
-        <v-btn value="active">Active</v-btn>
-        <v-btn value="archived">Archived</v-btn>
-        <v-btn value="all">All</v-btn>
-      </v-btn-toggle>
+        hide-details
+        variant="solo"
+        class="mx-2"
+        style="max-width: 140px"
+        @update:model-value="onFilterChange"
+      />
       <v-spacer />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
         New Test Suite
@@ -127,7 +128,7 @@ export default {
     openEdit: false,
     newSuite: { name: '', description: '' },
     editSuiteData: { id: null, name: '', description: '', status: 'active' },
-    statusFilter: 'active',
+    filterStatus: '',
     headers: [
       { title: 'Name', key: 'name', sortable: true },
       { title: 'Cases', key: 'cases_count', width: '100px', sortable: false },
@@ -178,7 +179,7 @@ export default {
         sort_by: sortKey,
         sort_order: sortOrder,
         search: this.search || undefined,
-        status: this.statusFilter !== 'all' ? this.statusFilter : undefined
+        status: this.filterStatus || undefined
       }).then(res => {
         this.suites = res.data.items || res.data;
         this.totalSuites = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
@@ -195,7 +196,7 @@ export default {
         this.loadSuites({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
       }, 400);
     },
-    onStatusChange() {
+    onFilterChange() {
       this.page = 1;
       this.loadSuites({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
     },

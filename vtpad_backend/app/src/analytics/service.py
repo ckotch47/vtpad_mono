@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from tortoise.expressions import Q
@@ -60,7 +60,7 @@ class AnalyticsService:
         """Return daily pass/fail counts for the last N days."""
         from tortoise.functions import Count
 
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Get all completed runs in range with their results
         runs = await TestRunModel.filter(

@@ -16,7 +16,7 @@ from ..section.service import SectionService
 from ..embedding.service import EmbeddingService
 from ..tech_doc.model import TechDocModel
 from ..tech_doc.service import TechDocService
-from ..test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from ..test_run.model import TestRunModel, TestResultModel, TestStepResultModel, TestRunStatus, TestResultStatus
 from ..space.model import SpaceModel
 from ..test_run.service import TestRunService, TestResultService
 from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto, TestStepResultBulkUpdateDto
@@ -1013,9 +1013,30 @@ async def move_test_case(
     return _case_to_dict(case)
 
 
+async def _delete_case_cascade(case_id: str) -> None:
+    """Delete a test case and all related results, step results, and embeddings."""
+    await EmbeddingService.delete_embeddings('test_case', case_id)
+    results = await TestResultModel.filter(testcase_id=case_id).all()
+    result_ids = [str(r.id) for r in results]
+    if result_ids:
+        await TestStepResultModel.filter(result_id__in=result_ids).delete()
+        await TestResultModel.filter(id__in=result_ids).delete()
+    await TestCaseModel.filter(id=case_id).delete()
+
+
+async def _delete_run_cascade(run_id: str) -> None:
+    """Delete a test run and all related results and step results."""
+    results = await TestResultModel.filter(run_id=run_id).all()
+    result_ids = [str(r.id) for r in results]
+    if result_ids:
+        await TestStepResultModel.filter(result_id__in=result_ids).delete()
+        await TestResultModel.filter(id__in=result_ids).delete()
+    await TestRunModel.filter(id=run_id).delete()
+
+
 @mcp.tool()
 async def hard_delete_test_case(case_id: str) -> dict:
-    """Permanently delete a test case and all related versions/results.
+    """Permanently delete a test case and all related results/step-results/embeddings.
 
     WARNING: This cannot be undone.
 
@@ -1025,13 +1046,13 @@ async def hard_delete_test_case(case_id: str) -> dict:
     Returns:
         Success status
     """
-    await TestCaseModel.filter(id=case_id).delete()
+    await _delete_case_cascade(case_id)
     return {"hard_deleted": True, "id": case_id}
 
 
 @mcp.tool()
 async def hard_delete_suite(suite_id: str) -> dict:
-    """Permanently delete a suite and all related sections/cases/runs.
+    """Permanently delete a suite and all related sections/cases/runs/embeddings.
 
     WARNING: This cannot be undone. Use with extreme caution.
 
@@ -1041,15 +1062,21 @@ async def hard_delete_suite(suite_id: str) -> dict:
     Returns:
         Success status
     """
+    cases = await TestCaseModel.filter(suite_id=suite_id).all()
+    for case in cases:
+        await _delete_case_cascade(str(case.id))
+    runs = await TestRunModel.filter(suite_id=suite_id).all()
+    for run in runs:
+        await _delete_run_cascade(str(run.id))
+    await SectionModel.filter(suite_id=suite_id).delete()
+    await EmbeddingService.delete_embeddings('test_suite', suite_id)
     await TestSuiteModel.filter(id=suite_id).delete()
     return {"hard_deleted": True, "id": suite_id}
 
 
 @mcp.tool()
 async def hard_delete_section(section_id: str) -> dict:
-    """Permanently delete a section.
-
-    Cases in this section will have section_id set to null.
+    """Permanently delete a section. Cases in this section will have section_id set to null.
 
     Args:
         section_id: UUID of the section
@@ -1057,6 +1084,8 @@ async def hard_delete_section(section_id: str) -> dict:
     Returns:
         Success status
     """
+    await TestCaseModel.filter(section_id=section_id).update(section_id=None)
+    await EmbeddingService.delete_embeddings('section', section_id)
     await SectionModel.filter(id=section_id).delete()
     return {"hard_deleted": True, "id": section_id}
 

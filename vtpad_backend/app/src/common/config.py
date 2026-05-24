@@ -20,8 +20,6 @@ class EnvConfig:
 
         self.jaeger_host: str = os.getenv('jaeger_host') if os.getenv('jaeger_host') else 'localhost'
 
-        self.news_url: str = f"{os.getenv('news_url')}"
-
         self.report_portal_url: str = f"{os.getenv('report_url')}"
         self.report_api_hash: str = os.getenv('report_api_hash')
 

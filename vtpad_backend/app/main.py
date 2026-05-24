@@ -18,12 +18,10 @@ import app.src.space as space
 import app.src.users as users
 import app.src.auth as auth
 import app.src.file as file
-import app.src.notes as note
 import app.src.bug as bug
 import app.src.comments as comments_bug
 import app.src.tag as tag
 import app.src.notification as notification
-import app.src.news as news
 import app.src.report as report
 from app.src.qa_report import router as qa_report_router
 
@@ -231,10 +229,8 @@ app_utils.register_router(
         bug.router_v2,
         comments_bug.router,
         tag.router,
-        note.router,
         file.router,
         notification.router,
-        news.router,
         report.router,
         company_router,
         user_company_router,

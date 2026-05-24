@@ -4,7 +4,7 @@
 import asyncio
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin
 
 import httpx
@@ -26,7 +26,7 @@ def make_token():
     secret = ENV.get("SECRET_KEY")
     algo = ENV.get("ALGORITHM", "HS256")
     admin_id = ENV.get("main_admin_id", "b81d76f4-eb39-4ba7-a9eb-c9d192426553")
-    expire = datetime.utcnow() + timedelta(minutes=30000)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=30000)
     payload = {"mail": "admin@vtpad.local", "id": admin_id, "exp": expire}
     return jwt.encode(payload, secret, algorithm=algo)
 

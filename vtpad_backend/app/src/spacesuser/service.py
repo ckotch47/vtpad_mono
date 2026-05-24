@@ -2,7 +2,6 @@ from fastapi import HTTPException
 from tortoise import Tortoise
 
 from .model import SpacesUserModel, SpacesUserRole
-from ..notes import NotesModel
 
 
 class SpacesUserService:

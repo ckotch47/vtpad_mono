@@ -1,0 +1,5 @@
+{
+  "data": [
+    "DROP TABLE IF EXISTS notesmodel"
+  ]
+}

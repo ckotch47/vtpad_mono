@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from tortoise.expressions import Q
 
@@ -175,7 +175,7 @@ class TestRunService:
         run = await TestRunService.get_by_id(run_id)
         if run.status != TestRunStatus.draft:
             raise HTTPException(status_code=400, detail="Run is not in draft status")
-        await TestRunModel.filter(id=run_id).update(status=TestRunStatus.active, started_at=datetime.utcnow())
+        await TestRunModel.filter(id=run_id).update(status=TestRunStatus.active, started_at=datetime.now(timezone.utc))
         return await TestRunService.get_by_id(run_id)
 
     @staticmethod
@@ -183,7 +183,7 @@ class TestRunService:
         run = await TestRunService.get_by_id(run_id)
         if run.status != TestRunStatus.active:
             raise HTTPException(status_code=400, detail="Run is not active")
-        await TestRunModel.filter(id=run_id).update(status=TestRunStatus.completed, completed_at=datetime.utcnow())
+        await TestRunModel.filter(id=run_id).update(status=TestRunStatus.completed, completed_at=datetime.now(timezone.utc))
         return await TestRunService.get_by_id(run_id)
 
     @staticmethod
@@ -205,7 +205,7 @@ class TestResultService:
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
         data['executed_by_id'] = user_id
-        data['executed_at'] = datetime.utcnow()
+        data['executed_at'] = datetime.now(timezone.utc)
         await TestResultModel.filter(id=result_id).update(**data)
         return await TestResultModel.get(id=result_id)
 
@@ -215,7 +215,7 @@ class TestResultService:
         count = await TestResultModel.filter(id__in=dto.result_ids).update(
             status=dto.status,
             executed_by_id=user_id,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(timezone.utc),
         )
         return count
 

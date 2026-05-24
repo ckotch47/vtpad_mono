@@ -17,8 +17,7 @@ class TestPlanService:
             name=dto.name,
             description=dto.description,
             space_id=dto.space_id,
-            suite_id=dto.suite_id,
-            filters=dto.filters or {},
+            case_ids=dto.case_ids or [],
             created_by_id=user_id,
         )
         return plan
@@ -32,7 +31,7 @@ class TestPlanService:
         sort_order: Optional[str] = 'desc',
         search: Optional[str] = None
     ) -> dict:
-        q = TestPlanModel.filter(space_id=space_id).prefetch_related('suite')
+        q = TestPlanModel.filter(space_id=space_id)
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
 
@@ -52,7 +51,7 @@ class TestPlanService:
 
     @staticmethod
     async def get_by_id(plan_id: str) -> TestPlanModel:
-        plan = await TestPlanModel.get_or_none(id=plan_id).prefetch_related('suite', 'space')
+        plan = await TestPlanModel.get_or_none(id=plan_id).prefetch_related('space')
         if not plan:
             raise HTTPException(status_code=404, detail="Test plan not found")
         return plan
@@ -73,24 +72,20 @@ class TestPlanService:
         return True
 
     @staticmethod
-    async def get_filtered_cases(plan_id: str) -> list:
-        """Return test case IDs that match the plan's filters."""
+    async def get_cases(plan_id: str) -> list:
+        """Return test cases in the plan's fixed case_ids list."""
         plan = await TestPlanService.get_by_id(plan_id)
         from ..test_case.model import TestCaseModel
 
-        q = TestCaseModel.filter(space_id=str(plan.space_id))
+        case_ids = plan.case_ids or []
+        if not case_ids:
+            return []
 
-        if plan.suite_id:
-            q = q.filter(suite_id=str(plan.suite_id))
-
-        filters = plan.filters or {}
-
-        if filters.get('types'):
-            q = q.filter(type__in=filters['types'])
-        if filters.get('statuses'):
-            q = q.filter(status__in=filters['statuses'])
-        if filters.get('sections'):
-            q = q.filter(section_id__in=filters['sections'])
-
-        cases = await q.all()
-        return cases
+        cases = await TestCaseModel.filter(id__in=case_ids).all()
+        # Preserve order from case_ids
+        case_map = {str(c.id): c for c in cases}
+        ordered = []
+        for cid in case_ids:
+            if cid in case_map:
+                ordered.append(case_map[cid])
+        return ordered

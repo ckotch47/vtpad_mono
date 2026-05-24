@@ -21,7 +21,7 @@
           </p>
         </v-col>
         <v-col cols="auto">
-          <v-btn color="primary" prepend-icon="mdi-play" @click="createRun">
+          <v-btn color="primary" prepend-icon="mdi-play" @click="createRun" :disabled="cases.length === 0">
             New Run
           </v-btn>
         </v-col>
@@ -30,6 +30,7 @@
 
     <v-container fluid>
       <v-row>
+        <!-- Selected Cases -->
         <v-col cols="12" md="8">
           <v-card>
             <v-card-title class="d-flex align-center">
@@ -43,48 +44,101 @@
                 <v-list-item
                   v-for="tc in cases"
                   :key="tc.id"
-                  :to="`/space/${spaceId}/test-cases/${tc.id}`"
                 >
                   <template v-slot:prepend>
                     <v-icon :color="typeColor(tc.type)">{{ typeIcon(tc.type) }}</v-icon>
                   </template>
-                  <v-list-item-title>{{ tc.title }}</v-list-item-title>
+                  <v-list-item-title>
+                    <router-link :to="`/space/${spaceId}/test-cases/${tc.id}`">
+                      {{ tc.title }}
+                    </router-link>
+                  </v-list-item-title>
                   <v-list-item-subtitle>
                     <v-chip size="x-small" :color="statusColor(tc.status)">{{ tc.status }}</v-chip>
+                    <span v-if="tc.suite" class="text-caption text-medium-emphasis ml-2">
+                      {{ tc.suite.name }}
+                    </span>
                   </v-list-item-subtitle>
+                  <template v-slot:append>
+                    <v-btn icon size="x-small" variant="text" color="error" @click="removeCase(tc.id)">
+                      <v-icon>mdi-close</v-icon>
+                    </v-btn>
+                  </template>
                 </v-list-item>
               </v-list>
               <v-empty-state
                 v-if="cases.length === 0"
                 icon="mdi-test-tube-off"
-                text="No cases match this plan's filters"
+                text="No cases in this plan yet. Select suites and add cases below."
               />
             </v-card-text>
           </v-card>
         </v-col>
 
+        <!-- Add Cases -->
         <v-col cols="12" md="4">
           <v-card>
-            <v-card-title>Info</v-card-title>
+            <v-card-title class="d-flex align-center">
+              <v-icon class="mr-2">mdi-plus</v-icon>
+              Add Cases
+            </v-card-title>
+            <v-divider />
             <v-card-text>
-              <v-list density="compact">
-                <v-list-item>
-                  <v-list-item-title>Suite</v-list-item-title>
-                  <v-list-item-subtitle>{{ plan.suite?.name || '-' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Filters</v-list-item-title>
+              <v-select
+                v-model="selectedSuites"
+                :items="suites"
+                item-title="name"
+                item-value="id"
+                label="Select Suites"
+                multiple
+                chips
+                clearable
+                class="mb-3"
+                @update:model-value="loadAvailableCases"
+              />
+
+              <v-text-field
+                v-model="caseSearch"
+                label="Search cases"
+                prepend-inner-icon="mdi-magnify"
+                density="compact"
+                hide-details
+                variant="outlined"
+                class="mb-2"
+                clearable
+              />
+
+              <v-list density="compact" style="max-height: 350px; overflow-y: auto;">
+                <v-list-item
+                  v-for="tc in filteredAvailableCases"
+                  :key="tc.id"
+                  :disabled="isCaseInPlan(tc.id)"
+                >
+                  <template v-slot:prepend>
+                    <v-checkbox-btn
+                      v-model="selectedCases"
+                      :value="tc.id"
+                      :disabled="isCaseInPlan(tc.id)"
+                    />
+                  </template>
+                  <v-list-item-title>{{ tc.title }}</v-list-item-title>
                   <v-list-item-subtitle>
-                    <code v-if="plan.filters && Object.keys(plan.filters).length">{{ JSON.stringify(plan.filters) }}</code>
-                    <span v-else>All cases</span>
+                    <v-chip size="x-small" :color="typeColor(tc.type)">{{ tc.type }}</v-chip>
+                    <span class="text-caption text-medium-emphasis ml-1">{{ tc.suite?.name }}</span>
                   </v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Created</v-list-item-title>
-                  <v-list-item-subtitle>{{ formatDate(plan.created_at) }}</v-list-item-subtitle>
                 </v-list-item>
               </v-list>
             </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn
+                color="primary"
+                :disabled="selectedCases.length === 0"
+                @click="addCasesToPlan"
+              >
+                Add {{ selectedCases.length ? `(${selectedCases.length})` : '' }}
+              </v-btn>
+            </v-card-actions>
           </v-card>
 
           <v-card class="mt-4">
@@ -126,14 +180,27 @@ export default {
     runs: [],
     spaceId: undefined,
     planId: undefined,
-    loader: true
+    loader: true,
+    suites: [],
+    selectedSuites: [],
+    availableCases: [],
+    selectedCases: [],
+    caseSearch: ''
   }),
+  computed: {
+    filteredAvailableCases() {
+      const q = this.caseSearch.toLowerCase().trim();
+      if (!q) return this.availableCases;
+      return this.availableCases.filter(tc => tc.title?.toLowerCase().includes(q));
+    }
+  },
   created() {
     this.spaceId = this.$route.params.spaceId;
     this.planId = this.$route.params.planId;
   },
   mounted() {
     this.loadPlan();
+    this.loadSuites();
   },
   methods: {
     async loadPlan() {
@@ -154,6 +221,63 @@ export default {
         console.error(e);
       } finally {
         this.loader = false;
+      }
+    },
+    async loadSuites() {
+      try {
+        const res = await axios.get(`/api/v2/test-suite/space/${this.spaceId}`, {
+          params: { page: 1, page_size: 1000 }
+        });
+        this.suites = res.data.items || [];
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    async loadAvailableCases() {
+      if (!this.selectedSuites.length) {
+        this.availableCases = [];
+        this.selectedCases = [];
+        return;
+      }
+      try {
+        const promises = this.selectedSuites.map(suiteId =>
+          axios.get(`/api/v2/test-case/suite/${suiteId}`)
+        );
+        const responses = await Promise.all(promises);
+        const allCases = responses.flatMap(r => r.data);
+        // Deduplicate by id
+        const seen = new Set();
+        this.availableCases = allCases.filter(tc => {
+          if (seen.has(tc.id)) return false;
+          seen.add(tc.id);
+          return true;
+        });
+      } catch (e) {
+        console.error(e);
+        this.availableCases = [];
+      }
+    },
+    isCaseInPlan(caseId) {
+      return this.cases.some(c => c.id === caseId);
+    },
+    async addCasesToPlan() {
+      const currentIds = this.cases.map(c => c.id);
+      const newIds = [...currentIds, ...this.selectedCases];
+      try {
+        await axios.patch(`/api/v2/test-plan/${this.planId}`, { case_ids: newIds });
+        this.selectedCases = [];
+        this.loadPlan();
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    async removeCase(caseId) {
+      const newIds = this.cases.filter(c => c.id !== caseId).map(c => c.id);
+      try {
+        await axios.patch(`/api/v2/test-plan/${this.planId}`, { case_ids: newIds });
+        this.loadPlan();
+      } catch (e) {
+        console.error(e);
       }
     },
     async createRun() {
@@ -183,9 +307,6 @@ export default {
     runStatusColor(status) {
       const map = { draft: 'grey', active: 'primary', completed: 'success' };
       return map[status] || 'grey';
-    },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleDateString() : '';
     }
   }
 }

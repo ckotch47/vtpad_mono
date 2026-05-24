@@ -14,18 +14,14 @@ class TestRunService:
     async def create(dto: TestRunCreateDto, token: str) -> TestRunModel:
         user_id = await get_user_id_by_token(token)
 
-        # Determine suite_id if plan_id is provided
+        # Determine testcase_ids if plan_id is provided
         suite_id = dto.suite_id
         testcase_ids = dto.testcase_ids
 
         if dto.plan_id:
             from ..test_plan.service import TestPlanService
-            plan_cases = await TestPlanService.get_filtered_cases(dto.plan_id)
+            plan_cases = await TestPlanService.get_cases(dto.plan_id)
             testcase_ids = [str(tc.id) for tc in plan_cases]
-            # Use plan's suite if no explicit suite_id
-            if not suite_id:
-                plan = await TestPlanService.get_by_id(dto.plan_id)
-                suite_id = str(plan.suite_id) if plan.suite_id else None
 
         run = await TestRunModel.create(
             name=dto.name,
@@ -92,7 +88,18 @@ class TestRunService:
         items = await q.offset((page - 1) * page_size).limit(page_size).all()
 
         return {
-            'items': items,
+            'items': [
+                {
+                    'id': str(r.id),
+                    'name': r.name,
+                    'description': r.description,
+                    'status': r.status,
+                    'suite_id': str(r.suite_id) if r.suite_id else None,
+                    'plan_id': str(r.plan_id) if r.plan_id else None,
+                    'created_at': r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in items
+            ],
             'total': total,
             'page': page,
             'page_size': page_size,
@@ -144,6 +151,8 @@ class TestRunService:
                 'name': run.name,
                 'description': run.description,
                 'status': run.status,
+                'suite_id': str(run.suite_id) if run.suite_id else None,
+                'plan_id': str(run.plan_id) if run.plan_id else None,
                 'created_at': run.created_at.isoformat() if run.created_at else None,
                 'started_at': run.started_at.isoformat() if run.started_at else None,
                 'completed_at': run.completed_at.isoformat() if run.completed_at else None,

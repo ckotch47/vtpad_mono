@@ -30,8 +30,8 @@ async def get_by_id(plan_id: str):
 
 
 @router.get('/{plan_id}/cases', dependencies=[Depends(bearer)])
-async def get_filtered_cases(plan_id: str):
-    return await TestPlanService.get_filtered_cases(plan_id)
+async def get_plan_cases(plan_id: str):
+    return await TestPlanService.get_cases(plan_id)
 
 
 @router.post('/', dependencies=[Depends(bearer)])

@@ -25,8 +25,8 @@
           {{ item.name }}
         </router-link>
       </template>
-      <template v-slot:item.suite="{ item }">
-        {{ item.suite?.name || '-' }}
+      <template v-slot:item.case_count="{ item }">
+        <v-chip size="small" color="primary">{{ (item.case_ids || []).length }}</v-chip>
       </template>
       <template v-slot:item.actions="{ item }">
         <v-btn icon size="small" variant="text" :to="`/space/${spaceId}/test-plans/${item.id}`">
@@ -45,14 +45,6 @@
         <v-card-text>
           <v-text-field v-model="newPlan.name" label="Name" required autofocus />
           <v-textarea v-model="newPlan.description" label="Description" rows="2" />
-          <v-select
-            v-model="newPlan.suite_id"
-            :items="suites"
-            item-title="name"
-            item-value="id"
-            label="Suite (optional)"
-            clearable
-          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -72,19 +64,18 @@ export default {
   data: () => ({
     spaceId: undefined,
     plans: [],
-    suites: [],
     total: 0,
     page: 1,
     pageSize: 25,
     loading: false,
     openDialog: false,
-    newPlan: { name: '', description: '', suite_id: null }
+    newPlan: { name: '', description: '' }
   }),
   computed: {
     headers() {
       return [
         { title: 'Name', key: 'name', sortable: false },
-        { title: 'Suite', key: 'suite', sortable: false },
+        { title: 'Cases', key: 'case_count', sortable: false },
         { title: 'Description', key: 'description', sortable: false },
         { title: 'Created', key: 'created_at', sortable: false },
         { title: 'Actions', key: 'actions', sortable: false, align: 'end' }
@@ -95,7 +86,7 @@ export default {
     this.spaceId = this.$route.params.spaceId;
   },
   mounted() {
-    this.loadSuites();
+    // v-data-table-server triggers loadPlans on mount; spaceId must be set in created()
   },
   methods: {
     async loadPlans({ page, itemsPerPage }) {
@@ -115,27 +106,15 @@ export default {
         this.loading = false;
       }
     },
-    async loadSuites() {
-      if (!this.spaceId || this.spaceId === 'undefined') return;
-      try {
-        const res = await axios.get(`/api/v2/test-suite/space/${this.spaceId}`, {
-          params: { page: 1, page_size: 1000 }
-        });
-        this.suites = res.data.items;
-      } catch (e) {
-        console.error(e);
-      }
-    },
     async createPlan() {
       try {
         await axios.post('/api/v2/test-plan/', {
           name: this.newPlan.name,
           description: this.newPlan.description,
-          space_id: this.spaceId,
-          suite_id: this.newPlan.suite_id
+          space_id: this.spaceId
         });
         this.openDialog = false;
-        this.newPlan = { name: '', description: '', suite_id: null };
+        this.newPlan = { name: '', description: '' };
         this.loadPlans({ page: this.page, itemsPerPage: this.pageSize });
       } catch (e) {
         console.error(e);

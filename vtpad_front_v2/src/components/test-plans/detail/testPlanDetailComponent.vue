@@ -128,9 +128,11 @@ export default {
     planId: undefined,
     loader: true
   }),
-  mounted() {
+  created() {
     this.spaceId = this.$route.params.spaceId;
     this.planId = this.$route.params.planId;
+  },
+  mounted() {
     this.loadPlan();
   },
   methods: {

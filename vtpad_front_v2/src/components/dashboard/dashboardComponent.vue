@@ -232,8 +232,10 @@ export default {
     topFailed: [],
     trend: []
   }),
-  mounted() {
+  created() {
     this.spaceId = this.$route.params.spaceId;
+  },
+  mounted() {
     this.loadDashboard();
   },
   methods: {

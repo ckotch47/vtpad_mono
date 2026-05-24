@@ -91,12 +91,15 @@ export default {
       ];
     }
   },
-  mounted() {
+  created() {
     this.spaceId = this.$route.params.spaceId;
+  },
+  mounted() {
     this.loadSuites();
   },
   methods: {
     async loadPlans({ page, itemsPerPage }) {
+      if (!this.spaceId || this.spaceId === 'undefined') return;
       this.loading = true;
       this.page = page;
       this.pageSize = itemsPerPage;
@@ -113,6 +116,7 @@ export default {
       }
     },
     async loadSuites() {
+      if (!this.spaceId || this.spaceId === 'undefined') return;
       try {
         const res = await axios.get(`/api/v2/test-suite/space/${this.spaceId}`, {
           params: { page: 1, page_size: 1000 }

@@ -119,7 +119,15 @@ export default {
     if(this.$route?.params.id)
       this.spaceId = this.$route?.params.id
 
-
+    // Global Esc handler — close topmost overlay (dialog, menu, etc.)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const activeOverlays = document.querySelectorAll('.v-overlay__scrim');
+        if (activeOverlays.length > 0) {
+          activeOverlays[activeOverlays.length - 1].click();
+        }
+      }
+    });
   },
   updated() {
     this.routerMeta = useRouter().currentRoute.value;

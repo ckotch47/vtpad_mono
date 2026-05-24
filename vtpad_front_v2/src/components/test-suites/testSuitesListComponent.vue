@@ -144,6 +144,7 @@ export default {
     this.page = parseInt(q.page) || 1;
     this.itemsPerPage = parseInt(q.page_size) || 25;
     this.search = q.search || '';
+    this.filterStatus = q.status || '';
     if (q.sort_by && q.sort_order) {
       this.sortBy = [{ key: q.sort_by, order: q.sort_order }];
     }
@@ -167,6 +168,7 @@ export default {
 
       const query = { page, page_size: pageSize };
       if (this.search) query.search = this.search;
+      if (this.filterStatus) query.status = this.filterStatus;
       if (sortKey !== 'created_at' || sortOrder !== 'desc') {
         query.sort_by = sortKey;
         query.sort_order = sortOrder;

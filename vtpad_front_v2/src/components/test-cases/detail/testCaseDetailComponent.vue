@@ -4,6 +4,9 @@
   </div>
 
   <div v-else>
+    <v-container fluid class="pb-0">
+      <breadcrumbs-component :items="breadcrumbItems" />
+    </v-container>
     <v-toolbar density="compact">
       <v-btn icon @click="$router.back()">
         <v-icon>mdi-arrow-left</v-icon>
@@ -22,110 +25,148 @@
     </v-toolbar>
 
     <v-container fluid>
-      <v-row>
-        <v-col cols="12" md="8">
-          <v-card class="mb-4">
-            <v-card-title>Description</v-card-title>
-            <v-card-text>
-              <editor-component
-                :text="testcase.text || ''"
-                :edit="false"
-                :show-menu-bubble="false"
-                :show-menu-floating="false"
-                :show-menu-fixed="false"
-              />
-            </v-card-text>
-          </v-card>
+      <v-tabs v-model="activeTab" class="mb-4">
+        <v-tab value="details">Details</v-tab>
+        <v-tab value="history">Run History</v-tab>
+      </v-tabs>
 
-          <v-card class="mb-4">
-            <v-card-title>Preconditions</v-card-title>
-            <v-card-text>
-              <editor-component
-                :text="testcase.preconditions || ''"
-                :edit="false"
-                :show-menu-bubble="false"
-                :show-menu-floating="false"
-                :show-menu-fixed="false"
-              />
-            </v-card-text>
-          </v-card>
+      <v-window v-model="activeTab">
+        <v-window-item value="details">
+          <v-row>
+            <v-col cols="12" md="8">
+              <v-card class="mb-4">
+                <v-card-title>Description</v-card-title>
+                <v-card-text>
+                  <editor-component
+                    :text="testcase.text || ''"
+                    :edit="false"
+                    :show-menu-bubble="false"
+                    :show-menu-floating="false"
+                    :show-menu-fixed="false"
+                  />
+                </v-card-text>
+              </v-card>
 
-          <v-card class="mb-4">
-            <v-card-title>Steps</v-card-title>
-            <v-card-text>
-              <editor-component
-                :text="testcase.steps || ''"
-                :edit="false"
-                :show-menu-bubble="false"
-                :show-menu-floating="false"
-                :show-menu-fixed="false"
-              />
-            </v-card-text>
-          </v-card>
+              <v-card class="mb-4">
+                <v-card-title>Preconditions</v-card-title>
+                <v-card-text>
+                  <editor-component
+                    :text="testcase.preconditions || ''"
+                    :edit="false"
+                    :show-menu-bubble="false"
+                    :show-menu-floating="false"
+                    :show-menu-fixed="false"
+                  />
+                </v-card-text>
+              </v-card>
 
-          <v-card class="mb-4">
-            <v-card-title>Expected Results</v-card-title>
-            <v-card-text>
-              <editor-component
-                :text="testcase.expected_results || ''"
-                :edit="false"
-                :show-menu-bubble="false"
-                :show-menu-floating="false"
-                :show-menu-fixed="false"
-              />
-            </v-card-text>
-          </v-card>
-        </v-col>
+              <v-card class="mb-4">
+                <v-card-title>Steps</v-card-title>
+                <v-card-text>
+                  <editor-component
+                    :text="testcase.steps || ''"
+                    :edit="false"
+                    :show-menu-bubble="false"
+                    :show-menu-floating="false"
+                    :show-menu-fixed="false"
+                  />
+                </v-card-text>
+              </v-card>
 
-        <v-col cols="12" md="4">
+              <v-card class="mb-4">
+                <v-card-title>Expected Results</v-card-title>
+                <v-card-text>
+                  <editor-component
+                    :text="testcase.expected_results || ''"
+                    :edit="false"
+                    :show-menu-bubble="false"
+                    :show-menu-floating="false"
+                    :show-menu-fixed="false"
+                  />
+                </v-card-text>
+              </v-card>
+            </v-col>
+
+            <v-col cols="12" md="4">
+              <v-card>
+                <v-card-title>Info</v-card-title>
+                <v-card-text>
+                  <v-list density="compact">
+                    <v-list-item>
+                      <v-list-item-title>ID</v-list-item-title>
+                      <v-list-item-subtitle>{{ testcase.id }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>Short Name</v-list-item-title>
+                      <v-list-item-subtitle>{{ testcase.short_name || '-' }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>External ID</v-list-item-title>
+                      <v-list-item-subtitle>{{ testcase.external_id || '-' }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>Link</v-list-item-title>
+                      <v-list-item-subtitle>
+                        <a v-if="testcase.link" :href="testcase.link" target="_blank">{{ testcase.link }}</a>
+                        <span v-else>-</span>
+                      </v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>Created</v-list-item-title>
+                      <v-list-item-subtitle>{{ formatDate(testcase.created_at) }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>Updated</v-list-item-title>
+                      <v-list-item-subtitle>{{ formatDate(testcase.updated_at) }}</v-list-item-subtitle>
+                    </v-list-item>
+                  </v-list>
+                </v-card-text>
+              </v-card>
+
+              <v-card class="mt-4">
+                <v-card-title>Versions</v-card-title>
+                <v-card-text>
+                  <v-list density="compact">
+                    <v-list-item v-for="ver in versions" :key="ver.id">
+                      <v-list-item-title>v{{ ver.version_number }}</v-list-item-title>
+                      <v-list-item-subtitle>{{ formatDate(ver.created_at) }}</v-list-item-subtitle>
+                    </v-list-item>
+                  </v-list>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+        </v-window-item>
+
+        <v-window-item value="history">
           <v-card>
-            <v-card-title>Info</v-card-title>
+            <v-card-title>Run History</v-card-title>
             <v-card-text>
-              <v-list density="compact">
-                <v-list-item>
-                  <v-list-item-title>ID</v-list-item-title>
-                  <v-list-item-subtitle>{{ testcase.id }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Short Name</v-list-item-title>
-                  <v-list-item-subtitle>{{ testcase.short_name || '-' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>External ID</v-list-item-title>
-                  <v-list-item-subtitle>{{ testcase.external_id || '-' }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Link</v-list-item-title>
-                  <v-list-item-subtitle>
-                    <a v-if="testcase.link" :href="testcase.link" target="_blank">{{ testcase.link }}</a>
-                    <span v-else>-</span>
-                  </v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Created</v-list-item-title>
-                  <v-list-item-subtitle>{{ formatDate(testcase.created_at) }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Updated</v-list-item-title>
-                  <v-list-item-subtitle>{{ formatDate(testcase.updated_at) }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
+              <v-data-table-server
+                v-model:items-per-page="historyPageSize"
+                :headers="historyHeaders"
+                :items="runHistory"
+                :items-length="historyTotal"
+                :loading="historyLoading"
+                item-value="id"
+                @update:options="loadRunHistory"
+              >
+                <template v-slot:item.status="{ item }">
+                  <v-chip size="small" :color="resultStatusColor(item.status)">{{ item.status }}</v-chip>
+                </template>
+                <template v-slot:item.run_name="{ item }">
+                  <router-link :to="`/space/${spaceId}/test-runs/${item.run_id}`">
+                    {{ item.run_name }}
+                  </router-link>
+                </template>
+                <template v-slot:item.executed_at="{ item }">
+                  {{ formatDate(item.executed_at) }}
+                </template>
+              </v-data-table-server>
             </v-card-text>
           </v-card>
-
-          <v-card class="mt-4">
-            <v-card-title>Versions</v-card-title>
-            <v-card-text>
-              <v-list density="compact">
-                <v-list-item v-for="ver in versions" :key="ver.id">
-                  <v-list-item-title>v{{ ver.version_number }}</v-list-item-title>
-                  <v-list-item-subtitle>{{ formatDate(ver.created_at) }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
+        </v-window-item>
+      </v-window>
     </v-container>
   </div>
 </template>
@@ -133,17 +174,35 @@
 <script>
 import axios from "axios";
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
+import BreadcrumbsComponent from "@/components/common/breadcrumbsComponent.vue";
 
 export default {
   name: "testCaseDetailComponent",
-  components: { EditorComponent },
+  components: { EditorComponent, BreadcrumbsComponent },
   data: () => ({
     testcase: {},
     versions: [],
     spaceId: undefined,
     caseId: undefined,
-    loader: true
+    loader: true,
+    activeTab: 'details',
+    runHistory: [],
+    historyTotal: 0,
+    historyPageSize: 25,
+    historyLoading: false,
+    breadcrumbItems: []
   }),
+  computed: {
+    historyHeaders() {
+      return [
+        { title: 'Run', key: 'run_name', sortable: false },
+        { title: 'Status', key: 'status', sortable: false },
+        { title: 'Duration (s)', key: 'duration_seconds', sortable: false },
+        { title: 'Comment', key: 'comment', sortable: false },
+        { title: 'Executed', key: 'executed_at', sortable: false }
+      ];
+    }
+  },
   mounted() {
     this.spaceId = this.$route.params.spaceId;
     this.caseId = this.$route.params.caseId;
@@ -153,8 +212,27 @@ export default {
     loadCase() {
       axios.get(`/api/v2/test-case/${this.caseId}`).then(res => {
         this.testcase = res.data;
+        this.versions = res.data.versions || [];
+        this.breadcrumbItems = [
+          { title: 'Test Cases', to: `/space/${this.spaceId}/test-cases` },
+          { title: this.testcase.title }
+        ];
         this.loader = false;
       }).catch(() => { this.loader = false; });
+    },
+    async loadRunHistory({ page, itemsPerPage }) {
+      this.historyLoading = true;
+      try {
+        const res = await axios.get(`/api/v2/test-case/${this.caseId}/runs`, {
+          params: { page, page_size: itemsPerPage }
+        });
+        this.runHistory = res.data.items;
+        this.historyTotal = res.data.total;
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.historyLoading = false;
+      }
     },
     typeColor(type) {
       const map = { manual: 'primary', checklist: 'warning', automated: 'success' };
@@ -162,6 +240,10 @@ export default {
     },
     statusColor(status) {
       const map = { active: 'success', draft: 'grey', deprecated: 'error' };
+      return map[status] || 'grey';
+    },
+    resultStatusColor(status) {
+      const map = { passed: 'success', failed: 'error', blocked: 'warning', skipped: 'grey', not_run: 'grey' };
       return map[status] || 'grey';
     },
     formatDate(date) {

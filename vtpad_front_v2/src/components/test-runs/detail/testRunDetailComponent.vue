@@ -162,41 +162,115 @@
     </v-container>
 
     <!-- Edit Result Dialog -->
-    <v-dialog v-model="editModal" max-width="560">
+    <v-dialog v-model="editModal" max-width="600" scrollable>
       <v-card v-if="editingResult">
-        <v-card-title>Update Result</v-card-title>
+        <v-card-title class="d-flex align-center">
+          <span>Update Result</span>
+          <v-spacer />
+          <v-btn v-if="editingResult.status === 'failed'" color="error" size="small" prepend-icon="mdi-bug" @click="openBugModal">
+            Create Bug
+          </v-btn>
+        </v-card-title>
+        <v-divider />
         <v-card-text>
-          <div class="text-subtitle-2 mb-2">{{ editingResult.testcase?.title }}</div>
-          <v-select
-            v-model="editingResult.status"
-            :items="['not_run','passed','failed','blocked','skipped']"
-            label="Status"
-            class="mb-2"
-          />
-          <v-text-field
-            v-model="editingResult.duration_seconds"
-            label="Duration (seconds)"
-            type="number"
-            class="mb-2"
-          />
-          <v-textarea v-model="editingResult.comment" label="Comment" rows="2" class="mb-2" />
-          <v-combobox
-            v-model="editingResult.linked_bug_ids"
-            :items="spaceBugs"
-            item-title="short_name"
-            item-value="short_name"
-            label="Linked Bugs"
-            multiple
-            chips
-            closable-chips
-            clearable
-            :return-object="false"
-          />
+          <div class="text-subtitle-1 font-weight-medium mb-3">{{ editingResult.testcase?.title }}</div>
+
+          <v-tabs v-model="editTab" class="mb-3">
+            <v-tab value="result">Result</v-tab>
+            <v-tab value="steps">Steps</v-tab>
+          </v-tabs>
+
+          <v-window v-model="editTab">
+            <v-window-item value="result">
+              <v-select
+                v-model="editingResult.status"
+                :items="['not_run','passed','failed','blocked','skipped']"
+                label="Status"
+                class="mb-2"
+              />
+              <v-text-field
+                v-model="editingResult.duration_seconds"
+                label="Duration (seconds)"
+                type="number"
+                class="mb-2"
+              />
+              <v-textarea v-model="editingResult.comment" label="Comment" rows="2" class="mb-2" />
+              <v-combobox
+                v-model="editingResult.linked_bug_ids"
+                :items="spaceBugs"
+                item-title="short_name"
+                item-value="short_name"
+                label="Linked Bugs"
+                multiple
+                chips
+                closable-chips
+                clearable
+                :return-object="false"
+              />
+            </v-window-item>
+
+            <v-window-item value="steps">
+              <v-list density="compact">
+                <v-list-item v-for="(step, idx) in stepResults" :key="idx" class="step-item">
+                  <v-row align="center" no-gutters>
+                    <v-col cols="1">
+                      <span class="text-caption text-medium-emphasis">{{ idx + 1 }}</span>
+                    </v-col>
+                    <v-col cols="7">
+                      <span class="text-body-2">{{ step.step_text }}</span>
+                    </v-col>
+                    <v-col cols="4">
+                      <v-select
+                        v-model="step.status"
+                        :items="['not_run','passed','failed','blocked','skipped']"
+                        density="compact"
+                        hide-details
+                        variant="outlined"
+                        class="step-status-select"
+                      />
+                    </v-col>
+                  </v-row>
+                  <v-textarea
+                    v-model="step.comment"
+                    label="Step comment"
+                    rows="1"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    class="mt-1"
+                  />
+                </v-list-item>
+              </v-list>
+              <v-empty-state
+                v-if="stepResults.length === 0"
+                icon="mdi-format-list-bulleted"
+                text="No steps recorded for this case"
+              />
+            </v-window-item>
+          </v-window>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="editModal = false">Cancel</v-btn>
+          <v-btn variant="text" @click="editModal = false">Cancel</v-btn>
           <v-btn color="primary" @click="saveResult">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Quick Bug Modal -->
+    <v-dialog v-model="bugModal" max-width="560">
+      <v-card>
+        <v-card-title>Create Bug</v-card-title>
+        <v-card-text>
+          <v-text-field v-model="newBug.title" label="Title" required autofocus />
+          <v-textarea v-model="newBug.steps" label="Steps to Reproduce" rows="3" />
+          <v-textarea v-model="newBug.expected" label="Expected Result" rows="2" />
+          <v-textarea v-model="newBug.actual" label="Actual Result" rows="2" />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="bugModal = false">Cancel</v-btn>
+          <v-btn color="error" @click="createBug">Create Bug</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -217,7 +291,11 @@ export default {
     loader: true,
     editModal: false,
     editingResult: null,
-    spaceBugs: []
+    spaceBugs: [],
+    editTab: 'result',
+    stepResults: [],
+    bugModal: false,
+    newBug: { title: '', steps: '', expected: '', actual: '' }
   }),
   computed: {
     groupedResults() {
@@ -272,17 +350,72 @@ export default {
         ...result,
         linked_bug_ids: result.linked_bug_ids || []
       };
+      this.editTab = 'result';
+      this.stepResults = [];
+      this.loadStepResults(result.id);
       this.editModal = true;
     },
+    loadStepResults(resultId) {
+      axios.get(`/api/v2/test-run/result/${resultId}/steps`).then(res => {
+        this.stepResults = res.data;
+      }).catch(() => {
+        this.stepResults = [];
+      });
+    },
     saveResult() {
+      // Save main result
       axios.patch(`/api/v2/test-run/result/${this.editingResult.id}`, {
         status: this.editingResult.status,
         duration_seconds: parseInt(this.editingResult.duration_seconds) || null,
         comment: this.editingResult.comment,
         linked_bug_ids: this.editingResult.linked_bug_ids
       }).then(() => {
+        // Save step results if any
+        if (this.stepResults.length > 0) {
+          return axios.patch(`/api/v2/test-run/result/${this.editingResult.id}/steps`, {
+            steps: this.stepResults.map(s => ({
+              step_index: s.step_index,
+              step_text: s.step_text,
+              status: s.status,
+              comment: s.comment,
+              screenshot_url: s.screenshot_url
+            }))
+          });
+        }
+      }).then(() => {
         this.editModal = false;
         this.loadRun();
+      });
+    },
+    openBugModal() {
+      this.newBug = {
+        title: `Bug: ${this.editingResult.testcase?.title || 'Failed test'}`,
+        steps: this.editingResult.testcase?.steps || '',
+        expected: this.editingResult.testcase?.expected_results || '',
+        actual: this.editingResult.comment || ''
+      };
+      this.bugModal = true;
+    },
+    createBug() {
+      axios.post('/api/v1/bugs', {
+        title: this.newBug.title,
+        text: this.newBug.actual,
+        steps: this.newBug.steps,
+        spaces: this.spaceId,
+        state: 'OPEN'
+      }).then(res => {
+        const bugShortName = res.data.short_name;
+        // Link bug to result
+        const bugs = [...(this.editingResult.linked_bug_ids || []), bugShortName];
+        return axios.patch(`/api/v2/test-run/result/${this.editingResult.id}`, {
+          linked_bug_ids: bugs
+        });
+      }).then(() => {
+        this.bugModal = false;
+        this.editModal = false;
+        this.loadRun();
+      }).catch(err => {
+        console.error(err);
       });
     },
     statusColor(status) {
@@ -313,5 +446,15 @@ export default {
 }
 .result-item:last-child {
   border-bottom: none;
+}
+.step-item {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding: 8px 0;
+}
+.step-item:last-child {
+  border-bottom: none;
+}
+.step-status-select {
+  min-width: 120px;
 }
 </style>

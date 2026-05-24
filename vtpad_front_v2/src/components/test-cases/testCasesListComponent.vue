@@ -75,6 +75,11 @@
       <template v-slot:item.updated_at="{ item }">
         {{ formatDate(item.updated_at) }}
       </template>
+      <template v-slot:item.actions="{ item }">
+        <v-btn icon size="x-small" variant="text" @click.stop="duplicateCase(item.id)">
+          <v-icon>mdi-content-copy</v-icon>
+        </v-btn>
+      </template>
     </v-data-table-server>
 
     <v-dialog v-model="openCreate" max-width="700">
@@ -148,7 +153,8 @@ export default {
       { title: 'Type', key: 'type', width: '120px', sortable: true },
       { title: 'Status', key: 'status', width: '120px', sortable: true },
       { title: 'Short Name', key: 'short_name', sortable: true },
-      { title: 'Updated', key: 'updated_at', width: '150px', sortable: true }
+      { title: 'Updated', key: 'updated_at', width: '150px', sortable: true },
+      { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
     ]
   }),
   created() {
@@ -245,6 +251,11 @@ export default {
       )).then(() => {
         this.selectedCases = [];
         this.bulkStatusDialog = false;
+        this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
+      });
+    },
+    duplicateCase(id) {
+      axios.post(`/api/v2/test-case/${id}/duplicate`).then(() => {
         this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
       });
     },

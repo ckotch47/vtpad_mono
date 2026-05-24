@@ -6,6 +6,7 @@
   <div v-else>
     <!-- Header -->
     <v-container fluid class="pb-0">
+      <breadcrumbs-component :items="breadcrumbItems" />
       <v-row align="center">
         <v-col>
           <v-btn
@@ -104,6 +105,28 @@
                 @update:activated="onSectionSelect"
                 class="section-tree"
               >
+                <template v-slot:title="{ item }">
+                  <span
+                    v-if="editingSectionId !== item.id"
+                    @dblclick="startInlineRename(item)"
+                    class="tree-node-text"
+                  >{{ item.name }}</span>
+                  <v-text-field
+                    v-else
+                    v-model="editingSectionName"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    autofocus
+                    class="inline-rename-field"
+                    @blur="saveInlineRename"
+                    @keydown.enter="saveInlineRename"
+                    @keydown.esc="cancelInlineRename"
+                  />
+                  <v-chip size="x-small" color="primary" variant="outlined" class="ml-2">
+                    {{ item.test_case_count || 0 }}
+                  </v-chip>
+                </template>
                 <template v-slot:prepend="{ item }">
                   <v-icon size="small" color="primary">mdi-folder-outline</v-icon>
                 </template>
@@ -373,10 +396,11 @@
 <script>
 import axios from "axios";
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
+import BreadcrumbsComponent from "@/components/common/breadcrumbsComponent.vue";
 
 export default {
   name: "testSuiteDetailComponent",
-  components: { EditorComponent },
+  components: { EditorComponent, BreadcrumbsComponent },
   data: () => ({
     suite: {},
     sectionTree: [],
@@ -403,7 +427,10 @@ export default {
       description: ''
     },
     caseDialogOpen: false,
-    selectedCase: null
+    selectedCase: null,
+    breadcrumbItems: [],
+    editingSectionId: null,
+    editingSectionName: ''
   }),
   computed: {
     filteredTestCases() {
@@ -431,6 +458,10 @@ export default {
     loadSuite() {
       axios.get(`/api/v2/test-suite/${this.suiteId}`).then(res => {
         this.suite = res.data;
+        this.breadcrumbItems = [
+          { title: 'Test Suites', to: `/space/${this.spaceId}/test-suites` },
+          { title: this.suite.name }
+        ];
         this.loader = false;
       });
     },
@@ -587,6 +618,24 @@ export default {
       }).then(res => {
         this.$router.push(`/space/${this.spaceId}/test-runs/${res.data.id}`);
       });
+    },
+    startInlineRename(item) {
+      this.editingSectionId = item.id;
+      this.editingSectionName = item.name;
+    },
+    saveInlineRename() {
+      if (!this.editingSectionId) return;
+      axios.patch(`/api/v2/section/${this.editingSectionId}`, {
+        name: this.editingSectionName
+      }).then(() => {
+        this.editingSectionId = null;
+        this.editingSectionName = '';
+        this.loadSections();
+      });
+    },
+    cancelInlineRename() {
+      this.editingSectionId = null;
+      this.editingSectionName = '';
     }
   }
 }
@@ -601,5 +650,14 @@ export default {
 }
 .case-item:last-child {
   border-bottom: none;
+}
+.tree-node-text {
+  cursor: pointer;
+  user-select: none;
+}
+.inline-rename-field {
+  max-width: 180px;
+  display: inline-block;
+  vertical-align: middle;
 }
 </style>

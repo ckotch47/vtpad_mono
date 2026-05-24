@@ -151,23 +151,64 @@ export default {
     form: {},
     spaceId: undefined,
     caseId: undefined,
-    loader: true
+    loader: true,
+    draftKey: '',
+    autoSaveTimer: null,
+    hasDraft: false
   }),
   mounted() {
     this.spaceId = this.$route.params.spaceId;
     this.caseId = this.$route.params.caseId;
+    this.draftKey = `case-draft-${this.caseId}`;
     this.loadCase();
+  },
+  watch: {
+    form: {
+      deep: true,
+      handler() {
+        this.scheduleAutoSave();
+      }
+    }
   },
   methods: {
     loadCase() {
       axios.get(`/api/v2/test-case/${this.caseId}`).then(res => {
         this.testcase = res.data;
+        // Check for draft
+        const draft = localStorage.getItem(this.draftKey);
+        if (draft) {
+          try {
+            const parsed = JSON.parse(draft);
+            // Only restore if draft is newer than last server save
+            if (parsed._savedAt && new Date(parsed._savedAt) > new Date(res.data.updated_at)) {
+              if (confirm('You have an unsaved draft. Restore it?')) {
+                this.form = parsed;
+                this.hasDraft = true;
+                this.loader = false;
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore parse error
+          }
+        }
         this.form = { ...res.data };
         this.loader = false;
       }).catch(() => { this.loader = false; });
     },
+    scheduleAutoSave() {
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = setTimeout(() => {
+        this.saveDraft();
+      }, 3000);
+    },
+    saveDraft() {
+      const draft = { ...this.form, _savedAt: new Date().toISOString() };
+      localStorage.setItem(this.draftKey, JSON.stringify(draft));
+    },
     save() {
       axios.patch(`/api/v2/test-case/${this.caseId}`, this.form).then(() => {
+        localStorage.removeItem(this.draftKey);
         this.$router.push(`/space/${this.spaceId}/test-cases/${this.caseId}`);
       });
     },

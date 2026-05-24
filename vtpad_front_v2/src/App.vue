@@ -21,6 +21,8 @@
         <router-view></router-view>
       </v-container>
     </v-main>
+
+    <command-palette-component ref="commandPalette" />
   </v-app>
 </template>
 
@@ -29,6 +31,7 @@
 import { ref } from 'vue'
 import ProfileLeftComponent from "@/components/leftAsideMain/ProfileLeftComponent.vue";
 import SpacesListComponent from "@/components/leftAsideMain/SpacesListComponent.vue";
+import CommandPaletteComponent from "@/components/common/commandPaletteComponent.vue";
 import 'vue3-toastify/dist/index.css';
 
 const drawer = ref(null)

@@ -59,3 +59,17 @@ async def delete(testcase_id: str):
 @router.patch('/sort/{testcase_id}', dependencies=[Depends(bearer)])
 async def update_sort(testcase_id: str, dto: TestCaseSortDto):
     return await TestCaseService.update_sort(testcase_id, dto)
+
+
+@router.get('/{testcase_id}/runs', dependencies=[Depends(bearer)])
+async def get_case_run_history(
+    testcase_id: str,
+    page: int = 1,
+    page_size: int = 25,
+):
+    return await TestCaseService.get_run_history(testcase_id, page, page_size)
+
+
+@router.post('/{testcase_id}/duplicate', dependencies=[Depends(bearer)])
+async def duplicate_testcase(testcase_id: str, token: str = Depends(bearer)):
+    return await TestCaseService.duplicate(testcase_id, token)

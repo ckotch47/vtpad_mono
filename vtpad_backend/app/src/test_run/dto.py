@@ -7,9 +7,10 @@ class TestRunCreateDto(BaseModel):
     description: Optional[str] = None
     space_id: str
     suite_id: Optional[str] = None
+    plan_id: Optional[str] = None
     milestone_id: Optional[str] = None
     environment_id: Optional[str] = None
-    testcase_ids: Optional[List[str]] = None  # if None - all testcases from suite
+    testcase_ids: Optional[List[str]] = None  # if None - all testcases from suite or plan
 
 
 class TestRunUpdateDto(BaseModel):
@@ -30,3 +31,15 @@ class TestResultUpdateDto(BaseModel):
 class TestResultBulkUpdateDto(BaseModel):
     result_ids: List[str]
     status: str
+
+
+class TestStepResultUpdateDto(BaseModel):
+    step_index: int
+    step_text: Optional[str] = None
+    status: str
+    comment: Optional[str] = None
+    screenshot_url: Optional[str] = None
+
+
+class TestStepResultBulkUpdateDto(BaseModel):
+    steps: List[TestStepResultUpdateDto]

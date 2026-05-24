@@ -27,6 +27,7 @@ class TestRunModel(Model):
 
     space = fields.ForeignKeyField('models.SpaceModel', related_name='test_runs')
     suite = fields.ForeignKeyField('models.TestSuiteModel', related_name='test_runs', null=True, on_delete=fields.SET_NULL)
+    plan = fields.ForeignKeyField('models.TestPlanModel', related_name='test_runs', null=True, on_delete=fields.SET_NULL)
     milestone = fields.ForeignKeyField('models.MilestoneModel', related_name='test_runs', null=True, on_delete=fields.SET_NULL)
     environment = fields.ForeignKeyField('models.EnvironmentModel', related_name='test_runs', null=True, on_delete=fields.SET_NULL)
 
@@ -58,3 +59,20 @@ class TestResultModel(Model):
 
     class Meta:
         table = "test_result"
+
+
+class TestStepResultModel(Model):
+    id = fields.UUIDField(pk=True, index=True)
+    step_index = fields.IntField(default=0)
+    step_text = fields.TextField(null=True)
+    status = fields.CharEnumField(TestResultStatus, default=TestResultStatus.not_run, max_length=20)
+    comment = fields.TextField(null=True)
+    screenshot_url = fields.TextField(null=True)
+
+    result = fields.ForeignKeyField('models.TestResultModel', related_name='step_results')
+
+    created_at = fields.DatetimeField(null=False, auto_now_add=True)
+    updated_at = fields.DatetimeField(null=False, auto_now=True)
+
+    class Meta:
+        table = "test_step_result"

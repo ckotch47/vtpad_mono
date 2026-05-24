@@ -182,3 +182,103 @@ class TestCaseService:
             await TestCaseModel.filter(id=testcase_id).update(sort=after.sort)
 
         return await TestCaseModel.filter(space_id=space_id, suite_id=suite_id, section_id=section_id).order_by('sort')
+
+    @staticmethod
+    async def get_run_history(testcase_id: str, page: int = 1, page_size: int = 25) -> dict:
+        from ..test_run.model import TestResultModel, TestRunModel
+
+        q = TestResultModel.filter(testcase_id=testcase_id).prefetch_related('run').order_by('-created_at')
+        total = await q.count()
+        items = await q.offset((page - 1) * page_size).limit(page_size).all()
+
+        results = []
+        for r in items:
+            run = r.run
+            results.append({
+                'id': str(r.id),
+                'run_id': str(run.id) if run else None,
+                'run_name': run.name if run else None,
+                'status': r.status,
+                'duration_seconds': r.duration_seconds,
+                'comment': r.comment,
+                'executed_at': r.executed_at.isoformat() if r.executed_at else None,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+            })
+
+        return {
+            'items': results,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'pages': (total + page_size - 1) // page_size
+        }
+
+    @staticmethod
+    async def duplicate(testcase_id: str, token: str) -> TestCaseModel:
+        user_id = await get_user_id_by_token(token)
+        original = await TestCaseService.get_by_id(testcase_id)
+
+        # Find next sort value in same section
+        last = await TestCaseModel.filter(
+            space_id=str(original.space_id),
+            suite_id=original.suite_id,
+            section_id=original.section_id
+        ).order_by('-sort').first()
+        sort = (last.sort + 10) if last else 10
+
+        # Generate new short_name if exists
+        new_short_name = original.short_name
+        if new_short_name:
+            import re
+            # If ends with _copyN, increment N
+            m = re.search(r'(_copy(\d+))$', new_short_name)
+            if m:
+                n = int(m.group(2)) + 1
+                new_short_name = new_short_name[:m.start()] + f'_copy{n}'
+            else:
+                new_short_name = new_short_name + '_copy'
+
+        duplicated = await TestCaseModel.create(
+            title=f"{original.title} (Copy)",
+            text=original.text,
+            steps=original.steps,
+            expected_results=original.expected_results,
+            preconditions=original.preconditions,
+            postconditions=original.postconditions,
+            type=original.type,
+            status=original.status,
+            sort=sort,
+            space_id=str(original.space_id),
+            suite_id=original.suite_id,
+            section_id=original.section_id,
+            short_name=new_short_name,
+            link=original.link,
+            external_id=original.external_id,
+            created_by_id=user_id,
+        )
+
+        # Create initial version snapshot
+        await TestCaseVersionModel.create(
+            testcase_id=str(duplicated.id),
+            version_number=1,
+            title=duplicated.title,
+            text=duplicated.text,
+            steps=duplicated.steps,
+            expected_results=duplicated.expected_results,
+            preconditions=duplicated.preconditions,
+            postconditions=duplicated.postconditions,
+            created_by_id=user_id,
+        )
+
+        # Index for semantic search
+        await EmbeddingService.index_test_case(
+            case_id=str(duplicated.id),
+            space_id=str(duplicated.space_id),
+            title=duplicated.title,
+            text=duplicated.text,
+            steps=duplicated.steps,
+            expected_results=duplicated.expected_results,
+            preconditions=duplicated.preconditions,
+        )
+
+        return duplicated

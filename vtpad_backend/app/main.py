@@ -38,6 +38,8 @@ import app.src.custom_field as custom_field
 import app.src.attachment as attachment
 import app.src.api_token as api_token
 import app.src.tech_doc as tech_doc
+import app.src.test_plan as test_plan
+import app.src.analytics as analytics
 
 # MCP server
 from app.src.mcp.server import get_mcp_app
@@ -250,6 +252,8 @@ app_utils.register_router(
         attachment.router,
         api_token.router,
         tech_doc.router,
+        test_plan.router,
+        analytics.router,
 
     ], app, global_prefix='/api')
 

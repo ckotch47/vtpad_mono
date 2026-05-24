@@ -4,7 +4,7 @@ from datetime import datetime
 
 from tortoise.expressions import Q
 
-from .model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from .model import TestRunModel, TestResultModel, TestStepResultModel, TestRunStatus, TestResultStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 
@@ -14,11 +14,25 @@ class TestRunService:
     async def create(dto: TestRunCreateDto, token: str) -> TestRunModel:
         user_id = await get_user_id_by_token(token)
 
+        # Determine suite_id if plan_id is provided
+        suite_id = dto.suite_id
+        testcase_ids = dto.testcase_ids
+
+        if dto.plan_id:
+            from ..test_plan.service import TestPlanService
+            plan_cases = await TestPlanService.get_filtered_cases(dto.plan_id)
+            testcase_ids = [str(tc.id) for tc in plan_cases]
+            # Use plan's suite if no explicit suite_id
+            if not suite_id:
+                plan = await TestPlanService.get_by_id(dto.plan_id)
+                suite_id = str(plan.suite_id) if plan.suite_id else None
+
         run = await TestRunModel.create(
             name=dto.name,
             description=dto.description,
             space_id=dto.space_id,
-            suite_id=dto.suite_id,
+            suite_id=suite_id,
+            plan_id=dto.plan_id,
             milestone_id=dto.milestone_id,
             environment_id=dto.environment_id,
             status=TestRunStatus.draft,
@@ -28,21 +42,33 @@ class TestRunService:
         # Create test results
         from ..test_case.model import TestCaseModel, TestCaseVersionModel
 
-        if dto.testcase_ids:
-            testcases = await TestCaseModel.filter(id__in=dto.testcase_ids).all()
-        elif dto.suite_id:
-            testcases = await TestCaseModel.filter(suite_id=dto.suite_id).all()
+        if testcase_ids:
+            testcases = await TestCaseModel.filter(id__in=testcase_ids).all()
+        elif suite_id:
+            testcases = await TestCaseModel.filter(suite_id=suite_id).all()
         else:
             testcases = await TestCaseModel.filter(space_id=dto.space_id).all()
 
         for tc in testcases:
             last_version = await TestCaseVersionModel.filter(testcase_id=str(tc.id)).order_by('-version_number').first()
-            await TestResultModel.create(
+            result = await TestResultModel.create(
                 run_id=str(run.id),
                 testcase_id=str(tc.id),
                 testcase_version_id=str(last_version.id) if last_version else None,
                 status=TestResultStatus.not_run,
             )
+
+            # Create step-level results from testcase steps (if steps exist)
+            if tc.steps:
+                # Simple split by newlines for now; can be enhanced with structured steps
+                step_lines = [s.strip() for s in tc.steps.split('\n') if s.strip()]
+                for idx, step_text in enumerate(step_lines):
+                    await TestStepResultModel.create(
+                        result_id=str(result.id),
+                        step_index=idx,
+                        step_text=step_text,
+                        status=TestResultStatus.not_run,
+                    )
 
         return run
 
@@ -183,3 +209,41 @@ class TestResultService:
             executed_at=datetime.utcnow(),
         )
         return count
+
+    @staticmethod
+    async def get_step_results(result_id: str) -> list:
+        result = await TestResultModel.get_or_none(id=result_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Test result not found")
+        steps = await TestStepResultModel.filter(result_id=result_id).order_by('step_index').all()
+        return [
+            {
+                'id': str(s.id),
+                'step_index': s.step_index,
+                'step_text': s.step_text,
+                'status': s.status,
+                'comment': s.comment,
+                'screenshot_url': s.screenshot_url,
+            }
+            for s in steps
+        ]
+
+    @staticmethod
+    async def update_step_results(result_id: str, dto: TestStepResultBulkUpdateDto, token: str) -> list:
+        result = await TestResultModel.get_or_none(id=result_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Test result not found")
+
+        for step_dto in dto.steps:
+            await TestStepResultModel.update_or_create(
+                result_id=result_id,
+                step_index=step_dto.step_index,
+                defaults={
+                    'step_text': step_dto.step_text,
+                    'status': step_dto.status,
+                    'comment': step_dto.comment,
+                    'screenshot_url': step_dto.screenshot_url,
+                }
+            )
+
+        return await TestResultService.get_step_results(result_id)

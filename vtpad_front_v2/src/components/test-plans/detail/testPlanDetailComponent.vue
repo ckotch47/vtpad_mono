@@ -94,6 +94,20 @@
                 chips
                 clearable
                 class="mb-3"
+                @update:model-value="onSuitesChange"
+              />
+
+              <v-select
+                v-model="selectedSections"
+                :items="sections"
+                item-title="name"
+                item-value="id"
+                label="Select Sections"
+                multiple
+                chips
+                clearable
+                class="mb-3"
+                :disabled="sections.length === 0"
                 @update:model-value="loadAvailableCases"
               />
 
@@ -239,7 +253,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { testPlanService, testCaseService, testSuiteService, testRunService } from '@/services'
+import { testPlanService, testCaseService, testSuiteService, testRunService, sectionService } from '@/services'
 import EditorComponent from "@/components/common/editor/editorComponent.vue"
 
 const route = useRoute()
@@ -254,6 +268,8 @@ const runs = ref([])
 const loader = ref(true)
 const suites = ref([])
 const selectedSuites = ref([])
+const sections = ref([])
+const selectedSections = ref([])
 const availableCases = ref([])
 const selectedCases = ref([])
 const caseSearch = ref('')
@@ -293,18 +309,56 @@ async function loadSuites() {
   }
 }
 
-async function loadAvailableCases() {
+async function onSuitesChange() {
+  selectedSections.value = []
+  await loadSections()
+  await loadAvailableCases()
+}
+
+async function loadSections() {
   if (!selectedSuites.value.length) {
+    sections.value = []
+    return
+  }
+  try {
+    const promises = selectedSuites.value.map(suiteId =>
+      sectionService.listBySuite(suiteId)
+    )
+    const responses = await Promise.all(promises)
+    const allSections = responses.flatMap(r => r.data)
+    const seen = new Set()
+    sections.value = allSections.filter(s => {
+      if (seen.has(s.id)) return false
+      seen.add(s.id)
+      return true
+    })
+  } catch (e) {
+    console.error(e)
+    sections.value = []
+  }
+}
+
+async function loadAvailableCases() {
+  if (!selectedSuites.value.length && !selectedSections.value.length) {
     availableCases.value = []
     selectedCases.value = []
     return
   }
   try {
-    const promises = selectedSuites.value.map(suiteId =>
-      testCaseService.listBySuite(suiteId)
-    )
-    const responses = await Promise.all(promises)
-    const allCases = responses.flatMap(r => r.data)
+    let allCases = []
+    if (selectedSections.value.length) {
+      const promises = selectedSections.value.map(sectionId =>
+        testCaseService.listBySection(sectionId)
+      )
+      const responses = await Promise.all(promises)
+      allCases = responses.flatMap(r => r.data)
+    } else {
+      const promises = selectedSuites.value.map(suiteId =>
+        testCaseService.listBySuite(suiteId)
+      )
+      const responses = await Promise.all(promises)
+      allCases = responses.flatMap(r => r.data)
+    }
     const seen = new Set()
     availableCases.value = allCases.filter(tc => {
       if (seen.has(tc.id)) return false

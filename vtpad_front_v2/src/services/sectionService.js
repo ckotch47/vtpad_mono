@@ -1,6 +1,7 @@
 import api from '@/plugins/axios'
 
 export const sectionService = {
+  listBySuite: (suiteId) => api.get(`/api/v2/section/suite/${suiteId}`),
   getTree: (suiteId) => api.get(`/api/v2/section/suite/${suiteId}/tree`),
   create: (data) => api.post('/api/v2/section/', data),
   update: (id, data) => api.patch(`/api/v2/section/${id}`, data),

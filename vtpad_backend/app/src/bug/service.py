@@ -42,64 +42,38 @@ def parse_external_link(link: str):
 class BugsService:
     tag_service = TagService()
     @staticmethod
-    async def get_bugs_with_filter(b_filter: GetBugsDto):
-        ALLOWED_ORDER_BY = {
-            'id', 'create_date', 'estimate_date', 'short_name',
-            'state', 'update_date', 'title', 'assigner_id', 'create_user_id'
-        }
-        ALLOWED_ORDER_ARROW = {'ASC', 'DESC'}
+    def _get_bug_select_sql():
+        return (
+            "SELECT "
+            "bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, "
+            "bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, "
+            "bugsmodel.title, bugsmodel.external_link, bugsmodel.create_user_id, "
+            "json_build_object("
+            "'id',create_user.id, 'username',create_user.username, 'mail',create_user.mail, "
+            "'avatar', json_build_object('id',create_user.avatar_id, 'filepath',create_avatar.filepath)"
+            ") as create_user, "
+            "bugsmodel.assigner_id, "
+            "json_build_object("
+            "'id',assigner_user.id, 'username',assigner_user.username, 'mail',assigner_user.mail, "
+            "'avatar', json_build_object('id',assigner_user.avatar_id, 'filepath',assigner_avatar.filepath)"
+            ") as assigner_user, "
+            "json_agg(array("
+            "SELECT jsonb_build_object('id', tagmodel.id, 'title',tagmodel.title,'color', tagmodel.color) "
+            "FROM tagmodel LEFT JOIN bugtagsmodel b on tagmodel.id = b.tag_id "
+            "WHERE b.bug_id = bugsmodel.id GROUP BY tagmodel.id"
+            ")) as tag, bugsmodel.spaces_id "
+            "FROM bugsmodel "
+            "LEFT JOIN usermodel create_user on bugsmodel.create_user_id = create_user.id "
+            "LEFT JOIN usermodel assigner_user on bugsmodel.assigner_id = assigner_user.id "
+            "LEFT JOIN filemodel assigner_avatar on assigner_user.avatar_id = assigner_avatar.id "
+            "LEFT JOIN filemodel create_avatar on create_user.avatar_id = create_avatar.id "
+            "LEFT JOIN bugtagsmodel bug_tag on bugsmodel.id = bug_tag.bug_id "
+            "LEFT JOIN tagmodel t on bug_tag.tag_id = t.id "
+            "WHERE spaces_id = $1 "
+        )
 
-        str_q = "SELECT \
-                bugsmodel.id, \
-                bugsmodel.create_date, \
-                bugsmodel.estimate_date, \
-                bugsmodel.short_name, \
-                bugsmodel.state, \
-                bugsmodel.update_date,  \
-                bugsmodel.title,  \
-                bugsmodel.external_link,  \
-                bugsmodel.create_user_id, " \
-                " json_build_object( \
-                    'id',create_user.id, \
-                    'username',create_user.username, \
-                    'mail',create_user.mail, \
-                    'avatar', \
-                    json_build_object( \
-                        'id',create_user.avatar_id, \
-                        'filepath',create_avatar.filepath \
-                        ) \
-                ) as create_user," \
-                "bugsmodel.assigner_id, " \
-                "json_build_object( \
-                    'id',assigner_user.id, \
-                    'username',assigner_user.username, \
-                    'mail',assigner_user.mail, \
-                    'avatar', \
-                    json_build_object( \
-                        'id',assigner_user.avatar_id, \
-                        'filepath',assigner_avatar.filepath \
-                        ) \
-                ) as assigner_user," \
-                "json_agg( \
-                    array( \
-                        SELECT jsonb_build_object('id', tagmodel.id, 'title',tagmodel.title,'color', tagmodel.color) as tag \
-                        FROM tagmodel \
-                            LEFT JOIN bugtagsmodel b on tagmodel.id = b.tag_id \
-                        WHERE b.bug_id = bugsmodel.id \
-                        GROUP BY tagmodel.id \
-                        ) \
-                ) as tag, " \
-                "bugsmodel.spaces_id " \
-                "FROM bugsmodel " \
-                "LEFT JOIN usermodel create_user on bugsmodel.create_user_id = create_user.id \
-                 LEFT JOIN usermodel assigner_user on bugsmodel.assigner_id = assigner_user.id \
-                 LEFT JOIN filemodel assigner_avatar on assigner_user.avatar_id = assigner_avatar.id \
-                 LEFT JOIN filemodel create_avatar on create_user.avatar_id = create_avatar.id \
-                 LEFT JOIN bugtagsmodel bug_tag on bugsmodel.id = bug_tag.bug_id \
-                 LEFT JOIN tagmodel t on bug_tag.tag_id = t.id " \
-                "WHERE spaces_id = $1 "
-
-        params = [b_filter.space_id]
+    @staticmethod
+    def _apply_bug_filters(sql, params, b_filter):
         param_idx = 1
 
         def next_param():
@@ -109,89 +83,126 @@ class BugsService:
 
         if b_filter.create_date:
             params.append(b_filter.create_date)
-            str_q += f"AND DATE(create_date) >= ${next_param()} "
+            sql += f"AND DATE(create_date) >= ${next_param()} "
 
         if b_filter.create_date_end:
             params.append(b_filter.create_date_end)
-            str_q += f"AND DATE(create_date) <= ${next_param()} "
+            sql += f"AND DATE(create_date) <= ${next_param()} "
 
         if b_filter.create_user:
             params.append(b_filter.create_user)
-            str_q += f"AND create_user_id = ANY(${next_param()}::uuid[]) "
+            sql += f"AND create_user_id = ANY(${next_param()}::uuid[]) "
 
         if b_filter.assigner_id and not b_filter.not_assigner:
             params.append(b_filter.assigner_id)
-            str_q += f"AND assigner_id = ANY(${next_param()}::uuid[]) "
+            sql += f"AND assigner_id = ANY(${next_param()}::uuid[]) "
 
         if b_filter.not_assigner and not b_filter.assigner_id:
-            str_q += "AND assigner_id is Null "
+            sql += "AND assigner_id is Null "
 
         if b_filter.state:
             params.append([s.upper() for s in b_filter.state])
-            str_q += f"AND state = ANY(${next_param()}::text[]) "
+            sql += f"AND state = ANY(${next_param()}::text[]) "
 
         state_list = b_filter.state or []
         if 'HOLD' not in state_list:
-            str_q += "AND state != 'HOLD' "
-
+            sql += "AND state != 'HOLD' "
         if 'CLOSED' not in state_list:
-            str_q += "AND state != 'CLOSED' "
+            sql += "AND state != 'CLOSED' "
 
         if b_filter.estimate_date:
             params.append(b_filter.estimate_date)
-            str_q += f"AND DATE(estimate_date) >= ${next_param()} "
+            sql += f"AND DATE(estimate_date) >= ${next_param()} "
 
         if b_filter.estimate_date_end:
             params.append(b_filter.estimate_date_end)
-            str_q += f"AND DATE(estimate_date) <= ${next_param()} "
+            sql += f"AND DATE(estimate_date) <= ${next_param()} "
 
         if b_filter.tag:
             params.append(b_filter.tag)
-            str_q += f"AND bug_tag.tag_id = ANY(${next_param()}::uuid[]) "
+            sql += f"AND bug_tag.tag_id = ANY(${next_param()}::uuid[]) "
 
         if b_filter.external_link:
             patterns = [f"%{elem}%" for elem in b_filter.external_link]
             params.append(patterns)
-            str_q += f"AND external_link ~~ ANY(${next_param()}::text[]) "
+            sql += f"AND external_link ~~ ANY(${next_param()}::text[]) "
 
-        str_q += "GROUP BY bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, \
-                 bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, bugsmodel.title, \
-                 bugsmodel.external_link, bugsmodel.create_user_id, bugsmodel.assigner_id, \
-                 bugsmodel.spaces_id, create_user.id, create_avatar.filepath, \
-                 assigner_user.id, assigner_avatar.filepath "
+        return sql
+
+    @staticmethod
+    def _apply_bug_grouping(sql):
+        return sql + (
+            "GROUP BY bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, "
+            "bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, bugsmodel.title, "
+            "bugsmodel.external_link, bugsmodel.create_user_id, bugsmodel.assigner_id, "
+            "bugsmodel.spaces_id, create_user.id, create_avatar.filepath, "
+            "assigner_user.id, assigner_avatar.filepath "
+        )
+
+    @staticmethod
+    def _apply_bug_ordering(sql, b_filter):
+        ALLOWED_ORDER_BY = {
+            'id', 'create_date', 'estimate_date', 'short_name',
+            'state', 'update_date', 'title', 'assigner_id', 'create_user_id'
+        }
+        ALLOWED_ORDER_ARROW = {'ASC', 'DESC'}
 
         if b_filter.order_by:
             order_by = b_filter.order_by if b_filter.order_by in ALLOWED_ORDER_BY else 'create_date'
             order_arrow = b_filter.order_arrow.upper() if b_filter.order_arrow and b_filter.order_arrow.upper() in ALLOWED_ORDER_ARROW else 'DESC'
-            str_q += f"ORDER BY {order_by} {order_arrow} "
+            sql += f"ORDER BY {order_by} {order_arrow} "
         else:
-            str_q += 'ORDER BY create_date DESC '
+            sql += 'ORDER BY create_date DESC '
+        return sql
+
+    @staticmethod
+    def _apply_bug_pagination(sql, params, b_filter):
+        param_idx = len(params)
+
+        def next_param():
+            nonlocal param_idx
+            param_idx += 1
+            return param_idx
 
         if b_filter.limit:
             params.append(b_filter.limit)
-            str_q += f'LIMIT ${next_param()} '
+            sql += f'LIMIT ${next_param()} '
         else:
-            str_q += 'LIMIT ALL '
+            sql += 'LIMIT ALL '
 
         skip = b_filter.skip if b_filter.skip else 0
         params.append(skip)
-        str_q += f'OFFSET ${next_param()} '
+        sql += f'OFFSET ${next_param()} '
+        return sql
+
+    @staticmethod
+    def _serialize_bug_rows(rows):
+        for row in rows:
+            if row.get('create_user_id'):
+                row['create_user'] = json.loads(row['create_user'])
+            else:
+                row['create_user'] = {}
+
+            if row.get('assigner_id'):
+                row['assigner_user'] = json.loads(row['assigner_user'])
+            else:
+                row['assigner_user'] = {}
+
+            row['tag'] = json.loads(row['tag'])[0]
+        return rows
+
+    @staticmethod
+    async def get_bugs_with_filter(b_filter: GetBugsDto):
+        params = [b_filter.space_id]
+        sql = BugsService._get_bug_select_sql()
+        sql = BugsService._apply_bug_filters(sql, params, b_filter)
+        sql = BugsService._apply_bug_grouping(sql)
+        sql = BugsService._apply_bug_ordering(sql, b_filter)
+        sql = BugsService._apply_bug_pagination(sql, params, b_filter)
 
         conn = Tortoise.get_connection("default")
-        temp = (await conn.execute_query_dict(str_q, params))
-        for i in temp:
-            if i.get('create_user_id'):
-                i['create_user'] = json.loads(i['create_user'])
-            else:
-                i['create_user'] = {}
-
-            if i.get('assigner_id'):
-                i['assigner_user'] = json.loads(i['assigner_user'])
-            else:
-                i['assigner_user'] = {}
-
-            i['tag'] = json.loads(i['tag'])[0]
-        return temp
+        rows = await conn.execute_query_dict(sql, params)
+        return BugsService._serialize_bug_rows(rows)
 
     @staticmethod
     async def get_bug_detail(bug_id: str, user: dict = None):
@@ -255,6 +266,59 @@ class BugsService:
         return await BugsService.get_bug_detail(temp.id)
 
     @staticmethod
+    def _build_bug_change_payload(tmp: BugsModel, field_name: str, new_value):
+        return {
+            "space_id": str(tmp.spaces_id),
+            "bug_id": str(tmp.id),
+            "short_name": str(tmp.short_name),
+            "changes": {
+                "name": field_name,
+                "from": str(getattr(tmp, field_name, '')),
+                "to": str(new_value)
+            }
+        }
+
+    @staticmethod
+    def _notify_bug_change(tmp: BugsModel, user: dict, field_name: str, new_value, is_assigner_change: bool,
+                           background_tasks: BackgroundTasks):
+        payload = BugsService._build_bug_change_payload(tmp, field_name, new_value)
+        event = EventNotificationEnum.assign if is_assigner_change else EventNotificationEnum.update
+
+        if str(tmp.assigner_id) != str(user.get('id')):
+            background_tasks.add_task(
+                NotificationService.update_state_bug,
+                CreateNotificationDto(
+                    user=str(tmp.assigner_id),
+                    data=payload,
+                    event=event))
+        if str(tmp.create_user_id) != str(user.get('id')):
+            background_tasks.add_task(
+                NotificationService.update_state_bug,
+                CreateNotificationDto(
+                    user=str(tmp.create_user_id),
+                    data=payload,
+                    event=event))
+
+    @staticmethod
+    async def _apply_field_updates(bug, bug_id, user, tmp, dto, background_tasks):
+        for field_name, new_value in dto:
+            if field_name != 'tags' and new_value and new_value != getattr(bug, field_name, None):
+                try:
+                    await CommentBugService.create_history(
+                        bug_id, user,
+                        json.dumps({'name': field_name, 'from': str(getattr(tmp, field_name, '')), 'to': str(new_value)}))
+                except Exception as e:
+                    print(e, 'history_error')
+                    pass
+                setattr(bug, field_name, new_value)
+                try:
+                    if tmp.short_name:
+                        BugsService._notify_bug_change(tmp, user, field_name, new_value, bool(dto.assigner_id), background_tasks)
+                except Exception as e:
+                    print(e, 'notify_error')
+                    pass
+
+    @staticmethod
     async def update_bug_v2(dto: UpdateBugDtoV2, bug_id: str, user: dict, background_tasks: BackgroundTasks):
         await BugsService.check_user_update_bug_v2(bug_id, user, dto.state)
 
@@ -263,98 +327,97 @@ class BugsService:
             raise HTTPException(status_code=404, detail="not found")
 
         tmp = bug
+        await BugsService._apply_field_updates(bug, bug_id, user, tmp, dto, background_tasks)
 
-        for i in dto:
-            if i[0] != 'tags' and i[1] and i[1] != bug.__getattribute__(i[0]):
-                try:
-                    await (CommentBugService
-                           .create_history(bug_id, user,
-                                           json.dumps({'name': i[0], 'from': str(tmp.__getattribute__(i[0])), 'to': str(i[1])})
-                                           ))
-                except Exception as e:
-                    print(e, '1')
-                    pass
-                bug.__setattr__(i[0], i[1])
+        if dto.tags:
+            await BugsService.update_tag_bug_list(dto.tags, bug_id)
 
-                try:
-                    if tmp.short_name:
-                        BugsService.send_notification_update_bug_v2(tmp, user, i, dto, background_tasks)
-                except Exception as e:
-                    print(e, '2')
-                    pass
-            if i[0] == 'tags' and i[1]:
-                await BugsService.update_tag_bug_list(i[1], bug_id)
         await bug.save()
-
         return await BugsService.get_bug_detail(bug.id)
 
     @staticmethod
     async def update_tag_bug_list(tags: list[str], bug_id: str):
         bug_tags = await BugTagsService.get_tags_fo_bug(bug_id)
-        for tag in tags:
-            if not list(filter(lambda x: (x['id'] == uuid.UUID(tag)), bug_tags)):
-                await BugTagsService.add_bug_tag(bug_id, tag)
+        existing_ids = {str(t.get('id')) for t in bug_tags}
+        new_ids = set(tags)
+
+        for tag_id in new_ids - existing_ids:
+            await BugTagsService.add_bug_tag(bug_id, tag_id)
         for tag in bug_tags:
-            if str(tag.get('id')) not in tags:
+            if str(tag.get('id')) not in new_ids:
                 await BugTagsService.delete_tag_from_bug(bug_id, str(tag.get('id')))
-        pass
 
     @staticmethod
-    def send_notification_update_bug_v2(tmp: BugsModel, user: dict, i: str, dto: UpdateBugDtoV2,
-                                        background_tasks: BackgroundTasks):
-        print({
-            "space_id": str(tmp.__getattribute__("spaces_id")),
-            "bug_id": str(tmp.id),
-            "short_name": str(tmp.short_name),
-            "changes": {
-                "name": str(i[0]),
-                "from": str(tmp.__getattribute__(i[0])),
-                "to": str(i[1])
-            }
-        })
-        if str(tmp.__getattribute__('assigner_id')) != str(user.get('id')):
-            background_tasks.add_task(NotificationService.update_state_bug,
-                                      CreateNotificationDto(
-                                          user=str(tmp.__getattribute__('assigner_id')),
-                                          data={
-                                              "space_id": str(tmp.__getattribute__("spaces_id")),
-                                              "bug_id": str(tmp.id),
-                                              "short_name": str(tmp.short_name),
-                                              "changes": {
-                                                  "name": str(i[0]),
-                                                  "from": str(tmp.__getattribute__(i[0])),
-                                                  "to": str(i[1])
-                                              }
-                                          },
-                                          event=EventNotificationEnum.update if not dto.assigner_id else EventNotificationEnum.assign))
-        if str(tmp.__getattribute__('create_user_id')) != str(user.get('id')):
-            background_tasks.add_task(NotificationService.update_state_bug,
-                                      CreateNotificationDto(
-                                          user=str(tmp.__getattribute__('create_user_id')),
-                                          data={
-                                              "space_id": str(tmp.__getattribute__("spaces_id")),
-                                              "bug_id": str(tmp.id),
-                                              "short_name": str(tmp.short_name),
-                                              "changes": {
-                                                  "name": str(i[0]),
-                                                  "from": str(tmp.__getattribute__(i[0])),
-                                                  "to": str(i[1])
-                                              }
-                                          },
-                                          event=EventNotificationEnum.update if not dto.assigner_id else EventNotificationEnum.assign))
+    def _prepare_estimate_date(estimate_date):
+        try:
+            return estimate_date.replace(hour=23)
+        except Exception:
+            return None
+
+    @staticmethod
+    async def _create_bug_history(bug_id, user, old_bug, new_bug):
+        try:
+            if new_bug.title != '' and str(old_bug.title) != new_bug.title:
+                await CommentBugService.create_history(
+                    bug_id, user,
+                    f"<p>change title</p> <s>{old_bug.title}</s> to {new_bug.title}<hr>")
+            if new_bug.text != '<p></p>' and str(old_bug.text) != new_bug.text:
+                await CommentBugService.create_history(
+                    bug_id, user,
+                    f"<p>change text</p> <s>{old_bug.text}</s> to {new_bug.text}<hr>")
+            if new_bug.steps != '<p></p>' and str(old_bug.steps) != new_bug.steps:
+                await CommentBugService.create_history(
+                    bug_id, user,
+                    f"<p>change steps</p> <s>{old_bug.steps}</s> to {new_bug.steps}<hr>")
+            if new_bug.additional_link != '<p></p>' and str(old_bug.additional_link) != new_bug.additional_link:
+                await CommentBugService.create_history(
+                    bug_id, user,
+                    f"<p>change additional link</p> <s>{old_bug.additional_link}</s> to {new_bug.additional_link}<hr>")
+        except Exception:
+            pass
+
+    @staticmethod
+    def _send_assign_notification(temp, user, bug, background_tasks):
+        if str(bug.assigner_id) != str(temp.assigner) and str(bug.assigner_id) != str(user.get('id')):
+            try:
+                background_tasks.add_task(
+                    NotificationService.add_notification_assign,
+                    CreateNotificationDto(
+                        user=str(bug.assigner_id),
+                        data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
+                        event=EventNotificationEnum.assign))
+            except Exception:
+                pass
+
+    @staticmethod
+    def _send_state_change_notifications(temp, user, bug, background_tasks):
+        if bug.state != temp.state:
+            try:
+                if str(bug.assigner_id) != str(user.get('id')):
+                    background_tasks.add_task(
+                        NotificationService.update_state_bug,
+                        CreateNotificationDto(
+                            user=str(bug.assigner_id),
+                            data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
+                            event=EventNotificationEnum.update))
+                if str(temp.create_user_id) != str(user.get('id')):
+                    background_tasks.add_task(
+                        NotificationService.update_state_bug,
+                        CreateNotificationDto(
+                            user=str(temp.create_user_id),
+                            data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
+                            event=EventNotificationEnum.update))
+            except Exception:
+                pass
 
     @staticmethod
     async def update_bug(bug: UpdateBugDto, bug_id: str, user: dict, background_tasks: BackgroundTasks):
         if bug.state == StateBugEnum.closed or bug.state == StateBugEnum.hold:
             await BugsService.check_user_for_update_bug_state_open_bug(bug_id, user)
 
-        try:
-            estimate_date = bug.estimate_date.replace(hour=23)
-        except Exception:
-            estimate_date = None
-
+        estimate_date = BugsService._prepare_estimate_date(bug.estimate_date)
         temp = await BugsModel.filter(id=uuid.UUID(bug_id)).get()
-        tmp1 = temp
+
         await BugsModel.filter(id=uuid.UUID(bug_id)).update(
             update_date=datetime.now(),
             title=bug.title,
@@ -366,51 +429,10 @@ class BugsService:
             estimate_date=estimate_date,
             external_link=bug.external_link
         )
-        # add comment for change
-        # todo rework history comment
-        try:
-            if bug.title != '' and str(temp.title) != bug.title:
-                await CommentBugService.create_history(bug_id, user,
-                                                       f"<p>change title</p> <s>{temp.title}</s> to {bug.title}<hr>")
-            if bug.text != '<p></p>' and str(temp.text) != bug.text:
-                await CommentBugService.create_history(bug_id, user,
-                                                       f"<p>change text</p> <s>{temp.text}</s> to {bug.text}<hr>")
-            if bug.steps != '<p></p>' and str(temp.steps) != bug.steps:
-                await CommentBugService.create_history(bug_id, user,
-                                                       f"<p>change steps</p> <s>{temp.steps}</s> to {bug.steps}<hr>")
-            if bug.additional_link != '<p></p>' and str(temp.additional_link) != bug.additional_link:
-                await CommentBugService.create_history(bug_id, user,
-                                                       f"<p>change additional link</p> <s>{temp.additional_link}</s> to {bug.additional_link}<hr>")
-        except Exception:
-            pass
-        # todo rework
-        if str(bug.assigner_id) != str(temp.assigner) and str(bug.assigner_id) != str(user.get('id')):
-            try:
-                background_tasks.add_task(NotificationService.add_notification_assign,
-                                          CreateNotificationDto(
-                                              user=str(bug.assigner_id),
-                                              data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
-                                              event=EventNotificationEnum.assign))
-            except Exception:
-                pass
 
-        if bug.state != temp.state:
-            try:
-                if str(bug.assigner_id) != str(user.get('id')):
-                    background_tasks.add_task(NotificationService.update_state_bug,
-                                              CreateNotificationDto(
-                                                  user=str(bug.assigner_id),
-                                                  data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
-                                                  event=EventNotificationEnum.update))
-
-                if str(temp.create_user_id) != str(user.get('id')):
-                    background_tasks.add_task(NotificationService.update_state_bug,
-                                              CreateNotificationDto(
-                                                  user=str(temp.create_user_id),
-                                                  data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
-                                                  event=EventNotificationEnum.update))
-            except Exception:
-                pass
+        await BugsService._create_bug_history(bug_id, user, temp, bug)
+        BugsService._send_assign_notification(temp, user, bug, background_tasks)
+        BugsService._send_state_change_notifications(temp, user, bug, background_tasks)
 
         return await BugsService.get_bug_detail(temp.id)
 

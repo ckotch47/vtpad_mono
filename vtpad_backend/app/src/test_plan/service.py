@@ -17,6 +17,8 @@ class TestPlanService:
             name=dto.name,
             description=dto.description,
             space_id=dto.space_id,
+            suite_ids=dto.suite_ids or [],
+            section_ids=dto.section_ids or [],
             case_ids=dto.case_ids or [],
             created_by_id=user_id,
         )
@@ -73,19 +75,41 @@ class TestPlanService:
 
     @staticmethod
     async def get_cases(plan_id: str) -> list:
-        """Return test cases in the plan's fixed case_ids list."""
+        """Return union of cases from suites, sections, and explicit case_ids."""
         plan = await TestPlanService.get_by_id(plan_id)
         from ..test_case.model import TestCaseModel
 
-        case_ids = plan.case_ids or []
-        if not case_ids:
-            return []
-
-        cases = await TestCaseModel.filter(id__in=case_ids).all()
-        # Preserve order from case_ids
-        case_map = {str(c.id): c for c in cases}
+        seen = set()
         ordered = []
-        for cid in case_ids:
-            if cid in case_map:
-                ordered.append(case_map[cid])
+
+        # Cases from suites
+        suite_ids = plan.suite_ids or []
+        if suite_ids:
+            suite_cases = await TestCaseModel.filter(suite_id__in=suite_ids).prefetch_related('suite', 'section')
+            for c in suite_cases:
+                cid = str(c.id)
+                if cid not in seen:
+                    seen.add(cid)
+                    ordered.append(c)
+
+        # Cases from sections
+        section_ids = plan.section_ids or []
+        if section_ids:
+            section_cases = await TestCaseModel.filter(section_id__in=section_ids).prefetch_related('suite', 'section')
+            for c in section_cases:
+                cid = str(c.id)
+                if cid not in seen:
+                    seen.add(cid)
+                    ordered.append(c)
+
+        # Explicit case_ids
+        explicit_ids = plan.case_ids or []
+        if explicit_ids:
+            explicit_cases = await TestCaseModel.filter(id__in=explicit_ids).prefetch_related('suite', 'section')
+            case_map = {str(c.id): c for c in explicit_cases}
+            for cid in explicit_ids:
+                if cid in case_map and cid not in seen:
+                    seen.add(cid)
+                    ordered.append(case_map[cid])
+
         return ordered

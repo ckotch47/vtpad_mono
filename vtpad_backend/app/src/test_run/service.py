@@ -11,23 +11,39 @@ from ..common.crypto import get_user_id_by_token
 
 class TestRunService:
     @staticmethod
-    async def create(dto: TestRunCreateDto, token: str) -> TestRunModel:
-        user_id = await get_user_id_by_token(token)
-
-        # Determine testcase_ids if plan_id is provided
-        suite_id = dto.suite_id
-        testcase_ids = dto.testcase_ids
-
+    async def _resolve_testcases_for_run(dto: TestRunCreateDto):
+        from ..test_case.model import TestCaseModel
+        if dto.testcase_ids:
+            return await TestCaseModel.filter(id__in=dto.testcase_ids).all()
+        if dto.suite_id:
+            return await TestCaseModel.filter(suite_id=dto.suite_id).all()
         if dto.plan_id:
             from ..test_plan.service import TestPlanService
             plan_cases = await TestPlanService.get_cases(dto.plan_id)
-            testcase_ids = [str(tc.id) for tc in plan_cases]
+            return plan_cases
+        return await TestCaseModel.filter(space_id=dto.space_id).all()
+
+    @staticmethod
+    async def _create_results_for_run(run_id: str, testcases):
+        from ..test_case.model import TestCaseVersionModel
+        for tc in testcases:
+            last_version = await TestCaseVersionModel.filter(testcase_id=str(tc.id)).order_by('-version_number').first()
+            await TestResultModel.create(
+                run_id=run_id,
+                testcase_id=str(tc.id),
+                testcase_version_id=str(last_version.id) if last_version else None,
+                status=TestResultStatus.not_run,
+            )
+
+    @staticmethod
+    async def create(dto: TestRunCreateDto, token: str) -> TestRunModel:
+        user_id = await get_user_id_by_token(token)
 
         run = await TestRunModel.create(
             name=dto.name,
             description=dto.description,
             space_id=dto.space_id,
-            suite_id=suite_id,
+            suite_id=dto.suite_id,
             plan_id=dto.plan_id,
             milestone_id=dto.milestone_id,
             environment_id=dto.environment_id,
@@ -35,24 +51,8 @@ class TestRunService:
             created_by_id=user_id,
         )
 
-        # Create test results
-        from ..test_case.model import TestCaseModel, TestCaseVersionModel
-
-        if testcase_ids:
-            testcases = await TestCaseModel.filter(id__in=testcase_ids).all()
-        elif suite_id:
-            testcases = await TestCaseModel.filter(suite_id=suite_id).all()
-        else:
-            testcases = await TestCaseModel.filter(space_id=dto.space_id).all()
-
-        for tc in testcases:
-            last_version = await TestCaseVersionModel.filter(testcase_id=str(tc.id)).order_by('-version_number').first()
-            result = await TestResultModel.create(
-                run_id=str(run.id),
-                testcase_id=str(tc.id),
-                testcase_version_id=str(last_version.id) if last_version else None,
-                status=TestResultStatus.not_run,
-            )
+        testcases = await TestRunService._resolve_testcases_for_run(dto)
+        await TestRunService._create_results_for_run(str(run.id), testcases)
 
         return run
 
@@ -119,10 +119,8 @@ class TestRunService:
         return run
 
     @staticmethod
-    async def get_with_results(run_id: str) -> dict:
-        run = await TestRunService.get_by_id(run_id)
-        results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase', 'testcase__section').order_by('testcase__section__sort', 'testcase__sort')
-        stats = {
+    def _compute_result_stats(results):
+        return {
             'total': len(results),
             'not_run': sum(1 for r in results if r.status == TestResultStatus.not_run),
             'passed': sum(1 for r in results if r.status == TestResultStatus.passed),
@@ -130,26 +128,34 @@ class TestRunService:
             'blocked': sum(1 for r in results if r.status == TestResultStatus.blocked),
             'skipped': sum(1 for r in results if r.status == TestResultStatus.skipped),
         }
-        results_data = []
-        for r in results:
-            testcase = r.testcase
-            results_data.append({
-                'id': str(r.id),
-                'status': r.status,
-                'duration_seconds': r.duration_seconds,
-                'comment': r.comment,
-                'testcase_id': str(r.testcase_id),
-                'testcase': {
-                    'id': str(testcase.id),
-                    'title': testcase.title,
-                    'type': testcase.type,
-                    'section': {
-                        'id': str(testcase.section.id),
-                        'name': testcase.section.name,
-                    } if testcase.section else None,
-                } if testcase else None,
-                'executed_at': r.executed_at.isoformat() if r.executed_at else None,
-            })
+
+    @staticmethod
+    def _serialize_result(r):
+        testcase = r.testcase
+        return {
+            'id': str(r.id),
+            'status': r.status,
+            'duration_seconds': r.duration_seconds,
+            'comment': r.comment,
+            'testcase_id': str(r.testcase_id),
+            'testcase': {
+                'id': str(testcase.id),
+                'title': testcase.title,
+                'type': testcase.type,
+                'section': {
+                    'id': str(testcase.section.id),
+                    'name': testcase.section.name,
+                } if testcase.section else None,
+            } if testcase else None,
+            'executed_at': r.executed_at.isoformat() if r.executed_at else None,
+        }
+
+    @staticmethod
+    async def get_with_results(run_id: str) -> dict:
+        run = await TestRunService.get_by_id(run_id)
+        results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase', 'testcase__section').order_by('testcase__section__sort', 'testcase__sort')
+        stats = TestRunService._compute_result_stats(results)
+        results_data = [TestRunService._serialize_result(r) for r in results]
         return {
             'run': {
                 'id': str(run.id),

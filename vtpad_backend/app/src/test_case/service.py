@@ -217,29 +217,58 @@ class TestCaseService:
         }
 
     @staticmethod
-    async def duplicate(testcase_id: str, token: str) -> TestCaseModel:
-        user_id = await get_user_id_by_token(token)
-        original = await TestCaseService.get_by_id(testcase_id)
-
-        # Find next sort value in same section
+    async def _compute_next_sort(original):
         last = await TestCaseModel.filter(
             space_id=str(original.space_id),
             suite_id=original.suite_id,
             section_id=original.section_id
         ).order_by('-sort').first()
-        sort = (last.sort + 10) if last else 10
+        return (last.sort + 10) if last else 10
 
-        # Generate new short_name if exists
-        new_short_name = original.short_name
-        if new_short_name:
-            import re
-            # If ends with _copyN, increment N
-            m = re.search(r'(_copy(\d+))$', new_short_name)
-            if m:
-                n = int(m.group(2)) + 1
-                new_short_name = new_short_name[:m.start()] + f'_copy{n}'
-            else:
-                new_short_name = new_short_name + '_copy'
+    @staticmethod
+    def _generate_copy_short_name(short_name):
+        if not short_name:
+            return short_name
+        import re
+        m = re.search(r'(_copy(\d+))$', short_name)
+        if m:
+            n = int(m.group(2)) + 1
+            return short_name[:m.start()] + f'_copy{n}'
+        return short_name + '_copy'
+
+    @staticmethod
+    async def _create_test_case_version(testcase, user_id):
+        await TestCaseVersionModel.create(
+            testcase_id=str(testcase.id),
+            version_number=1,
+            title=testcase.title,
+            text=testcase.text,
+            steps=testcase.steps,
+            expected_results=testcase.expected_results,
+            preconditions=testcase.preconditions,
+            postconditions=testcase.postconditions,
+            created_by_id=user_id,
+        )
+
+    @staticmethod
+    async def _index_test_case_for_search(testcase):
+        await EmbeddingService.index_test_case(
+            case_id=str(testcase.id),
+            space_id=str(testcase.space_id),
+            title=testcase.title,
+            text=testcase.text,
+            steps=testcase.steps,
+            expected_results=testcase.expected_results,
+            preconditions=testcase.preconditions,
+        )
+
+    @staticmethod
+    async def duplicate(testcase_id: str, token: str) -> TestCaseModel:
+        user_id = await get_user_id_by_token(token)
+        original = await TestCaseService.get_by_id(testcase_id)
+
+        sort = await TestCaseService._compute_next_sort(original)
+        new_short_name = TestCaseService._generate_copy_short_name(original.short_name)
 
         duplicated = await TestCaseModel.create(
             title=f"{original.title} (Copy)",
@@ -259,28 +288,7 @@ class TestCaseService:
             created_by_id=user_id,
         )
 
-        # Create initial version snapshot
-        await TestCaseVersionModel.create(
-            testcase_id=str(duplicated.id),
-            version_number=1,
-            title=duplicated.title,
-            text=duplicated.text,
-            steps=duplicated.steps,
-            expected_results=duplicated.expected_results,
-            preconditions=duplicated.preconditions,
-            postconditions=duplicated.postconditions,
-            created_by_id=user_id,
-        )
-
-        # Index for semantic search
-        await EmbeddingService.index_test_case(
-            case_id=str(duplicated.id),
-            space_id=str(duplicated.space_id),
-            title=duplicated.title,
-            text=duplicated.text,
-            steps=duplicated.steps,
-            expected_results=duplicated.expected_results,
-            preconditions=duplicated.preconditions,
-        )
+        await TestCaseService._create_test_case_version(duplicated, user_id)
+        await TestCaseService._index_test_case_for_search(duplicated)
 
         return duplicated

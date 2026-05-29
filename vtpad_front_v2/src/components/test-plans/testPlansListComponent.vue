@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <v-row align="center" class="mb-2">
       <v-col>
         <h1 class="text-h4 font-weight-bold">Test Plans</h1>
@@ -49,7 +49,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script>

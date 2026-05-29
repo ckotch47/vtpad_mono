@@ -1,5 +1,5 @@
 <template>
-  <v-btn class="custom-chip" :text="text" :color="color" />
+  <v-btn class="custom-chip text-caption" :text="text" :color="color" />
 </template>
 
 <script setup>
@@ -12,7 +12,6 @@ defineProps({
 <style scoped lang="scss">
 .custom-chip {
   height: 24px;
-  font-size: 0.7rem;
   margin-right: 5px;
   align-items: center;
   display: inline-flex;

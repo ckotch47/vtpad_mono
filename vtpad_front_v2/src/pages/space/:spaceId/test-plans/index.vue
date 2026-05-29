@@ -8,7 +8,9 @@
 </route>
 
 <template>
-  <test-plans-list-component />
+  <v-container class="mx-auto custom-container max-width-1500">
+    <test-plans-list-component />
+  </v-container>
 </template>
 
 <script setup>

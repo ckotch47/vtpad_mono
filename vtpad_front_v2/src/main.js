@@ -7,6 +7,7 @@
 // Plugins
 import { registerPlugins } from '@/plugins'
 import '@/plugins/axios'
+import '@/styles/typography.scss'
 
 // Components
 import App from './App.vue'

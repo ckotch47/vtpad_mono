@@ -8,7 +8,7 @@
 </route>
 
 <template>
-  <v-container>
+  <v-container class="mx-auto custom-container max-width-1500">
     <v-row>
       <v-col cols="12">
         <page-header-component title="Test Runs" />

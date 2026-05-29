@@ -8,8 +8,9 @@
 </route>
 
 <template>
-  <v-container fluid class="pa-0 fill-height">
-    <v-row no-gutters class="fill-height">
+  <v-container class="mx-auto custom-container max-width-1500 tech-doc-page">
+    <page-header-component title="Tech Docs" />
+    <v-row no-gutters class="fill-height tech-doc-layout">
       <!-- Sidebar -->
       <v-col cols="12" md="3" class="sidebar-col">
         <v-card flat class="sidebar-card">
@@ -19,52 +20,62 @@
             <v-spacer />
             <v-btn icon="mdi-plus" size="small" variant="text" @click="openCreate" />
           </v-toolbar>
-          <v-divider />
-          <v-card-text class="pa-0 tree-container">
-            <v-skeleton-loader v-if="treeLoading" type="list-item@5" />
-            <v-treeview
-              v-else
-              :items="tree"
-              item-title="title"
-              item-value="id"
-              item-children="children"
-              activatable
-              :activated="activeId"
-              @update:activated="onTreeSelect"
+          <v-card-text class="pa-2 pb-0 tech-doc-list">
+            <v-text-field
+              v-model="treeQuery"
               density="compact"
-              class="tech-doc-tree"
-            >
-              <template v-slot:prepend="{ item }">
-                <v-icon size="small" :color="item.children?.length ? 'primary' : 'grey'">
-                  {{ item.children?.length ? 'mdi-folder-outline' : 'mdi-file-document-outline' }}
-                </v-icon>
-              </template>
-              <template v-slot:title="{ item }">
-                <span class="text-body-2" :class="{ 'font-weight-medium': activeId.includes(item.id) }">
+              variant="outlined"
+              hide-details
+              clearable
+              prepend-inner-icon="mdi-magnify"
+              placeholder="Search pages"
+            />
+          </v-card-text>
+          <v-divider />
+          <v-card-text ref="treeContainerRef" class="pa-0 tree-container">
+            <v-skeleton-loader v-if="treeLoading" type="list-item@5" />
+            <v-list v-else density="compact" class="tech-doc-list">
+              <v-list-item
+                v-for="item in flatFilteredPages"
+                :key="item.id"
+                :active="activeId.includes(item.id)"
+                rounded="sm"
+                class="tech-doc-list-item"
+                @click="onTreeSelect([item.id])"
+              >
+                <template v-slot:prepend>
+                  <div class="d-flex align-center">
+                    <div :style="{ width: `${item.level * 14}px` }" />
+                    <v-icon size="small" :color="item.hasChildren ? 'primary' : 'grey'">
+                      {{ item.hasChildren ? 'mdi-folder-outline' : 'mdi-file-document-outline' }}
+                    </v-icon>
+                  </div>
+                </template>
+                <v-list-item-title class="text-body-2" :class="{ 'font-weight-medium': activeId.includes(item.id) }">
                   {{ item.title }}
-                </span>
-              </template>
-              <template v-slot:append="{ item }">
-                <v-menu location="end" :close-on-content-click="true">
-                  <template v-slot:activator="{ props }">
-                    <v-btn
-                      v-bind="props"
-                      icon="mdi-dots-vertical"
-                      size="x-small"
-                      variant="text"
-                      density="compact"
-                      class="tree-action-btn"
-                    />
-                  </template>
-                  <v-list density="compact" min-width="140">
-                    <v-list-item prepend-icon="mdi-plus" title="Add subpage" @click="openCreateSubpage(item.id)" />
-                    <v-list-item prepend-icon="mdi-pencil" title="Rename" @click="renameDoc(item.id)" />
-                    <v-divider />
-                    <v-list-item prepend-icon="mdi-delete" title="Delete" class="text-error" @click="deleteDocById(item.id)" />
-                  </v-list>
-                </v-menu>
-              </template>
-            </v-treeview>
+                </v-list-item-title>
+                <template v-slot:append>
+                  <v-menu location="end" :close-on-content-click="true">
+                    <template v-slot:activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-dots-vertical"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        class="tree-action-btn"
+                      />
+                    </template>
+                    <v-list density="compact" min-width="140">
+                      <v-list-item prepend-icon="mdi-plus" title="Add subpage" @click="openCreateSubpage(item.id)" />
+                      <v-list-item prepend-icon="mdi-pencil" title="Rename" @click="renameDoc(item.id)" />
+                      <v-divider />
+                      <v-list-item prepend-icon="mdi-delete" title="Delete" class="text-error" @click="deleteDocById(item.id)" />
+                    </v-list>
+                  </v-menu>
+                </template>
+              </v-list-item>
+            </v-list>
           </v-card-text>
         </v-card>
       </v-col>
@@ -87,6 +98,7 @@
         <v-card v-else-if="selectedDoc && !editing" flat class="content-card">
           <v-toolbar density="comfortable" color="surface">
             <div class="ml-2">
+              <v-breadcrumbs v-if="selectedPath.length" :items="selectedPath" density="compact" class="pa-0" />
               <div class="text-h6">{{ selectedDoc.title }}</div>
               <div v-if="selectedDoc.version" class="text-caption text-grey">
                 v{{ selectedDoc.version }}
@@ -107,7 +119,17 @@
             </v-alert>
           </v-card-text>
           <v-card-text class="content-body">
-            <div v-if="selectedDoc.content" v-html="selectedDoc.content" class="tech-doc-content" />
+            <editor-component
+              v-if="selectedDoc.content"
+              :key="`readonly-${selectedDoc.id}`"
+              :text="selectedDoc.content"
+              :edit="false"
+              :show-menu-fixed="false"
+              :show-menu-bubble="false"
+              :show-menu-floating="false"
+              max-height="none"
+              min-height="auto"
+            />
             <div v-else class="text-grey text-center py-10">
               <v-icon size="48">mdi-text-box-outline</v-icon>
               <div class="mt-2">No content yet</div>
@@ -122,7 +144,7 @@
             <v-btn icon="mdi-close" size="small" variant="text" @click="cancelEdit" />
             <v-toolbar-title class="text-subtitle-1">{{ isCreating ? 'New Page' : 'Edit Page' }}</v-toolbar-title>
             <v-spacer />
-            <v-btn color="primary" size="small" @click="save">Save</v-btn>
+            <v-btn color="primary" size="small" :loading="saveLoading" @click="save">Save</v-btn>
           </v-toolbar>
           <v-divider />
           <v-card-text class="content-body">
@@ -170,6 +192,8 @@
               :text="editForm.content || ''"
               :edit="true"
               :show-menu-fixed="true"
+              max-height="calc(100vh - 360px)"
+              min-height="420px"
               place-holder-editor="Enter documentation content..."
               @editor-update="editForm.content = $event"
             />
@@ -181,7 +205,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { techDocService } from '@/services'
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
@@ -193,10 +217,13 @@ const spaceId = computed(() => route.params.spaceId)
 
 const treeLoading = ref(true)
 const tree = ref([])
+const treeQuery = ref('')
+const treeContainerRef = ref(null)
 const selectedDoc = ref(null)
 const activeId = ref([])
 const editing = ref(false)
 const isCreating = ref(false)
+const saveLoading = ref(false)
 const editForm = ref({
   title: '',
   content: '',
@@ -215,6 +242,17 @@ const docTypes = [
 ]
 
 const flatPages = computed(() => flattenTree(tree.value))
+const filteredTree = computed(() => {
+  const query = treeQuery.value?.trim().toLowerCase()
+  if (!query) return tree.value
+  return filterTree(tree.value, query)
+})
+const flatFilteredPages = computed(() => flattenTreeForList(filteredTree.value))
+const selectedPath = computed(() => {
+  if (!selectedDoc.value?.id) return []
+  const path = getNodePath(tree.value, selectedDoc.value.id)
+  return path.map(title => ({ title }))
+})
 
 watch(() => route.query.doc, (val) => {
   if (val) {
@@ -232,6 +270,7 @@ onMounted(async () => {
     activeId.value = [route.query.doc]
     await loadDoc(route.query.doc)
   }
+  scheduleTreeScrollReset()
 })
 
 async function loadTree() {
@@ -243,6 +282,8 @@ async function loadTree() {
     console.error(e)
   } finally {
     treeLoading.value = false
+    await nextTick()
+    scheduleTreeScrollReset()
   }
 }
 
@@ -259,6 +300,7 @@ async function loadDoc(docId) {
 function onTreeSelect(ids) {
   const id = ids[0]
   if (id) {
+    if (editing.value && !confirm('Discard unsaved changes?')) return
     editing.value = false
     activeId.value = [id]
     loadDoc(id)
@@ -293,6 +335,7 @@ function openCreate() {
   selectedDoc.value = null
   activeId.value = []
   editing.value = true
+  resetTreeScroll()
 }
 
 function openCreateSubpage(parentId = null) {
@@ -343,6 +386,7 @@ function findDocInTree(nodes, id) {
 }
 
 function cancelEdit() {
+  if (!confirm('Discard unsaved changes?')) return
   editing.value = false
   if (route.query.doc) {
     loadDoc(route.query.doc)
@@ -354,6 +398,7 @@ async function save() {
     alert('Title is required')
     return
   }
+  saveLoading.value = true
   try {
     if (isCreating.value) {
       const res = await techDocService.create({
@@ -372,6 +417,8 @@ async function save() {
   } catch (e) {
     console.error(e)
     alert('Failed to save: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    saveLoading.value = false
   }
 }
 
@@ -405,9 +452,81 @@ function flattenTree(nodes, level = 0) {
   }
   return result
 }
+
+function flattenTreeForList(nodes, level = 0) {
+  const result = []
+  for (const node of nodes) {
+    result.push({
+      id: node.id,
+      title: node.title,
+      level,
+      hasChildren: Boolean(node.children?.length),
+    })
+    if (node.children?.length) {
+      result.push(...flattenTreeForList(node.children, level + 1))
+    }
+  }
+  return result
+}
+
+function resetTreeScroll() {
+  const el = treeContainerRef.value?.$el || treeContainerRef.value
+  if (!el) return
+
+  const candidates = [el, ...el.querySelectorAll('*')]
+  for (const node of candidates) {
+    if (!(node instanceof HTMLElement)) continue
+    const style = window.getComputedStyle(node)
+    const isScrollable = ['auto', 'scroll'].includes(style.overflowY) && node.scrollHeight > node.clientHeight
+    if (isScrollable || node === el) {
+      node.scrollTop = 0
+    }
+  }
+}
+
+function scheduleTreeScrollReset() {
+  setTimeout(() => resetTreeScroll(), 0)
+  setTimeout(() => resetTreeScroll(), 120)
+  setTimeout(() => resetTreeScroll(), 400)
+}
+
+function filterTree(nodes, query) {
+  const result = []
+  for (const node of nodes) {
+    const children = node.children ? filterTree(node.children, query) : []
+    const selfMatch = (node.title || '').toLowerCase().includes(query)
+    if (selfMatch || children.length) {
+      result.push({
+        ...node,
+        children,
+      })
+    }
+  }
+  return result
+}
+
+function getNodePath(nodes, id, path = []) {
+  for (const node of nodes) {
+    const nextPath = [...path, node.title]
+    if (node.id === id) return nextPath
+    if (node.children?.length) {
+      const childPath = getNodePath(node.children, id, nextPath)
+      if (childPath.length) return childPath
+    }
+  }
+  return []
+}
 </script>
 
 <style scoped>
+.tech-doc-page {
+  padding-top: 0;
+}
+
+.tech-doc-layout {
+  min-height: calc(100vh - 170px);
+}
+
 .sidebar-col {
   border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   max-width: 300px;
@@ -420,6 +539,7 @@ function flattenTree(nodes, level = 0) {
 .tree-container {
   flex: 1;
   overflow-y: auto;
+  display: block;
 }
 .content-col {
   height: 100%;
@@ -432,24 +552,17 @@ function flattenTree(nodes, level = 0) {
 }
 .content-body {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+  padding: 20px 24px 28px;
 }
-.tech-doc-content {
-  font-size: 1rem;
-  line-height: 1.6;
+.tech-doc-list {
+  padding-top: 0 !important;
+  flex: 0 0 auto !important;
+  align-self: flex-start !important;
+  width: 100%;
 }
-.tech-doc-content h1, .tech-doc-content h2, .tech-doc-content h3 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-}
-.tech-doc-content p {
-  margin-bottom: 0.75rem;
-}
-.tech-doc-content ul, .tech-doc-content ol {
-  margin-left: 1.5rem;
-  margin-bottom: 0.75rem;
-}
-.tech-doc-tree :deep(.v-treeview-node__root) {
+
+.tech-doc-list-item {
   min-height: 32px;
 }
 .tech-action-btn {

@@ -2,8 +2,8 @@
   <div class="d-flex justify-space-between suites-card_top pa-4">
     <div class="d-flex flex-column justify-space-between suites-card_top--info">
       <div class="suites-card_top--info__header">
-        <div class="header-title">{{ suiteItem.name }}</div>
-        <div class="header-date">{{ suiteItem.create_at.split('T')[0] }}</div>
+        <div class="header-title text-h6">{{ suiteItem.name }}</div>
+        <div class="header-date text-caption">{{ suiteItem.create_at.split('T')[0] }}</div>
       </div>
     </div>
 
@@ -27,12 +27,10 @@ defineProps({
     &--info {
       &__header {
         .header-title {
-          font-size: 1.5rem;
           line-height: 110%;
         }
         .header-date {
           color: rgba(var(--v-theme-surface-variant), var(--v-theme-surface-variant-overlay-multiplier));
-          font-size: .8rem;
         }
       }
       &__status {}

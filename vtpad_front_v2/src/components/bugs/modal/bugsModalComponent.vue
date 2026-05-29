@@ -195,7 +195,6 @@ export default {
   //.v-avatar::before{
   //  color: white;
   //  content: attr(data-placeholder);
-  //  font-size: 18px;
   //  margin-left: 24px;
   //}
   &--content{
@@ -327,5 +326,4 @@ export default {
 }
 
 </style>
-
 

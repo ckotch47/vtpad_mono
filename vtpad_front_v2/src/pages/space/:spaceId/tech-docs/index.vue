@@ -1,8 +1,8 @@
-<route>
+<route lang="json">
 {
-  meta: {
-    layout: "spaces",
-    tabValue: "tech-docs"
+  "meta": {
+    "layout": "spaces",
+    "tabValue": "tech-docs"
   }
 }
 </route>
@@ -180,226 +180,230 @@
   </v-container>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { techDocService } from '@/services'
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
 
-export default {
-  name: 'TechDocsWikiPage',
-  components: { EditorComponent },
-  data: () => ({
-    treeLoading: true,
-    tree: [],
-    selectedDoc: null,
-    activeId: [],
-    editing: false,
-    isCreating: false,
-    editForm: {
-      title: '',
-      content: '',
-      doc_type: 'other',
-      source_url: '',
-      version: '',
-      parent_id: null,
-    },
-    docTypes: [
-      { title: 'API Doc', value: 'api_doc' },
-      { title: 'PRD', value: 'prd' },
-      { title: 'Manual', value: 'manual' },
-      { title: 'Wiki', value: 'wiki' },
-      { title: 'Migration', value: 'migration' },
-      { title: 'Other', value: 'other' },
-    ],
-  }),
-  computed: {
-    spaceId() {
-      return this.$route.params.spaceId
-    },
-    flatPages() {
-      return this.flattenTree(this.tree)
-    },
-  },
-  watch: {
-    '$route.query.doc': {
-      handler(val) {
-        if (val) {
-          this.activeId = [val]
-          this.loadDoc(val)
-        } else {
-          this.selectedDoc = null
-          this.activeId = []
-        }
-      },
-      immediate: true,
-    },
-  },
-  async mounted() {
-    await this.loadTree()
-    if (this.$route.query.doc) {
-      this.activeId = [this.$route.query.doc]
-      await this.loadDoc(this.$route.query.doc)
+const route = useRoute()
+const router = useRouter()
+
+const spaceId = computed(() => route.params.spaceId)
+
+const treeLoading = ref(true)
+const tree = ref([])
+const selectedDoc = ref(null)
+const activeId = ref([])
+const editing = ref(false)
+const isCreating = ref(false)
+const editForm = ref({
+  title: '',
+  content: '',
+  doc_type: 'other',
+  source_url: '',
+  version: '',
+  parent_id: null,
+})
+const docTypes = [
+  { title: 'API Doc', value: 'api_doc' },
+  { title: 'PRD', value: 'prd' },
+  { title: 'Manual', value: 'manual' },
+  { title: 'Wiki', value: 'wiki' },
+  { title: 'Migration', value: 'migration' },
+  { title: 'Other', value: 'other' },
+]
+
+const flatPages = computed(() => flattenTree(tree.value))
+
+watch(() => route.query.doc, (val) => {
+  if (val) {
+    activeId.value = [val]
+    loadDoc(val)
+  } else {
+    selectedDoc.value = null
+    activeId.value = []
+  }
+}, { immediate: true })
+
+onMounted(async () => {
+  await loadTree()
+  if (route.query.doc) {
+    activeId.value = [route.query.doc]
+    await loadDoc(route.query.doc)
+  }
+})
+
+async function loadTree() {
+  treeLoading.value = true
+  try {
+    const res = await techDocService.getTree(spaceId.value)
+    tree.value = res.data || []
+  } catch (e) {
+    console.error(e)
+  } finally {
+    treeLoading.value = false
+  }
+}
+
+async function loadDoc(docId) {
+  try {
+    const res = await techDocService.getById(docId)
+    selectedDoc.value = res.data
+  } catch (e) {
+    console.error(e)
+    selectedDoc.value = null
+  }
+}
+
+function onTreeSelect(ids) {
+  const id = ids[0]
+  if (id) {
+    editing.value = false
+    activeId.value = [id]
+    loadDoc(id)
+    router.replace({ query: { doc: id } })
+  }
+}
+
+function startEdit() {
+  if (!selectedDoc.value) return
+  isCreating.value = false
+  editForm.value = {
+    title: selectedDoc.value.title || '',
+    content: selectedDoc.value.content || '',
+    doc_type: selectedDoc.value.doc_type || 'other',
+    source_url: selectedDoc.value.source_url || '',
+    version: selectedDoc.value.version || '',
+    parent_id: selectedDoc.value.parent_id || null,
+  }
+  editing.value = true
+}
+
+function openCreate() {
+  isCreating.value = true
+  editForm.value = {
+    title: '',
+    content: '',
+    doc_type: 'other',
+    source_url: '',
+    version: '',
+    parent_id: null,
+  }
+  selectedDoc.value = null
+  activeId.value = []
+  editing.value = true
+}
+
+function openCreateSubpage(parentId = null) {
+  isCreating.value = true
+  editForm.value = {
+    title: '',
+    content: '',
+    doc_type: 'other',
+    source_url: '',
+    version: '',
+    parent_id: parentId || selectedDoc.value?.id || null,
+  }
+  editing.value = true
+}
+
+async function renameDoc(docId) {
+  await loadDoc(docId)
+  startEdit()
+}
+
+async function deleteDocById(docId) {
+  const doc = findDocInTree(tree.value, docId)
+  const title = doc?.title || 'this page'
+  if (!confirm(`Delete "${title}"?\n\nSubpages will become root-level pages.`)) return
+  try {
+    await techDocService.delete(docId)
+    if (selectedDoc.value?.id === docId) {
+      selectedDoc.value = null
+      activeId.value = []
+      router.replace({ query: {} })
     }
-  },
-  methods: {
-    async loadTree() {
-      this.treeLoading = true
-      try {
-        const res = await techDocService.getTree(this.spaceId)
-        this.tree = res.data || []
-      } catch (e) {
-        console.error(e)
-      } finally {
-        this.treeLoading = false
-      }
-    },
-    async loadDoc(docId) {
-      try {
-        const res = await techDocService.getById(docId)
-        this.selectedDoc = res.data
-      } catch (e) {
-        console.error(e)
-        this.selectedDoc = null
-      }
-    },
-    onTreeSelect(ids) {
-      const id = ids[0]
-      if (id) {
-        this.editing = false
-        this.activeId = [id]
-        this.loadDoc(id)
-        this.$router.replace({ query: { doc: id } })
-      }
-    },
-    startEdit() {
-      if (!this.selectedDoc) return
-      this.isCreating = false
-      this.editForm = {
-        title: this.selectedDoc.title || '',
-        content: this.selectedDoc.content || '',
-        doc_type: this.selectedDoc.doc_type || 'other',
-        source_url: this.selectedDoc.source_url || '',
-        version: this.selectedDoc.version || '',
-        parent_id: this.selectedDoc.parent_id || null,
-      }
-      this.editing = true
-    },
-    openCreate() {
-      this.isCreating = true
-      this.editForm = {
-        title: '',
-        content: '',
-        doc_type: 'other',
-        source_url: '',
-        version: '',
-        parent_id: null,
-      }
-      this.selectedDoc = null
-      this.activeId = []
-      this.editing = true
-    },
-    openCreateSubpage(parentId = null) {
-      this.isCreating = true
-      this.editForm = {
-        title: '',
-        content: '',
-        doc_type: 'other',
-        source_url: '',
-        version: '',
-        parent_id: parentId || this.selectedDoc?.id || null,
-      }
-      this.editing = true
-    },
-    async renameDoc(docId) {
-      await this.loadDoc(docId)
-      this.startEdit()
-    },
-    async deleteDocById(docId) {
-      const doc = this.findDocInTree(this.tree, docId)
-      const title = doc?.title || 'this page'
-      if (!confirm(`Delete "${title}"?\n\nSubpages will become root-level pages.`)) return
-      try {
-        await techDocService.delete(docId)
-        if (this.selectedDoc?.id === docId) {
-          this.selectedDoc = null
-          this.activeId = []
-          this.$router.replace({ query: {} })
-        }
-        await this.loadTree()
-      } catch (e) {
-        console.error(e)
-        alert(e.response?.data?.detail || 'Failed to delete')
-      }
-    },
-    findDocInTree(nodes, id) {
-      for (const node of nodes) {
-        if (node.id === id) return node
-        if (node.children) {
-          const found = this.findDocInTree(node.children, id)
-          if (found) return found
-        }
-      }
-      return null
-    },
-    cancelEdit() {
-      this.editing = false
-      if (this.$route.query.doc) {
-        this.loadDoc(this.$route.query.doc)
-      }
-    },
-    async save() {
-      if (!this.editForm.title) {
-        alert('Title is required')
-        return
-      }
-      try {
-        if (this.isCreating) {
-          const res = await techDocService.create({
-            ...this.editForm,
-            space_id: this.spaceId,
-          })
-          this.editing = false
-          await this.loadTree()
-          this.$router.replace({ query: { doc: res.data.id } })
-        } else {
-          await techDocService.update(this.selectedDoc.id, this.editForm)
-          this.editing = false
-          await this.loadDoc(this.selectedDoc.id)
-          await this.loadTree()
-        }
-      } catch (e) {
-        console.error(e)
-        alert('Failed to save: ' + (e.response?.data?.detail || e.message))
-      }
-    },
-    async deleteDoc() {
-      if (!this.selectedDoc) return
-      if (!confirm(`Delete "${this.selectedDoc.title}"?`)) return
-      try {
-        await techDocService.delete(this.selectedDoc.id)
-        this.selectedDoc = null
-        this.activeId = []
-        this.$router.replace({ query: {} })
-        await this.loadTree()
-      } catch (e) {
-        console.error(e)
-        alert(e.response?.data?.detail || 'Failed to delete')
-      }
-    },
-    typeColor(type) {
-      const map = { api_doc: 'blue', prd: 'purple', manual: 'green', wiki: 'orange', migration: 'red', other: 'grey' }
-      return map[type] || 'grey'
-    },
-    flattenTree(nodes, level = 0) {
-      let result = []
-      for (const node of nodes) {
-        result.push({ id: node.id, title: '\u00A0\u00A0'.repeat(level) + node.title })
-        if (node.children) {
-          result = result.concat(this.flattenTree(node.children, level + 1))
-        }
-      }
-      return result
-    },
-  },
+    await loadTree()
+  } catch (e) {
+    console.error(e)
+    alert(e.response?.data?.detail || 'Failed to delete')
+  }
+}
+
+function findDocInTree(nodes, id) {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    if (node.children) {
+      const found = findDocInTree(node.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function cancelEdit() {
+  editing.value = false
+  if (route.query.doc) {
+    loadDoc(route.query.doc)
+  }
+}
+
+async function save() {
+  if (!editForm.value.title) {
+    alert('Title is required')
+    return
+  }
+  try {
+    if (isCreating.value) {
+      const res = await techDocService.create({
+        ...editForm.value,
+        space_id: spaceId.value,
+      })
+      editing.value = false
+      await loadTree()
+      router.replace({ query: { doc: res.data.id } })
+    } else {
+      await techDocService.update(selectedDoc.value.id, editForm.value)
+      editing.value = false
+      await loadDoc(selectedDoc.value.id)
+      await loadTree()
+    }
+  } catch (e) {
+    console.error(e)
+    alert('Failed to save: ' + (e.response?.data?.detail || e.message))
+  }
+}
+
+async function deleteDoc() {
+  if (!selectedDoc.value) return
+  if (!confirm(`Delete "${selectedDoc.value.title}"?`)) return
+  try {
+    await techDocService.delete(selectedDoc.value.id)
+    selectedDoc.value = null
+    activeId.value = []
+    router.replace({ query: {} })
+    await loadTree()
+  } catch (e) {
+    console.error(e)
+    alert(e.response?.data?.detail || 'Failed to delete')
+  }
+}
+
+function typeColor(type) {
+  const map = { api_doc: 'blue', prd: 'purple', manual: 'green', wiki: 'orange', migration: 'red', other: 'grey' }
+  return map[type] || 'grey'
+}
+
+function flattenTree(nodes, level = 0) {
+  let result = []
+  for (const node of nodes) {
+    result.push({ id: node.id, title: '\u00A0\u00A0'.repeat(level) + node.title })
+    if (node.children) {
+      result = result.concat(flattenTree(node.children, level + 1))
+    }
+  }
+  return result
 }
 </script>
 

@@ -131,6 +131,13 @@
                   <v-icon size="small" color="primary">mdi-folder-outline</v-icon>
                 </template>
                 <template #append="{ item }">
+                  <v-btn
+                    icon="mdi-pencil"
+                    size="x-small"
+                    variant="text"
+                    class="mr-1"
+                    @click.stop="openRenameDialog(item)"
+                  />
                   <v-menu>
                     <template #activator="{ props: menuProps }">
                       <v-btn

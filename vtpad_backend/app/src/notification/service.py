@@ -35,6 +35,7 @@ class NotificationService:
             if temp:
                 return None
         except Exception:
+            # Expected when notification does not exist yet
             try:
                 # todo add redis counter
                 return await NotificationModel.create(
@@ -44,8 +45,8 @@ class NotificationService:
                     personal=dto.personal if dto.personal else True,
                     read=dto.read if dto.read else False
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Failed to create notification: %s', e, exc_info=True)
 
     @staticmethod
     async def read_notification(notifi_id: str):
@@ -76,8 +77,8 @@ class NotificationService:
     async def send_notification(notification_id: str):
         try:
             await NotificationModel.filter(id=notification_id).update(send=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error('Failed to create notification: %s', e, exc_info=True)
 
     @staticmethod
     async def get_count_unread_notification(user: dict):

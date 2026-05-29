@@ -263,8 +263,8 @@ class BugsService:
                                               user=str(bug.assigner),
                                               data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                                               event=EventNotificationEnum.assign))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
         return await BugsService.get_bug_detail(temp.id)
 
     @staticmethod
@@ -353,7 +353,8 @@ class BugsService:
     def _prepare_estimate_date(estimate_date):
         try:
             return estimate_date.replace(hour=23)
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             return None
 
     @staticmethod
@@ -375,8 +376,8 @@ class BugsService:
                 await CommentBugService.create_history(
                     bug_id, user,
                     f"<p>change additional link</p> <s>{old_bug.additional_link}</s> to {new_bug.additional_link}<hr>")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
 
     @staticmethod
     def _send_assign_notification(temp, user, bug, background_tasks):
@@ -388,8 +389,8 @@ class BugsService:
                         user=str(bug.assigner_id),
                         data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                         event=EventNotificationEnum.assign))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
 
     @staticmethod
     def _send_state_change_notifications(temp, user, bug, background_tasks):
@@ -409,8 +410,8 @@ class BugsService:
                             user=str(temp.create_user_id),
                             data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                             event=EventNotificationEnum.update))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
 
     @staticmethod
     async def update_bug(bug: UpdateBugDto, bug_id: str, user: dict, background_tasks: BackgroundTasks):
@@ -491,7 +492,8 @@ class BugsService:
                         }
                     else:
                         i['avatar'] = {}
-                except Exception:
+                except Exception as e:
+                    logger.error('Unexpected error: %s', e, exc_info=True)
                     i['avatar'] = {}
             return temp
 
@@ -546,7 +548,8 @@ class BugsService:
                 "AND sp.\"userId\" = $2",
                 [bug_id, user.get('id')]
             ))[0]
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             raise HTTPException(status_code=403, detail="not have right")
 
         if temp['role'] == SpacesUserRole.owner:
@@ -558,7 +561,8 @@ class BugsService:
                     return True
                 else:
                     raise HTTPException(status_code=403, detail="not have right")
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             raise HTTPException(status_code=403, detail="not have right")
 
     @staticmethod
@@ -583,7 +587,8 @@ class BugsService:
                 return True
             else:
                 raise HTTPException(status_code=403, detail="not have right")
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             raise HTTPException(status_code=403, detail="not have right")
 
     @staticmethod
@@ -630,5 +635,6 @@ class BugsService:
             bug['create_user'] = json.loads(bug['create_user'])
 
             return bug
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             raise HTTPException(status_code=404, detail="not found")

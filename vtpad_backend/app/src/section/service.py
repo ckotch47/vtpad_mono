@@ -22,8 +22,20 @@ class SectionService:
         )
 
     @staticmethod
-    async def get_by_suite(suite_id: str) -> list[SectionModel]:
-        return await SectionModel.filter(suite_id=suite_id).order_by('sort')
+    async def get_by_suite(suite_id: str) -> list[dict]:
+        sections = await SectionModel.filter(suite_id=suite_id).order_by('sort')
+        return [
+            {
+                'id': str(s.id),
+                'name': s.name,
+                'description': s.description,
+                'sort': s.sort,
+                'parent_id': str(s.parent_id) if s.parent_id else None,
+                'suite_id': str(s.suite_id),
+                'created_at': s.created_at.isoformat() if s.created_at else None,
+            }
+            for s in sections
+        ]
 
     @staticmethod
     async def get_tree(suite_id: str) -> list[dict]:

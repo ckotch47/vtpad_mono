@@ -108,7 +108,7 @@
                 clearable
                 class="mb-3"
                 :disabled="sections.length === 0"
-                @update:model-value="loadAvailableCases"
+                @update:model-value="onSectionsChange"
               />
 
               <v-text-field
@@ -338,6 +338,14 @@ async function loadSections() {
   }
 }
 
+function onSectionsChange() {
+  const cleaned = (selectedSections.value || []).filter(Boolean)
+  if (cleaned.length !== (selectedSections.value || []).length) {
+    selectedSections.value = cleaned
+  }
+  loadAvailableCases()
+}
+
 async function loadAvailableCases() {
   if (!selectedSuites.value.length && !selectedSections.value.length) {
     availableCases.value = []
@@ -346,8 +354,9 @@ async function loadAvailableCases() {
   }
   try {
     let allCases = []
-    if (selectedSections.value.length) {
-      const promises = selectedSections.value.map(sectionId =>
+    const validSections = (selectedSections.value || []).filter(Boolean)
+    if (validSections.length) {
+      const promises = validSections.map(sectionId =>
         testCaseService.listBySection(sectionId)
       )
       const responses = await Promise.all(promises)

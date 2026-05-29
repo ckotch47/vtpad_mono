@@ -1,25 +1,22 @@
+<route lang="json">
+{
+  "meta": {
+    "layout": "spaces",
+    "tabValue": "tags"
+  }
+}
+</route>
+
 <template>
   <v-container class="mx-auto custom-container max-width-1500">
     <tags-list-component />
   </v-container>
 </template>
 
-<script>
-import TagsListComponent from "@/components/tags/tagsListComponent.vue";
-
-export default {
-  name: "tagsPage",
-  components: {TagsListComponent}
-}
+<script setup>
+import TagsListComponent from '@/components/tags/tagsListComponent.vue'
 </script>
-<route lang="json">
-{
-"meta": {
-"layout": "spaces",
-"tabValue": "tags"
-}
-}
-</route>
+
 <style lang="scss">
 .tag-list{
   .text-field{
@@ -27,8 +24,6 @@ export default {
     min-height: 32px !important;
   }
 
-  .v-card-item__content{
-  }
   .color-picker{
     margin: 0 20px 20px;
     display: flex;

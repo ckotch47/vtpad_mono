@@ -1,37 +1,26 @@
+<route lang="json">
+{
+  "meta": {
+    "layout": "spaces",
+    "tabValue": "bugs"
+  }
+}
+</route>
+
 <template>
   <v-container class="mx-auto custom-container max-width-1500">
-      <bugs-list-component :spase-id-from="this.spaceId"/>
+    <bugs-list-component :spase-id-from="spaceId" />
   </v-container>
 </template>
 
-<script>
-import BugsListComponent from "@/components/bugs/bugsListComponent.vue";
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import BugsListComponent from '@/components/bugs/bugsListComponent.vue'
 
-export default {
-  name: "spaceBugsPage",
-  components: {BugsListComponent},
-  data(){
-    return{
-      spaceId: undefined
-    }
-  },
-  mounted() {
-    this.spaceId = this.$route.params.spaceId
-  },
-  updated() {
-    this.spaceId = this.$route.params.spaceId
-  }
-}
+const route = useRoute()
+const spaceId = computed(() => route.params.spaceId)
 </script>
-<route lang="json">
-  {
-    "meta": {
-      "layout": "spaces",
-      "tabValue": "bugs"
-    }
-  }
-</route>
 
 <style lang="scss">
-
 </style>

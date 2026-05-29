@@ -3,6 +3,8 @@ import json
 from .model import NotificationModel
 from .dto import *
 from .enum import EventNotificationEnum
+import logging
+logger = logging.getLogger(__name__)
 class NotificationService:
     @staticmethod
     async def get_notification(dto: GetNotificationDto, limit: int = 20, skip: int = 0):
@@ -67,7 +69,7 @@ class NotificationService:
                 read=dto.read if dto.read else False
             )
         except Exception as e:
-            print(e, '3')
+            logger.error(e, exc_info=True)
             pass
 
     @staticmethod

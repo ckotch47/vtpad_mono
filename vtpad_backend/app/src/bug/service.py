@@ -21,6 +21,8 @@ from datetime import datetime
 
 from ..notification.service import NotificationService
 from ..comments.service import CommentBugService
+import logging
+logger = logging.getLogger(__name__)
 
 
 def parse_external_link(link: str):
@@ -308,14 +310,14 @@ class BugsService:
                         bug_id, user,
                         json.dumps({'name': field_name, 'from': str(getattr(tmp, field_name, '')), 'to': str(new_value)}))
                 except Exception as e:
-                    print(e, 'history_error')
+                    logger.error(e, exc_info=True)
                     pass
                 setattr(bug, field_name, new_value)
                 try:
                     if tmp.short_name:
                         BugsService._notify_bug_change(tmp, user, field_name, new_value, bool(dto.assigner_id), background_tasks)
                 except Exception as e:
-                    print(e, 'notify_error')
+                    logger.error(e, exc_info=True)
                     pass
 
     @staticmethod

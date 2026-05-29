@@ -217,9 +217,11 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { analyticsService } from '@/services'
 
+const log = useLogger('app')
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
 
@@ -245,7 +247,7 @@ async function loadDashboard() {
     topFailed.value = topRes.data
     trend.value = trendRes.data
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
   } finally {
     loader.value = false
   }

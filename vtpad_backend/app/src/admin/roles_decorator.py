@@ -3,6 +3,8 @@ from tortoise import Tortoise
 
 from app.src.admin.roles_enum import RolesEnum
 from app.src.common.config import EnvConfig
+import logging
+logger = logging.getLogger(__name__)
 
 config = EnvConfig()
 
@@ -17,7 +19,7 @@ def get_keys(enum_role):
 async def check_role_admin(user_payload: dict, available_role: list[RolesEnum]):
     available_role = get_keys(available_role)
 
-    print(user_payload, available_role)
+    logger.warning(user_payload, available_role)
 
     if RolesEnum.MAIN_ADMIN in available_role and user_payload.get('id') == config.main_admin_id:
         return True
@@ -32,5 +34,5 @@ async def check_role_admin(user_payload: dict, available_role: list[RolesEnum]):
         if this_user.get('role') not in available_role:
             raise HTTPException(status_code=403, detail="not have rule")
     except Exception as e:
-        print(e)
+        logger.error(e, exc_info=True)
         raise HTTPException(status_code=403, detail="not have rule")

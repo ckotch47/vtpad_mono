@@ -7,6 +7,8 @@ from ..common.crypto import verify_password, create_access_token, create_refresh
 from ..users.service import UserService
 from ..redis import redis_service
 from .dto import *
+import logging
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -14,7 +16,7 @@ class AuthService:
 
     async def authenticate_user(self, user: AuthUserDto, client_host: str | None = None) -> object:
         this_user = await self.userService.get_user_by_mail(user.mail)
-        print(this_user)
+        logger.warning(this_user)
         if not this_user:
             raise HTTPException(status_code=401, detail="Not user")
 

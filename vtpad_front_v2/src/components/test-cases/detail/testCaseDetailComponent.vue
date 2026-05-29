@@ -173,11 +173,13 @@
 
 <script setup>
 import {ref, computed, onMounted} from 'vue'
+import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
 
+const log = useLogger('app')
 const route = useRoute()
 const api = useApi()
 
@@ -223,7 +225,7 @@ async function loadRunHistory({ page, itemsPerPage }) {
     runHistory.value = res.data.items
     historyTotal.value = res.data.total
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
   } finally {
     historyLoading.value = false
   }

@@ -12,6 +12,8 @@ from ..bug import BugsModel
 from ..notification.dto import CreateNotificationDto
 from ..notification.enum import EventNotificationEnum
 from ..notification.service import NotificationService
+import logging
+logger = logging.getLogger(__name__)
 
 
 
@@ -30,7 +32,7 @@ class CommentBugService:
             )
 
         except Exception as e:
-            print(e)
+            logger.error(e, exc_info=True)
             pass
 
     @staticmethod
@@ -52,7 +54,7 @@ class CommentBugService:
                 background_tasks.add_task(NotificationService.update_state_bug,
                                           CommentBugService.create_notification(bug, bug.__getattribute__('assigner_id'), data.text))
         except Exception as e:
-            print(e)
+            logger.error(e, exc_info=True)
             pass
 
         return await CommentBugService.get_comment_by_id(temp.id)

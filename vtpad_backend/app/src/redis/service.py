@@ -1,6 +1,8 @@
 from redis import asyncio as aioredis
 from redis.asyncio import Redis
 from ..common.config import EnvConfig
+import logging
+logger = logging.getLogger(__name__)
 
 env_config = EnvConfig()
 
@@ -31,7 +33,7 @@ class RedisService:
             )
             return True
         except Exception as e:
-            print('set string into redis', e)
+            logger.error('set string into redis: %s', e, exc_info=True)
             return False
 
     async def get_string(self, key) -> str | None:
@@ -39,7 +41,7 @@ class RedisService:
             temp = await self.redis.get(key)
             return temp.decode("utf-8")
         except Exception as e:
-            print('get string from redis', e)
+            logger.error('get string from redis: %s', e, exc_info=True)
             return None
 
     async def del_by_key(self, key):

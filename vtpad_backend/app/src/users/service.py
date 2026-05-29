@@ -7,6 +7,8 @@ from .model import *
 
 from ..common.crypto import *
 from ..redis import redis_service
+import logging
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -44,7 +46,7 @@ class UserService:
         try:
             return (await conn.execute_query_dict(sql, [user_mail, ]))[0]
         except Exception as e:
-            print(e)
+            logger.error(e, exc_info=True)
             return None
 
     @staticmethod

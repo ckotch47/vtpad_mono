@@ -15,6 +15,8 @@ from ...users.dto import RegisterUserDto
 from ...users.model import UserModel
 from ...users.service import UserService
 from app.src.common.config import conf
+import logging
+logger = logging.getLogger(__name__)
 
 class EmailSchema(BaseModel):
     email: list[EmailStr]
@@ -63,7 +65,7 @@ class UserCompanyService:
 
             return True
         except Exception as e:
-            print(e)
+            logger.error(e, exc_info=True)
             return False
 
     async def register_user_company(self, dto: RegisterUserDto, user_payload: dict, background_tasks: BackgroundTasks):

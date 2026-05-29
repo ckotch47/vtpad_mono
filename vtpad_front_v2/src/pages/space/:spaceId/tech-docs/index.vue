@@ -206,10 +206,12 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useLogger } from '@/composables/useLogger'
 import { useRoute, useRouter } from 'vue-router'
 import { techDocService } from '@/services'
 import EditorComponent from "@/components/common/editor/editorComponent.vue";
 
+const log = useLogger('app')
 const route = useRoute()
 const router = useRouter()
 
@@ -279,7 +281,7 @@ async function loadTree() {
     const res = await techDocService.getTree(spaceId.value)
     tree.value = res.data || []
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
   } finally {
     treeLoading.value = false
     await nextTick()
@@ -292,7 +294,7 @@ async function loadDoc(docId) {
     const res = await techDocService.getById(docId)
     selectedDoc.value = res.data
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
     selectedDoc.value = null
   }
 }
@@ -369,7 +371,7 @@ async function deleteDocById(docId) {
     }
     await loadTree()
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
     alert(e.response?.data?.detail || 'Failed to delete')
   }
 }
@@ -415,7 +417,7 @@ async function save() {
       await loadTree()
     }
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
     alert('Failed to save: ' + (e.response?.data?.detail || e.message))
   } finally {
     saveLoading.value = false
@@ -432,7 +434,7 @@ async function deleteDoc() {
     router.replace({ query: {} })
     await loadTree()
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
     alert(e.response?.data?.detail || 'Failed to delete')
   }
 }

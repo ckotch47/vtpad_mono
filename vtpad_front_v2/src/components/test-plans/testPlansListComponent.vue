@@ -54,9 +54,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useLogger } from '@/composables/useLogger'
 import { useRoute, useRouter } from 'vue-router'
 import { testPlanService } from '@/services'
 
+const log = useLogger('app')
 const route = useRoute()
 const router = useRouter()
 
@@ -88,7 +90,7 @@ async function loadPlans({ page: p, itemsPerPage }) {
     plans.value = res.data.items
     total.value = res.data.total
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
   } finally {
     loading.value = false
   }
@@ -105,7 +107,7 @@ async function createPlan() {
     newPlan.value = { name: '', description: '' }
     loadPlans({ page: page.value, itemsPerPage: pageSize.value })
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
   }
 }
 
@@ -115,7 +117,7 @@ async function deletePlan(id) {
     await testPlanService.delete(id)
     loadPlans({ page: page.value, itemsPerPage: pageSize.value })
   } catch (e) {
-    console.error(e)
+    log.error("request failed", e)
   }
 }
 </script>

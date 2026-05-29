@@ -1,8 +1,10 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testPlanService, testCaseService, testSuiteService, testRunService, sectionService } from '@/services'
+import { useLogger } from './useLogger'
 
 export function useTestPlanDetail() {
+  const log = useLogger('useTestPlanDetail')
   const route = useRoute()
   const router = useRouter()
 
@@ -70,7 +72,7 @@ export function useTestPlanDetail() {
       const runsRes = await testRunService.listBySpace(spaceId.value, { page: 1, page_size: 100 })
       runs.value = (runsRes.data.items || []).filter(r => r.plan_id === planId.value)
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     } finally {
       loader.value = false
     }
@@ -81,7 +83,7 @@ export function useTestPlanDetail() {
       const res = await testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 1000 })
       allSuites.value = res.data.items || []
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     }
   }
 
@@ -110,7 +112,7 @@ export function useTestPlanDetail() {
       await testPlanService.update(planId.value, { suite_ids: editSuiteIds.value })
       await loadPlan()
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     } finally {
       savingSuites.value = false
     }
@@ -130,7 +132,7 @@ export function useTestPlanDetail() {
       const res = await sectionService.listBySuite(sectionSourceSuite.value)
       sourceSections.value = res.data || []
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
       sourceSections.value = []
     }
   }
@@ -146,7 +148,7 @@ export function useTestPlanDetail() {
       sourceSections.value = []
       await loadPlan()
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     } finally {
       savingSections.value = false
     }
@@ -158,7 +160,7 @@ export function useTestPlanDetail() {
       await testPlanService.update(planId.value, { section_ids: current })
       await loadPlan()
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     }
   }
 
@@ -168,7 +170,7 @@ export function useTestPlanDetail() {
       await testPlanService.update(planId.value, { case_ids: current })
       await loadPlan()
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     }
   }
 
@@ -195,7 +197,7 @@ export function useTestPlanDetail() {
       }
       caseSourceSectionsList.value = all
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
       caseSourceSectionsList.value = []
     }
   }
@@ -227,7 +229,7 @@ export function useTestPlanDetail() {
         return true
       })
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
       availableCases.value = []
     }
   }
@@ -245,7 +247,7 @@ export function useTestPlanDetail() {
       selectedCases.value = []
       await loadPlan()
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     } finally {
       savingCases.value = false
     }
@@ -272,7 +274,7 @@ export function useTestPlanDetail() {
       })
       router.push(`/space/${spaceId.value}/test-runs/${res.data.id}`)
     } catch (e) {
-      console.error(e)
+      log.error('loadPlan failed', e)
     }
   }
 

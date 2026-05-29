@@ -119,12 +119,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useLogger } from '@/composables/useLogger'
 import { testRunService, bugService, testCaseService } from '@/services'
 import RunStatsPanel from './RunStatsPanel.vue'
 import RunResultEditDialog from './RunResultEditDialog.vue'
 import QuickBugDialog from './QuickBugDialog.vue'
 import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
 
+const log = useLogger('testRunDetail')
 const route = useRoute()
 
 const spaceId = computed(() => route.params.spaceId)

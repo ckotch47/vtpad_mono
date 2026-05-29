@@ -40,10 +40,8 @@ class TestSuiteService:
             pass
         else:
             filters['status'] = TestSuiteStatus.active
-        q = TestSuiteModel.filter(**filters).annotate(
-            cases_count=Count('test_cases'),
-            sections_count=Count('sections')
-        )
+
+        q = TestSuiteModel.filter(**filters)
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
 
@@ -52,6 +50,21 @@ class TestSuiteService:
 
         total = await q.count()
         items = await q.offset((page - 1) * page_size).limit(page_size).all()
+        suite_ids = [str(s.id) for s in items]
+
+        # Count cases per suite
+        from ..test_case.model import TestCaseModel
+        case_counts = {}
+        if suite_ids:
+            case_rows = await TestCaseModel.filter(suite_id__in=suite_ids).group_by('suite_id').annotate(count=Count('id')).values('suite_id', 'count')
+            case_counts = {str(r['suite_id']): r['count'] for r in case_rows}
+
+        # Count sections per suite
+        from ..section.model import SectionModel
+        section_counts = {}
+        if suite_ids:
+            section_rows = await SectionModel.filter(suite_id__in=suite_ids).group_by('suite_id').annotate(count=Count('id')).values('suite_id', 'count')
+            section_counts = {str(r['suite_id']): r['count'] for r in section_rows}
 
         return {
             'items': [
@@ -65,8 +78,8 @@ class TestSuiteService:
                     'created_by_id': str(s.created_by_id) if s.created_by_id else None,
                     'created_at': s.created_at.isoformat() if s.created_at else None,
                     'updated_at': s.updated_at.isoformat() if s.updated_at else None,
-                    'cases_count': getattr(s, 'cases_count', 0),
-                    'sections_count': getattr(s, 'sections_count', 0),
+                    'cases_count': case_counts.get(str(s.id), 0),
+                    'sections_count': section_counts.get(str(s.id), 0),
                 }
                 for s in items
             ],

@@ -16,10 +16,10 @@ from ..section.service import SectionService
 from ..embedding.service import EmbeddingService
 from ..tech_doc.model import TechDocModel
 from ..tech_doc.service import TechDocService
-from ..test_run.model import TestRunModel, TestResultModel, TestStepResultModel, TestRunStatus, TestResultStatus
+from ..test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from ..space.model import SpaceModel
 from ..test_run.service import TestRunService, TestResultService
-from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto, TestStepResultBulkUpdateDto
+from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto
 from ..test_case.dto import TestCaseUpdateDto
 from ..test_suite.dto import TestSuiteUpdateDto
 from ..section.dto import SectionUpdateDto
@@ -840,7 +840,7 @@ async def update_test_case(
 
 @mcp.tool()
 async def delete_test_case(case_id: str) -> dict:
-    """Delete (deprecate) a test case.
+    """Delete a test case permanently.
 
     Args:
         case_id: UUID of the test case
@@ -1019,7 +1019,6 @@ async def _delete_case_cascade(case_id: str) -> None:
     results = await TestResultModel.filter(testcase_id=case_id).all()
     result_ids = [str(r.id) for r in results]
     if result_ids:
-        await TestStepResultModel.filter(result_id__in=result_ids).delete()
         await TestResultModel.filter(id__in=result_ids).delete()
     await TestCaseModel.filter(id=case_id).delete()
 
@@ -1029,7 +1028,6 @@ async def _delete_run_cascade(run_id: str) -> None:
     results = await TestResultModel.filter(run_id=run_id).all()
     result_ids = [str(r.id) for r in results]
     if result_ids:
-        await TestStepResultModel.filter(result_id__in=result_ids).delete()
         await TestResultModel.filter(id__in=result_ids).delete()
     await TestRunModel.filter(id=run_id).delete()
 
@@ -1249,49 +1247,6 @@ async def duplicate_test_case(case_id: str) -> dict:
     token = _get_user_id()
     case = await TestCaseService.duplicate(case_id, token)
     return _case_to_dict(case)
-
-
-@mcp.tool()
-async def get_step_results(result_id: str) -> list[dict]:
-    """Get step-level results for a test result.
-
-    Args:
-        result_id: UUID of the test result
-
-    Returns:
-        List of step results with index, text, status, comment
-    """
-    steps = await TestResultService.get_step_results(result_id)
-    return steps
-
-
-@mcp.tool()
-async def update_step_results(
-    result_id: str,
-    steps: list[dict],
-) -> list[dict]:
-    """Update step-level results for a test result.
-
-    Args:
-        result_id: UUID of the test result
-        steps: List of {step_index, status, comment?, screenshot_url?}
-
-    Returns:
-        Updated step results
-    """
-    from ..test_run.dto import TestStepResultUpdateDto
-    step_dtos = []
-    for s in steps:
-        step_dtos.append(TestStepResultUpdateDto(
-            step_index=s["step_index"],
-            status=s["status"],
-            step_text=s.get("step_text"),
-            comment=s.get("comment"),
-            screenshot_url=s.get("screenshot_url"),
-        ))
-    dto = TestStepResultBulkUpdateDto(steps=step_dtos)
-    token = _get_user_id()
-    return await TestResultService.update_step_results(result_id, dto, token)
 
 
 @mcp.tool()

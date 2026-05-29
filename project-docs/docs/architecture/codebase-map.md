@@ -64,6 +64,26 @@ sequenceDiagram
 - В `vtpad_backend` много raw SQL в сервисах; при рефакторинге моделей ломаются запросы.
 - В `vtpad_front_v2` нет выделенного API-клиента; Axios вызывается прямо в компонентах/сторах.
 
+## UI базовый стандарт (таблицы)
+
+- Для новых списков используем визуальный паттерн `test-suites`: `v-toolbar` + `v-data-table-server` без дополнительных глобальных оберток.
+- Кастомные table-обертки добавлять только при явной UX-задаче, чтобы сохранить единый вид страниц.
+- Для index-страниц space-разделов используем единый контейнер: `v-container.mx-auto.custom-container.max-width-1500`.
+- Для `tech-docs` используется тот же контейнер ширины; внутри отдельный split-layout (sidebar/content) с поиском по дереву и breadcrumbs текущей страницы.
+- Для `tech-docs` sidebar-tree при открытии без `doc` в query сбрасывает внутренний скролл к началу списка.
+- Для `tech-docs` sidebar-дерево рендерится как управляемый `v-list` (иерархия с отступами), чтобы список гарантированно начинался сразу под поиском без layout-сдвигов `v-treeview`.
+- Для `tech-docs` просмотр контента выполняется через `editor-component` в режиме `readonly` (единый рендер с edit-режимом, без отдельного HTML/prose-рендера).
+- TipTap preset (`ProseMirror`) вынесен в общий `src/components/common/editor/editorComponent.vue` и используется на всех страницах редактора: типографика заголовков/списков, стили code/pre/table/blockquote/task-list, ограничение ширины чтения.
+- `ProseMirror` привязан к глобальным токенам типографики (`--vt-font-size-body-1`, `--vt-line-height-base`, `--vt-font-size-h*`), чтобы rich-text блоки не выбивались по размеру относительно остального UI.
+- Правило консистентности: визуальные изменения редактора (border/shadow/typography/spacing) вносятся только в `src/components/common/editor/editorComponent.vue`, без page-specific override в отдельных страницах.
+- Базовая типографика всего приложения централизована в `src/styles/typography.scss` (подключается в `src/main.js`): единая шкала размеров для заголовков/body/caption и ключевых Vuetify-элементов (`v-btn`, `v-field`, `v-list`, `v-table`).
+- Локальные `font-size` в страницах/фичах должны заменяться на глобальные utility-классы (`text-h*`, `text-body-*`, `text-caption`) или inherited-типографику без ручных числовых значений.
+- Типографика применена в “мягком” режиме: utility-классы и базовый body-scale управляются глобально, а внутренние размеры `v-card-text`/`v-list-item-*`/`v-field` не форсируются фиксированными значениями.
+- Дополнительно глобально нормализованы Vuetify-заголовки/навигация: `v-card-title`, `v-toolbar-title`, `v-tab`, `v-list-item-title`, `v-list-item-subtitle`.
+- Калибровка: `v-card-title` приведён к более компактному уровню (`h6` scale), а заголовки `ProseMirror` снижены на один шаг относительно базовой heading-шкалы для визуального баланса с UI-карточками.
+- Для повторяемой UI-регрессии фронта добавлен сценарный smoke-скрипт `vtpad_front_v2/scripts/ui-regression.mjs` (login + ключевые разделы + detail-переходы + sanity-check типографики + отчёт/скриншоты в `playwright-ui-regression/`).
+- Полный регрессионный набор (smoke/full/negative/permissions/responsive) описан в `project-docs/docs/ops/ui-regression-full-checklist.md`.
+
 ## Источники в коде
 
 - `vtpad_backend/app/main.py`

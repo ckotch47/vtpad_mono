@@ -4,25 +4,6 @@
   </v-container>
 </template>
 
-<script>
-import AuthComponent from "@/components/auth/authComponent.vue";
-
-export default {
-  name: "authPage",
-  components: {AuthComponent},
-  data(){
-    return{
-      visible: false
-    }
-  },
-  methods:{
-    loginUser(){
-      location.href = '/space'
-    }
-  }
-}
+<script setup>
+import AuthComponent from '@/components/auth/authComponent.vue'
 </script>
-
-<style scoped>
-
-</style>

@@ -11,15 +11,6 @@
 }
 }
 </route>
-<script>
-import CompanySpacesList from "@/components/company/spaces/companySpacesList.vue";
-
-export default {
-  name: "companySpacesPage",
-  components: {CompanySpacesList}
-}
+<script setup>
+import CompanySpacesList from '@/components/company/spaces/companySpacesList.vue'
 </script>
-
-<style scoped>
-
-</style>

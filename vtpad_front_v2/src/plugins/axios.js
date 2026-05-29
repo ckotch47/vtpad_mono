@@ -29,7 +29,7 @@ function successHandler(response) {
     toast.success('Success', {
       theme: vuetify.theme.name.value,
       transition: 'flip',
-      autoClose: 200,
+      autoClose: 1500,
     })
   }
   return response
@@ -58,10 +58,19 @@ function errorHandler(error) {
         location.href = '/auth'
       })
   }
-  toast.error(`${error.response?.status || ''} ${error.response?.data || error.message}`, {
+  const status = error.response?.status || ''
+  let msg = error.message
+  const data = error.response?.data
+  if (typeof data === 'string') msg = data
+  else if (data?.detail) {
+    if (Array.isArray(data.detail)) msg = data.detail.map(d => d.msg || d).join(', ')
+    else msg = data.detail
+  } else if (data?.msg) msg = data.msg
+  else if (data && typeof data === 'object') msg = JSON.stringify(data)
+  toast.error(`${status ? status + ' ' : ''}${msg}`, {
     theme: vuetify.theme.name.value,
     transition: 'flip',
-    autoClose: 200,
+    autoClose: 3000,
   })
   return Promise.reject(error)
 }

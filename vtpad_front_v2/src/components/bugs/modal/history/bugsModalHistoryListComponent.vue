@@ -1,6 +1,5 @@
 <template>
   <v-timeline density="compact" side="end">
-
     <v-timeline-item
       v-for="event in events"
       :key="event.id"
@@ -17,39 +16,29 @@
         @editComment="editComment"
       />
     </v-timeline-item>
-
   </v-timeline>
 </template>
 
-<script>
-import BugsModalCommentHistoryElem from "@/components/bugs/modal/comment/bugsModalCommentHistoryElem.vue";
-import BugsModalCommentCommentElem from "@/components/bugs/modal/comment/bugsModalCommentCommentElem.vue";
+<script setup>
+import BugsModalCommentHistoryElem from '@/components/bugs/modal/comment/bugsModalCommentHistoryElem.vue'
+import BugsModalCommentCommentElem from '@/components/bugs/modal/comment/bugsModalCommentCommentElem.vue'
 
-export default {
-  name: "bugsModalHistoryListComponent",
-  components: {BugsModalCommentCommentElem, BugsModalCommentHistoryElem},
-  emits: ['editComment'],
-  props:{
-    events: Array
-  },
-  methods: {
-    comment () {
-    },
-    editComment(comment){
-      this.$emit('editComment', comment)
-    },
-    getColor(eventView){
-      switch (eventView){
-        case 'history':
-          return 'grey'
-        default:
-          return 'primary'
-      }
-    }
-  },
+defineProps({
+  events: Array
+})
+
+const emit = defineEmits(['editComment'])
+
+function editComment(comment) {
+  emit('editComment', comment)
+}
+
+function getColor(eventView) {
+  switch (eventView) {
+    case 'history':
+      return 'grey'
+    default:
+      return 'primary'
+  }
 }
 </script>
-
-<style scoped>
-
-</style>

@@ -11,16 +11,6 @@
 }
 }
 </route>
-<script>
-
-import CompanyMainComponent from "@/components/company/companyMainComponent.vue";
-
-export default {
-  name: "indexCompanyPage",
-  components: {CompanyMainComponent},
-}
+<script setup>
+import CompanyMainComponent from '@/components/company/companyMainComponent.vue'
 </script>
-
-<style scoped>
-
-</style>

@@ -1,90 +1,76 @@
 <template>
-  <div class="d-flex flex-column" >
+  <div class="d-flex flex-column">
     <editor-component
+      ref="newCommentRef"
       :edit="true"
-      :placeHolderEditor="'Comment…'"
-      :text="isEdit ? this.comment.text : ''"
+      placeHolderEditor="Comment…"
+      :text="isEdit ? comment.text : ''"
       :show-menu-fixed="true"
       :show-menu-floating="false"
       :show-menu-bubble="false"
-      :menu-position="'top'"
+      menu-position="top"
       max-height="200px"
-      ref="newCommentRef"
       :is-save="true"
-      :is-delete="this.isEdit"
+      :is-delete="isEdit"
       @editorSaveFromMenu="newComment"
       @editorDeleteFromMenu="deleteComment"
     />
-
-<!--    <div class="d-flex justify-end send-comment&#45;&#45;btn ">-->
-<!--      <v-btn v-if="!this.isEdit" color="primary" class="" variant="outlined" @click="newComment">Send</v-btn>-->
-<!--      <div class="d-flex justify-space-between w-100" v-else>-->
-<!--        <v-btn color="red" class="" variant="outlined" @click="deleteComment">Delete</v-btn>-->
-<!--        <v-btn color="primary" class="" variant="outlined" @click="updateComment">Edit</v-btn>-->
-
-<!--      </div>-->
-<!--    </div>-->
   </div>
 </template>
 
-<script>
-import EditorComponent from "@/components/common/editor/editorComponent.vue";
+<script setup>
+import { ref, watch } from 'vue'
+import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import { commentService } from '@/services'
 
-export default {
-  name: "bugsModalCommentComponent",
-  components: {EditorComponent},
-  emits: ['updateComment', 'newComment'],
-  props:{
-    bug: Object,
-    edit: Boolean,
-    comment: Object
-  },
-  data(){
-    return{
-      isEdit: false,
-      editComment: undefined
-    }
-  },
-  updated() {
-    this.isEdit = this.edit
-  },
-  methods:{
-    async updateComment(){
-      await commentService.update(this.comment.id,{
-        text: this.$refs.newCommentRef.$data.editor.getHTML()
-      })
-      this.isEdit = false
-      this.$emit('newComment')
-    },
-    async deleteComment(){
-      await commentService.delete(this.comment.id)
-      this.isEdit = false
-      this.$emit('newComment')
-    },
-    async newComment(){
-      if(this.isEdit){
-        await this.updateComment();
-        return;
-      }
-      if(this.$refs.newCommentRef.$data.editor.getHTML() === '<p></p>')
-        return
-      await commentService.create(this.bug.id,{
-        text: this.$refs.newCommentRef.$data.editor.getHTML()
-      })
-      this.$emit('newComment')
-      this.$refs.newCommentRef.$data.editor.commands.setContent('<p></p>')
-    }
+const props = defineProps({
+  bug: Object,
+  edit: Boolean,
+  comment: Object
+})
+
+const emit = defineEmits(['updateComment', 'newComment'])
+
+const isEdit = ref(false)
+const newCommentRef = ref(null)
+
+watch(() => props.edit, (val) => {
+  isEdit.value = val
+}, { immediate: true })
+
+async function updateComment() {
+  await commentService.update(props.comment.id, {
+    text: newCommentRef.value?.$data?.editor?.getHTML()
+  })
+  isEdit.value = false
+  emit('newComment')
+}
+
+async function deleteComment() {
+  await commentService.delete(props.comment.id)
+  isEdit.value = false
+  emit('newComment')
+}
+
+async function newComment() {
+  if (isEdit.value) {
+    await updateComment()
+    return
   }
+  if (newCommentRef.value?.$data?.editor?.getHTML() === '<p></p>') return
+  await commentService.create(props.bug.id, {
+    text: newCommentRef.value?.$data?.editor?.getHTML()
+  })
+  emit('newComment')
+  newCommentRef.value?.$data?.editor?.commands.setContent('<p></p>')
 }
 </script>
 
 <style lang="scss">
-.v-timeline-item__body{
+.v-timeline-item__body {
   width: 660px;
 }
-.send-comment--btn{
+.send-comment--btn {
   margin: 0 10px 20px 10px;
-
 }
 </style>

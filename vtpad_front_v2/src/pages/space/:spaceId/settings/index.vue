@@ -4,15 +4,8 @@
   </v-container>
 </template>
 
-<script>
-
-import SettingsMainComponent from "@/components/settings/settingsMainComponent.vue";
-
-export default {
-  name: "SpaceSettingsComponent",
-  components: {SettingsMainComponent},
-
-}
+<script setup>
+import SettingsMainComponent from '@/components/settings/settingsMainComponent.vue'
 </script>
 <route>
   {
@@ -22,6 +15,3 @@ export default {
   }
 }
 </route>
-<style scoped>
-
-</style>

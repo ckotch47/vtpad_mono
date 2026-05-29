@@ -105,11 +105,11 @@
                 @update:activated="onSectionSelect"
                 class="section-tree"
               >
-                <template v-slot:title="{ item }">
+                <template #title="{ item }">
                   <span
                     v-if="editingSectionId !== item.id"
-                    @dblclick="startInlineRename(item)"
                     class="tree-node-text"
+                    @dblclick="startInlineRename(item)"
                   >{{ item.name }}</span>
                   <v-text-field
                     v-else
@@ -127,35 +127,35 @@
                     {{ item.test_case_count || 0 }}
                   </v-chip>
                 </template>
-                <template v-slot:prepend="{ item }">
+                <template #prepend="{ item }">
                   <v-icon size="small" color="primary">mdi-folder-outline</v-icon>
                 </template>
-                <template v-slot:append="{ item }">
+                <template #append="{ item }">
                   <v-menu>
-                    <template v-slot:activator="{ props }">
+                    <template #activator="{ props: menuProps }">
                       <v-btn
                         icon="mdi-dots-vertical"
                         size="x-small"
                         variant="text"
-                        v-bind="props"
+                        v-bind="menuProps"
                         @click.stop
                       />
                     </template>
                     <v-list density="compact">
                       <v-list-item @click="openSectionDialog(item.id)">
-                        <template v-slot:prepend>
+                        <template #prepend>
                           <v-icon>mdi-plus</v-icon>
                         </template>
                         <v-list-item-title>Add sub-section</v-list-item-title>
                       </v-list-item>
                       <v-list-item @click="openRenameDialog(item)">
-                        <template v-slot:prepend>
+                        <template #prepend>
                           <v-icon>mdi-pencil</v-icon>
                         </template>
                         <v-list-item-title>Rename</v-list-item-title>
                       </v-list-item>
-                      <v-list-item @click="deleteSection(item.id)" class="text-error">
-                        <template v-slot:prepend>
+                      <v-list-item class="text-error" @click="deleteSection(item.id)">
+                        <template #prepend>
                           <v-icon color="error">mdi-delete</v-icon>
                         </template>
                         <v-list-item-title>Delete</v-list-item-title>
@@ -215,7 +215,7 @@
                   class="case-item"
                   @click="openCaseDialog(tc.id)"
                 >
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon :color="typeColor(tc.type)">{{ typeIcon(tc.type) }}</v-icon>
                   </template>
                   <v-list-item-title class="font-weight-medium">
@@ -229,14 +229,14 @@
                       {{ tc.short_name }}
                     </span>
                   </v-list-item-subtitle>
-                  <template v-slot:append>
+                  <template #append>
                     <v-btn
                       icon="mdi-link-off"
                       size="x-small"
                       variant="text"
                       color="grey"
-                      @click.prevent="removeCaseFromSection(tc.id)"
                       title="Remove from section"
+                      @click.prevent="removeCaseFromSection(tc.id)"
                     />
                   </template>
                 </v-list-item>
@@ -297,7 +297,7 @@
               :key="tc.id"
               :value="tc.id"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-checkbox-btn
                   v-model="selectedExistingCases"
                   :value="tc.id"
@@ -393,252 +393,272 @@
   </div>
 </template>
 
-<script>
-import { testSuiteService, sectionService, testCaseService, testRunService } from '@/services';
-import EditorComponent from "@/components/common/editor/editorComponent.vue";
-import BreadcrumbsComponent from "@/components/common/breadcrumbsComponent.vue";
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { testSuiteService, sectionService, testCaseService, testRunService } from '@/services'
+import EditorComponent from "@/components/common/editor/editorComponent.vue"
+import BreadcrumbsComponent from "@/components/common/breadcrumbsComponent.vue"
 
-export default {
-  name: "testSuiteDetailComponent",
-  components: { EditorComponent, BreadcrumbsComponent },
-  data: () => ({
-    suite: {},
-    sectionTree: [],
-    flatSections: [],
-    selectedSection: null,
-    testCases: [],
-    allCases: [],
-    spaceId: undefined,
-    suiteId: undefined,
-    loader: true,
-    caseSearch: '',
-    openAddCase: false,
-    openAddExistingCase: false,
-    existingCases: [],
-    selectedExistingCases: [],
-    existingCaseSearch: '',
-    newCase: { title: '', type: 'manual', steps: '' },
-    sectionDialog: {
-      open: false,
-      isRename: false,
-      id: null,
-      parentId: null,
-      name: '',
-      description: ''
-    },
-    caseDialogOpen: false,
-    selectedCase: null,
-    breadcrumbItems: [],
-    editingSectionId: null,
-    editingSectionName: ''
-  }),
-  computed: {
-    filteredTestCases() {
-      const q = this.caseSearch.toLowerCase().trim();
-      if (!q) return this.testCases;
-      return this.testCases.filter(tc =>
-        tc.title?.toLowerCase().includes(q) ||
-        tc.short_name?.toLowerCase().includes(q)
-      );
-    },
-    filteredExistingCases() {
-      const q = this.existingCaseSearch.toLowerCase().trim();
-      if (!q) return this.existingCases;
-      return this.existingCases.filter(tc => tc.title?.toLowerCase().includes(q));
-    }
-  },
-  mounted() {
-    this.spaceId = this.$route.params.spaceId;
-    this.suiteId = this.$route.params.suiteId;
-    this.loadSuite();
-    this.loadSections();
-    this.loadAllCases();
-  },
-  methods: {
-    loadSuite() {
-      testSuiteService.getById(this.suiteId).then(res => {
-        this.suite = res.data;
-        this.breadcrumbItems = [
-          { title: 'Test Suites', to: `/space/${this.spaceId}/test-suites` },
-          { title: this.suite.name }
-        ];
-        this.loader = false;
-      });
-    },
-    loadSections() {
-      sectionService.getTree(this.suiteId).then(res => {
-        this.sectionTree = res.data;
-        this.flatSections = this.flattenTree(res.data);
-      });
-    },
-    loadAllCases() {
-      testCaseService.listBySuite(this.suiteId).then(res => {
-        this.allCases = res.data;
-      }).catch(() => {
-        this.allCases = [];
-      });
-    },
-    flattenTree(nodes, list = []) {
-      for (const n of nodes || []) {
-        list.push({ id: n.id, name: n.name });
-        this.flattenTree(n.children, list);
-      }
-      return list;
-    },
-    onSectionSelect(ids) {
-      const id = ids[0];
-      this.selectedSection = this.flatSections.find(s => s.id === id) || { id, name: 'Section' };
-      this.loadTestCases(id);
-    },
-    loadTestCases(sectionId) {
-      testCaseService.listBySection(sectionId).then(res => {
-        this.testCases = res.data;
-      });
-    },
-    caseCountByType(type) {
-      return this.allCases.filter(tc => tc.type === type).length;
-    },
-    typeIcon(type) {
-      const map = { manual: 'mdi-hand-back-right-outline', checklist: 'mdi-check-box-outline', automated: 'mdi-robot' };
-      return map[type] || 'mdi-test-tube';
-    },
-    typeColor(type) {
-      const map = { manual: 'info', checklist: 'success', automated: 'warning' };
-      return map[type] || 'grey';
-    },
-    statusColor(status) {
-      const map = { draft: 'grey', active: 'success', deprecated: 'error' };
-      return map[status] || 'grey';
-    },
-    openSectionDialog(parentId = null) {
-      this.sectionDialog = {
-        open: true,
-        isRename: false,
-        id: null,
-        parentId,
-        name: '',
-        description: ''
-      };
-    },
-    openRenameDialog(item) {
-      this.sectionDialog = {
-        open: true,
-        isRename: true,
-        id: item.id,
-        parentId: null,
-        name: item.name,
-        description: item.description || ''
-      };
-    },
-    saveSection() {
-      if (this.sectionDialog.isRename) {
-        sectionService.update(this.sectionDialog.id, {
-          name: this.sectionDialog.name,
-          description: this.sectionDialog.description || null
-        }).then(() => {
-          this.sectionDialog.open = false;
-          this.loadSections();
-        });
-      } else {
-        sectionService.create({
-          name: this.sectionDialog.name,
-          description: this.sectionDialog.description || null,
-          suite_id: this.suiteId,
-          parent_id: this.sectionDialog.parentId
-        }).then(() => {
-          this.sectionDialog.open = false;
-          this.loadSections();
-        });
-      }
-    },
-    deleteSection(id) {
-      if (!confirm('Delete this section? Test cases will remain but become unassigned.')) return;
-      sectionService.delete(id).then(() => {
-        this.selectedSection = null;
-        this.testCases = [];
-        this.loadSections();
-        this.loadAllCases();
-      });
-    },
-    removeCaseFromSection(id) {
-      testCaseService.update(id, {
-        section_id: null,
-        suite_id: null
-      }).then(() => {
-        this.loadTestCases(this.selectedSection.id);
-        this.loadAllCases();
-      });
-    },
-    loadExistingCases() {
-      testCaseService.listBySpace(this.spaceId).then(res => {
-        const currentIds = new Set(this.testCases.map(tc => tc.id));
-        this.existingCases = res.data.filter(tc => !currentIds.has(tc.id));
-        this.selectedExistingCases = [];
-      });
-    },
-    addExistingCases() {
-      const promises = this.selectedExistingCases.map(id =>
-        testCaseService.update(id, {
-          suite_id: this.suiteId,
-          section_id: this.selectedSection.id
-        })
-      );
-      Promise.all(promises).then(() => {
-        this.openAddExistingCase = false;
-        this.loadTestCases(this.selectedSection.id);
-        this.loadAllCases();
-      });
-    },
-    addTestCase() {
-      testCaseService.create({
-        title: this.newCase.title,
-        type: this.newCase.type,
-        steps: this.newCase.steps,
-        space_id: this.spaceId,
-        suite_id: this.suiteId,
-        section_id: this.selectedSection.id
-      }).then(() => {
-        this.openAddCase = false;
-        this.newCase = { title: '', type: 'manual', steps: '' };
-        this.loadTestCases(this.selectedSection.id);
-        this.loadAllCases();
-      });
-    },
-    openCaseDialog(id) {
-      testCaseService.getById(id).then(res => {
-        this.selectedCase = res.data;
-        this.caseDialogOpen = true;
-      });
-    },
-    createRun() {
-      testRunService.create({
-        name: `Run for ${this.suite.name}`,
-        space_id: this.spaceId,
-        suite_id: this.suiteId
-      }).then(res => {
-        this.$router.push(`/space/${this.spaceId}/test-runs/${res.data.id}`);
-      });
-    },
-    startInlineRename(item) {
-      this.editingSectionId = item.id;
-      this.editingSectionName = item.name;
-    },
-    saveInlineRename() {
-      if (!this.editingSectionId) return;
-      sectionService.update(this.editingSectionId, {
-        name: this.editingSectionName
-      }).then(() => {
-        this.editingSectionId = null;
-        this.editingSectionName = '';
-        this.loadSections();
-      });
-    },
-    cancelInlineRename() {
-      this.editingSectionId = null;
-      this.editingSectionName = '';
-    }
+const route = useRoute()
+const router = useRouter()
+
+const spaceId = computed(() => route.params.spaceId)
+const suiteId = computed(() => route.params.suiteId)
+
+const suite = ref({})
+const sectionTree = ref([])
+const flatSections = ref([])
+const selectedSection = ref(null)
+const testCases = ref([])
+const allCases = ref([])
+const loader = ref(true)
+const caseSearch = ref('')
+const openAddCase = ref(false)
+const openAddExistingCase = ref(false)
+const existingCases = ref([])
+const selectedExistingCases = ref([])
+const existingCaseSearch = ref('')
+const newCase = ref({ title: '', type: 'manual', steps: '' })
+const sectionDialog = ref({
+  open: false,
+  isRename: false,
+  id: null,
+  parentId: null,
+  name: '',
+  description: ''
+})
+const caseDialogOpen = ref(false)
+const selectedCase = ref(null)
+const breadcrumbItems = ref([])
+const editingSectionId = ref(null)
+const editingSectionName = ref('')
+
+const filteredTestCases = computed(() => {
+  const q = caseSearch.value.toLowerCase().trim()
+  if (!q) return testCases.value
+  return testCases.value.filter(tc =>
+    tc.title?.toLowerCase().includes(q) ||
+    tc.short_name?.toLowerCase().includes(q)
+  )
+})
+
+const filteredExistingCases = computed(() => {
+  const q = existingCaseSearch.value.toLowerCase().trim()
+  if (!q) return existingCases.value
+  return existingCases.value.filter(tc => tc.title?.toLowerCase().includes(q))
+})
+
+function loadSuite() {
+  testSuiteService.getById(suiteId.value).then(res => {
+    suite.value = res.data
+    breadcrumbItems.value = [
+      { title: 'Test Suites', to: `/space/${spaceId.value}/test-suites` },
+      { title: suite.value.name }
+    ]
+    loader.value = false
+  })
+}
+
+function loadSections() {
+  sectionService.getTree(suiteId.value).then(res => {
+    sectionTree.value = res.data
+    flatSections.value = flattenTree(res.data)
+  })
+}
+
+function loadAllCases() {
+  testCaseService.listBySuite(suiteId.value).then(res => {
+    allCases.value = res.data
+  }).catch(() => {
+    allCases.value = []
+  })
+}
+
+function flattenTree(nodes, list = []) {
+  for (const n of nodes || []) {
+    list.push({ id: n.id, name: n.name })
+    flattenTree(n.children, list)
+  }
+  return list
+}
+
+function onSectionSelect(ids) {
+  const id = ids[0]
+  selectedSection.value = flatSections.value.find(s => s.id === id) || { id, name: 'Section' }
+  loadTestCases(id)
+}
+
+function loadTestCases(sectionId) {
+  testCaseService.listBySection(sectionId).then(res => {
+    testCases.value = res.data
+  })
+}
+
+function caseCountByType(type) {
+  return allCases.value.filter(tc => tc.type === type).length
+}
+
+function typeIcon(type) {
+  const map = { manual: 'mdi-hand-back-right-outline', checklist: 'mdi-check-box-outline', automated: 'mdi-robot' }
+  return map[type] || 'mdi-test-tube'
+}
+
+function typeColor(type) {
+  const map = { manual: 'info', checklist: 'success', automated: 'warning' }
+  return map[type] || 'grey'
+}
+
+function statusColor(status) {
+  const map = { draft: 'grey', active: 'success', deprecated: 'error' }
+  return map[status] || 'grey'
+}
+
+function openSectionDialog(parentId = null) {
+  sectionDialog.value = {
+    open: true,
+    isRename: false,
+    id: null,
+    parentId,
+    name: '',
+    description: ''
   }
 }
+
+function openRenameDialog(item) {
+  sectionDialog.value = {
+    open: true,
+    isRename: true,
+    id: item.id,
+    parentId: null,
+    name: item.name,
+    description: item.description || ''
+  }
+}
+
+function saveSection() {
+  if (sectionDialog.value.isRename) {
+    sectionService.update(sectionDialog.value.id, {
+      name: sectionDialog.value.name,
+      description: sectionDialog.value.description || null
+    }).then(() => {
+      sectionDialog.value.open = false
+      loadSections()
+    })
+  } else {
+    sectionService.create({
+      name: sectionDialog.value.name,
+      description: sectionDialog.value.description || null,
+      suite_id: suiteId.value,
+      parent_id: sectionDialog.value.parentId
+    }).then(() => {
+      sectionDialog.value.open = false
+      loadSections()
+    })
+  }
+}
+
+function deleteSection(id) {
+  if (!confirm('Delete this section? Test cases will remain but become unassigned.')) return
+  sectionService.delete(id).then(() => {
+    selectedSection.value = null
+    testCases.value = []
+    loadSections()
+    loadAllCases()
+  })
+}
+
+function removeCaseFromSection(id) {
+  testCaseService.update(id, {
+    section_id: null,
+    suite_id: null
+  }).then(() => {
+    loadTestCases(selectedSection.value.id)
+    loadAllCases()
+  })
+}
+
+function loadExistingCases() {
+  testCaseService.listBySpace(spaceId.value).then(res => {
+    const currentIds = new Set(testCases.value.map(tc => tc.id))
+    existingCases.value = res.data.filter(tc => !currentIds.has(tc.id))
+    selectedExistingCases.value = []
+  })
+}
+
+function addExistingCases() {
+  const promises = selectedExistingCases.value.map(id =>
+    testCaseService.update(id, {
+      suite_id: suiteId.value,
+      section_id: selectedSection.value.id
+    })
+  )
+  Promise.all(promises).then(() => {
+    openAddExistingCase.value = false
+    loadTestCases(selectedSection.value.id)
+    loadAllCases()
+  })
+}
+
+function addTestCase() {
+  testCaseService.create({
+    title: newCase.value.title,
+    type: newCase.value.type,
+    steps: newCase.value.steps,
+    space_id: spaceId.value,
+    suite_id: suiteId.value,
+    section_id: selectedSection.value.id
+  }).then(() => {
+    openAddCase.value = false
+    newCase.value = { title: '', type: 'manual', steps: '' }
+    loadTestCases(selectedSection.value.id)
+    loadAllCases()
+  })
+}
+
+function openCaseDialog(id) {
+  testCaseService.getById(id).then(res => {
+    selectedCase.value = res.data
+    caseDialogOpen.value = true
+  })
+}
+
+function createRun() {
+  testRunService.create({
+    name: `Run for ${suite.value.name}`,
+    space_id: spaceId.value,
+    suite_id: suiteId.value
+  }).then(res => {
+    router.push(`/space/${spaceId.value}/test-runs/${res.data.id}`)
+  })
+}
+
+function startInlineRename(item) {
+  editingSectionId.value = item.id
+  editingSectionName.value = item.name
+}
+
+function saveInlineRename() {
+  if (!editingSectionId.value) return
+  sectionService.update(editingSectionId.value, {
+    name: editingSectionName.value
+  }).then(() => {
+    editingSectionId.value = null
+    editingSectionName.value = ''
+    loadSections()
+  })
+}
+
+function cancelInlineRename() {
+  editingSectionId.value = null
+  editingSectionName.value = ''
+}
+
+onMounted(() => {
+  loadSuite()
+  loadSections()
+  loadAllCases()
+})
 </script>
 
 <style scoped>

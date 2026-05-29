@@ -1,16 +1,13 @@
 <template>
-  <v-container class="comments" style=" max-height: 600px; overflow-y: auto">
+  <v-container class="comments" style="max-height: 600px; overflow-y: auto">
     <v-tabs
-
-      color="primary"
       v-model="historyTabValue"
+      color="primary"
       class="rounded-0_custom"
     >
       <v-tab text="comment" :value="0" />
       <v-tab text="history" :value="1" />
     </v-tabs>
-
-
 
     <v-tabs-window v-model="historyTabValue">
       <v-tabs-window-item value="0">
@@ -20,62 +17,42 @@
         />
       </v-tabs-window-item>
 
-
-    <v-tabs-window-item value="1">
-      <bugs-modal-history-list-component
-        :events="history"
-        @editComment="editComment"
-      />
-    </v-tabs-window-item>
-
-
+      <v-tabs-window-item value="1">
+        <bugs-modal-history-list-component
+          :events="history"
+          @editComment="editComment"
+        />
+      </v-tabs-window-item>
     </v-tabs-window>
   </v-container>
 </template>
 
-<script>
+<script setup>
+import { ref } from 'vue'
+import BugsModalHistoryListComponent from '@/components/bugs/modal/history/bugsModalHistoryListComponent.vue'
 
-import BugsModalHistoryListComponent from "@/components/bugs/modal/history/bugsModalHistoryListComponent.vue";
+defineProps({
+  bug: Object,
+  history: Array
+})
 
-export default {
-  name: "bugsModalHistoryComponentV2",
-  components: {BugsModalHistoryListComponent},
-  emits: ['editComment'],
-  props:{
-    bug: Object,
-    history: Array
-  },
-  data: () => ({
-    historyTabValue: null,
-    events: [],
-    input: null,
-    nonce: 0,
-    showHistory: false
-  }),
-  mounted() {
-    // this.events = this.history.filter(value => value.view === 'comment')
-  },
-  updated() {
-    // this.showHistory = false
-    // this.events = this.history.filter(value => value.view === 'comment')
-  },
+const emit = defineEmits(['editComment'])
 
-  methods: {
-    editComment(comment){
-      this.$emit('editComment', comment)
-    },
-  },
+const historyTabValue = ref(null)
+
+function editComment(comment) {
+  emit('editComment', comment)
 }
 </script>
 
-<style  lang="scss">
+<style lang="scss">
 .comments {
   .v-checkbox .v-selection-control {
     min-height: unset !important;
   }
   padding-top: 0;
   padding-bottom: 0;
-  button{
+  button {
     background: unset !important;
   }
 }

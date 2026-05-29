@@ -4,15 +4,8 @@
   </v-container>
 </template>
 
-<script>
-
-import ReportQaSpaceComponent from "@/components/reports/reportQaSpaceComponent.vue";
-
-export default {
-  name: "qa-reportPage",
-  components: {ReportQaSpaceComponent},
-
-}
+<script setup>
+import ReportQaSpaceComponent from '@/components/reports/reportQaSpaceComponent.vue'
 </script>
 <route>
 {
@@ -22,7 +15,7 @@ tabValue: "qa-report"
 }
 }
 </route>
-<style  lang="scss">
+<style lang="scss">
 .data-picker--compact{
   .v-picker-title{
     display: none;

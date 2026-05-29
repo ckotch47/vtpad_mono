@@ -1,26 +1,19 @@
 <template>
-  <v-btn class="custom-chip" :text="text" :color="color"/>
+  <v-btn class="custom-chip" :text="text" :color="color" />
 </template>
 
-<script>
-export default {
-  name: "customChipComponent",
-  props:{
-    text: String,
-    color: String
-  }
-}
+<script setup>
+defineProps({
+  text: String,
+  color: String
+})
 </script>
 
 <style scoped lang="scss">
-.custom-chip{
-  //border-radius: 25px;
-  //box-shadow: unset !important;
-  //cursor: pointer;
-  height: 24px; //calc(var(--v-chip-height) + 25px);
-  font-size:  0.7rem;
+.custom-chip {
+  height: 24px;
+  font-size: 0.7rem;
   margin-right: 5px;
-  //--v-chip-height: 32px;
   align-items: center;
   display: inline-flex;
   font-weight: 400;
@@ -37,7 +30,8 @@ export default {
   border-radius: 9999px;
   padding: 0 12px;
   opacity: 0.8;
-  &.v-btn--variant-elevated{
+
+  &.v-btn--variant-elevated {
     box-shadow: unset !important;
   }
 }

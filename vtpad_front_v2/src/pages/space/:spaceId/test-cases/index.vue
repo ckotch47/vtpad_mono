@@ -8,10 +8,10 @@
 </route>
 
 <template>
-  <v-container fluid>
+  <v-container>
     <v-row>
       <v-col cols="12">
-        <h1 class="text-h4 mb-4">Test Cases</h1>
+        <page-header-component title="Test Cases" />
         <test-cases-list-component />
       </v-col>
     </v-row>

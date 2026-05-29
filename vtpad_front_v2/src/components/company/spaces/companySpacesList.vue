@@ -1,16 +1,7 @@
 <template>
-  <spaces-list-component company/>
+  <spaces-list-component company />
 </template>
 
-<script>
-import SpacesListComponent from "@/components/leftAsideMain/SpacesListComponent.vue";
-
-export default {
-  name: "companySpacesList",
-  components: {SpacesListComponent}
-}
+<script setup>
+import SpacesListComponent from '@/components/leftAsideMain/SpacesListComponent.vue'
 </script>
-
-<style scoped>
-
-</style>

@@ -172,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import {ref, computed, onMounted} from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
@@ -181,7 +181,7 @@ import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
 const route = useRoute()
 const api = useApi()
 
-const spaceId = route.params.spaceId
+const spaceId = computed(() => route.params.spaceId)
 const caseId = route.params.caseId
 
 const loader = ref(true)
@@ -207,7 +207,7 @@ function loadCase() {
     testcase.value = res.data
     versions.value = res.data.versions || []
     breadcrumbItems.value = [
-      { title: 'Test Cases', to: `/space/${spaceId}/test-cases` },
+      { title: 'Test Cases', to: `/space/${spaceId.value}/test-cases` },
       { title: res.data.title }
     ]
     loader.value = false

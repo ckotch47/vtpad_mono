@@ -12,15 +12,6 @@
 }
 }
 </route>
-<script>
-import CompanyUserListComponent from "@/components/company/list/companyUserListComponent.vue";
-
-export default {
-  name: "companyUsersPage",
-  components: {CompanyUserListComponent}
-}
+<script setup>
+import CompanyUserListComponent from '@/components/company/list/companyUserListComponent.vue'
 </script>
-
-<style scoped>
-
-</style>

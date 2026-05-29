@@ -21,7 +21,7 @@
           </p>
         </v-col>
         <v-col cols="auto">
-          <v-btn color="primary" prepend-icon="mdi-play" @click="createRun" :disabled="cases.length === 0">
+          <v-btn color="primary" prepend-icon="mdi-play" :disabled="cases.length === 0" @click="createRun">
             New Run
           </v-btn>
         </v-col>
@@ -47,7 +47,7 @@
                   class="case-item"
                   @click="openCaseDialog(tc.id)"
                 >
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon :color="typeColor(tc.type)">{{ typeIcon(tc.type) }}</v-icon>
                   </template>
                   <v-list-item-title>
@@ -59,7 +59,7 @@
                       {{ tc.suite.name }}
                     </span>
                   </v-list-item-subtitle>
-                  <template v-slot:append>
+                  <template #append>
                     <v-btn icon size="x-small" variant="text" color="error" @click.stop="removeCase(tc.id)">
                       <v-icon>mdi-close</v-icon>
                     </v-btn>
@@ -113,8 +113,8 @@
                   size="small"
                   variant="text"
                   prepend-icon="mdi-checkbox-multiple-marked"
-                  @click="selectAllAvailable"
                   :disabled="filteredAvailableCases.length === 0"
+                  @click="selectAllAvailable"
                 >
                   Select All
                 </v-btn>
@@ -122,8 +122,8 @@
                   size="small"
                   variant="text"
                   prepend-icon="mdi-checkbox-multiple-blank-outline"
-                  @click="deselectAll"
                   :disabled="selectedCases.length === 0"
+                  @click="deselectAll"
                 >
                   Deselect All
                 </v-btn>
@@ -139,7 +139,7 @@
                   :key="tc.id"
                   :disabled="isCaseInPlan(tc.id)"
                 >
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-checkbox-btn
                       v-model="selectedCases"
                       :value="tc.id"
@@ -169,7 +169,7 @@
           <v-card class="mt-4">
             <v-card-title>Runs from this Plan</v-card-title>
             <v-card-text>
-              <v-list density="compact" v-if="runs.length">
+              <v-list v-if="runs.length" density="compact">
                 <v-list-item
                   v-for="run in runs"
                   :key="run.id"
@@ -236,164 +236,169 @@
   </div>
 </template>
 
-<script>
-import { testPlanService, testCaseService, testSuiteService, testRunService } from '@/services';
-import EditorComponent from "@/components/common/editor/editorComponent.vue";
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { testPlanService, testCaseService, testSuiteService, testRunService } from '@/services'
+import EditorComponent from "@/components/common/editor/editorComponent.vue"
 
-export default {
-  name: "testPlanDetailComponent",
-  components: { EditorComponent },
-  data: () => ({
-    plan: {},
-    cases: [],
-    runs: [],
-    spaceId: undefined,
-    planId: undefined,
-    loader: true,
-    suites: [],
-    selectedSuites: [],
-    availableCases: [],
-    selectedCases: [],
-    caseSearch: '',
-    caseDialogOpen: false,
-    selectedCase: null
-  }),
-  computed: {
-    filteredAvailableCases() {
-      const q = this.caseSearch.toLowerCase().trim();
-      if (!q) return this.availableCases;
-      return this.availableCases.filter(tc => tc.title?.toLowerCase().includes(q));
-    }
-  },
-  created() {
-    this.spaceId = this.$route.params.spaceId;
-    this.planId = this.$route.params.planId;
-  },
-  mounted() {
-    this.loadPlan();
-    this.loadSuites();
-  },
-  methods: {
-    async loadPlan() {
-      this.loader = true;
-      try {
-        const [planRes, casesRes] = await Promise.all([
-          testPlanService.getById(this.planId),
-          testPlanService.getCases(this.planId)
-        ]);
-        this.plan = planRes.data;
-        this.cases = casesRes.data;
-        // Load runs that were created from this plan
-        const runsRes = await testRunService.listBySpace(this.spaceId, { page: 1, page_size: 100 });
-        this.runs = (runsRes.data.items || []).filter(r => r.plan_id === this.planId);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        this.loader = false;
-      }
-    },
-    async loadSuites() {
-      try {
-        const res = await testSuiteService.listBySpace(this.spaceId, { page: 1, page_size: 1000 });
-        this.suites = res.data.items || [];
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    async loadAvailableCases() {
-      if (!this.selectedSuites.length) {
-        this.availableCases = [];
-        this.selectedCases = [];
-        return;
-      }
-      try {
-        const promises = this.selectedSuites.map(suiteId =>
-          testCaseService.listBySuite(suiteId)
-        );
-        const responses = await Promise.all(promises);
-        const allCases = responses.flatMap(r => r.data);
-        // Deduplicate by id
-        const seen = new Set();
-        this.availableCases = allCases.filter(tc => {
-          if (seen.has(tc.id)) return false;
-          seen.add(tc.id);
-          return true;
-        });
-      } catch (e) {
-        console.error(e);
-        this.availableCases = [];
-      }
-    },
-    isCaseInPlan(caseId) {
-      return this.cases.some(c => c.id === caseId);
-    },
-    async addCasesToPlan() {
-      const currentIds = this.cases.map(c => c.id);
-      const newIds = [...currentIds, ...this.selectedCases];
-      try {
-        await testPlanService.update(this.planId, { case_ids: newIds });
-        this.selectedCases = [];
-        this.loadPlan();
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    selectAllAvailable() {
-      const availableIds = this.filteredAvailableCases
-        .filter(tc => !this.isCaseInPlan(tc.id))
-        .map(tc => tc.id);
-      // Add only new ids, preserving existing selection
-      const newSelection = new Set([...this.selectedCases, ...availableIds]);
-      this.selectedCases = Array.from(newSelection);
-    },
-    deselectAll() {
-      this.selectedCases = [];
-    },
-    async removeCase(caseId) {
-      const newIds = this.cases.filter(c => c.id !== caseId).map(c => c.id);
-      try {
-        await testPlanService.update(this.planId, { case_ids: newIds });
-        this.loadPlan();
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    async createRun() {
-      try {
-        const res = await testRunService.create({
-          name: `Run for ${this.plan.name}`,
-          space_id: this.spaceId,
-          plan_id: this.planId
-        });
-        this.$router.push(`/space/${this.spaceId}/test-runs/${res.data.id}`);
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    openCaseDialog(id) {
-      testCaseService.getById(id).then(res => {
-        this.selectedCase = res.data;
-        this.caseDialogOpen = true;
-      });
-    },
-    typeIcon(type) {
-      const map = { manual: 'mdi-hand-back-right-outline', checklist: 'mdi-check-box-outline', automated: 'mdi-robot' };
-      return map[type] || 'mdi-test-tube';
-    },
-    typeColor(type) {
-      const map = { manual: 'info', checklist: 'success', automated: 'warning' };
-      return map[type] || 'grey';
-    },
-    statusColor(status) {
-      const map = { draft: 'grey', active: 'success', deprecated: 'error' };
-      return map[status] || 'grey';
-    },
-    runStatusColor(status) {
-      const map = { draft: 'grey', active: 'primary', completed: 'success' };
-      return map[status] || 'grey';
-    }
+const route = useRoute()
+const router = useRouter()
+
+const spaceId = computed(() => route.params.spaceId)
+const planId = computed(() => route.params.planId)
+
+const plan = ref({})
+const cases = ref([])
+const runs = ref([])
+const loader = ref(true)
+const suites = ref([])
+const selectedSuites = ref([])
+const availableCases = ref([])
+const selectedCases = ref([])
+const caseSearch = ref('')
+const caseDialogOpen = ref(false)
+const selectedCase = ref(null)
+
+const filteredAvailableCases = computed(() => {
+  const q = caseSearch.value.toLowerCase().trim()
+  if (!q) return availableCases.value
+  return availableCases.value.filter(tc => tc.title?.toLowerCase().includes(q))
+})
+
+async function loadPlan() {
+  loader.value = true
+  try {
+    const [planRes, casesRes] = await Promise.all([
+      testPlanService.getById(planId.value),
+      testPlanService.getCases(planId.value)
+    ])
+    plan.value = planRes.data
+    cases.value = casesRes.data
+    const runsRes = await testRunService.listBySpace(spaceId.value, { page: 1, page_size: 100 })
+    runs.value = (runsRes.data.items || []).filter(r => r.plan_id === planId.value)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loader.value = false
   }
 }
+
+async function loadSuites() {
+  try {
+    const res = await testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 1000 })
+    suites.value = res.data.items || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function loadAvailableCases() {
+  if (!selectedSuites.value.length) {
+    availableCases.value = []
+    selectedCases.value = []
+    return
+  }
+  try {
+    const promises = selectedSuites.value.map(suiteId =>
+      testCaseService.listBySuite(suiteId)
+    )
+    const responses = await Promise.all(promises)
+    const allCases = responses.flatMap(r => r.data)
+    const seen = new Set()
+    availableCases.value = allCases.filter(tc => {
+      if (seen.has(tc.id)) return false
+      seen.add(tc.id)
+      return true
+    })
+  } catch (e) {
+    console.error(e)
+    availableCases.value = []
+  }
+}
+
+function isCaseInPlan(caseId) {
+  return cases.value.some(c => c.id === caseId)
+}
+
+async function addCasesToPlan() {
+  const currentIds = cases.value.map(c => c.id)
+  const newIds = [...currentIds, ...selectedCases.value]
+  try {
+    await testPlanService.update(planId.value, { case_ids: newIds })
+    selectedCases.value = []
+    loadPlan()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function selectAllAvailable() {
+  const availableIds = filteredAvailableCases.value
+    .filter(tc => !isCaseInPlan(tc.id))
+    .map(tc => tc.id)
+  const newSelection = new Set([...selectedCases.value, ...availableIds])
+  selectedCases.value = Array.from(newSelection)
+}
+
+function deselectAll() {
+  selectedCases.value = []
+}
+
+async function removeCase(caseId) {
+  const newIds = cases.value.filter(c => c.id !== caseId).map(c => c.id)
+  try {
+    await testPlanService.update(planId.value, { case_ids: newIds })
+    loadPlan()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function createRun() {
+  try {
+    const res = await testRunService.create({
+      name: `Run for ${plan.value.name}`,
+      space_id: spaceId.value,
+      plan_id: planId.value
+    })
+    router.push(`/space/${spaceId.value}/test-runs/${res.data.id}`)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function openCaseDialog(id) {
+  testCaseService.getById(id).then(res => {
+    selectedCase.value = res.data
+    caseDialogOpen.value = true
+  })
+}
+
+function typeIcon(type) {
+  const map = { manual: 'mdi-hand-back-right-outline', checklist: 'mdi-check-box-outline', automated: 'mdi-robot' }
+  return map[type] || 'mdi-test-tube'
+}
+
+function typeColor(type) {
+  const map = { manual: 'info', checklist: 'success', automated: 'warning' }
+  return map[type] || 'grey'
+}
+
+function statusColor(status) {
+  const map = { draft: 'grey', active: 'success', deprecated: 'error' }
+  return map[status] || 'grey'
+}
+
+function runStatusColor(status) {
+  const map = { draft: 'grey', active: 'primary', completed: 'success' }
+  return map[status] || 'grey'
+}
+
+onMounted(() => {
+  loadPlan()
+  loadSuites()
+})
 </script>
 
 <style scoped>

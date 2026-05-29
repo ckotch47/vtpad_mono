@@ -1,12 +1,6 @@
-<template>
-
-</template>
-
-<script >
-  export default {
-    name: 'indexPage',
-    mounted() {
-      location.href = '/space'
-    }
-  }
+<script setup>
+import { onMounted } from 'vue'
+onMounted(() => {
+  location.href = '/space'
+})
 </script>

@@ -33,7 +33,7 @@
               size="24"
               :data-placeholder="bugItem.create_user.username[0].toLowerCase()"
             >
-              <v-img :src="bugItem.create_user.avatar.filepath" />
+              <v-img :src="bugItem.create_user.avatar.filepath" :alt="bugItem.create_user.username || 'User avatar'" />
             </v-avatar>
             {{bugItem.create_user.username}}
           </div>
@@ -81,8 +81,11 @@
             :history="history"
             @editComment="editCommentEvent"
           />
-
-
+          <attachment-list-component
+            v-if="bugItem?.id"
+            entity-type="bug"
+            :entity-id="bugItem.id"
+          />
 
         </div>
         <div class="bug-modal--content_right">
@@ -104,13 +107,14 @@ import BugsModalSettingComponent from "@/components/bugs/modal/bugsModalSettingC
 import { bugService, commentService } from '@/services'
 import BugsModalCommentComponent from "@/components/bugs/modal/bugsModalCommentComponent.vue";
 import BugsModalHistoryComponentV2 from "@/components/bugs/modal/bugsModalHistoryComponentV2.vue";
+import AttachmentListComponent from "@/components/attachments/attachmentListComponent.vue";
 
 export default {
   name: "bugsModalComponent",
   components: {
     BugsModalHistoryComponentV2,
     BugsModalCommentComponent,
-    BugsModalSettingComponent, BugsModalEditorListComponent},
+    BugsModalSettingComponent, BugsModalEditorListComponent, AttachmentListComponent},
   emits: ['updateBug', 'closeBugModal'],
   props: {
     isActive: Boolean,
@@ -207,7 +211,6 @@ export default {
   .v-overlay__content{
     width: 75vw !important;
     max-width: 1400px !important;
-    min-width: 900px !important;
     right: 0;
     margin: 0;
     left: unset !important;
@@ -215,7 +218,6 @@ export default {
   .v-card {
     width: 75vw !important;
     max-width: 1400px;
-    min-width: 900px !important;
   }
   .editor-custom{
     max-width: 732px;

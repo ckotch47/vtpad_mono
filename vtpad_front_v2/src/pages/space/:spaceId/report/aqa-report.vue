@@ -4,13 +4,8 @@
   </v-container>
 </template>
 
-<script>
-import ReportAqaSpaceComponent from "@/components/reports/reportTestSpaceComponent.vue";
-
-export default {
-  name: "test-reportPage",
-  components: {ReportAqaSpaceComponent}
-}
+<script setup>
+import ReportAqaSpaceComponent from '@/components/reports/reportTestSpaceComponent.vue'
 </script>
 <route>
 {
@@ -20,6 +15,3 @@ tabValue: "aqa-report"
 }
 }
 </route>
-<style scoped>
-
-</style>

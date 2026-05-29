@@ -4,13 +4,8 @@
   </v-container>
 </template>
 
-<script>
-import SettingsUserComponent from "@/components/settings/settingsUserComponent.vue";
-
-export default {
-  name: "usersSettingPage",
-  components: {SettingsUserComponent}
-}
+<script setup>
+import SettingsUserComponent from '@/components/settings/settingsUserComponent.vue'
 </script>
 <route>
 {
@@ -20,6 +15,3 @@ tabValue: "users"
 }
 }
 </route>
-<style scoped>
-
-</style>

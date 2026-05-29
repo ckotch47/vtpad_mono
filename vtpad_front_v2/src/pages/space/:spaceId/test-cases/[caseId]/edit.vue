@@ -139,7 +139,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import {ref, watch, onMounted, computed} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
@@ -148,7 +148,7 @@ const route = useRoute()
 const router = useRouter()
 const api = useApi()
 
-const spaceId = route.params.spaceId
+const spaceId = computed(() => route.params.spaceId)
 const caseId = route.params.caseId
 const draftKey = `case-draft-${caseId}`
 
@@ -199,7 +199,7 @@ function saveDraft() {
 function save() {
   api.patch(`/api/v2/test-case/${caseId}`, form.value).then(() => {
     localStorage.removeItem(draftKey)
-    router.push(`/space/${spaceId}/test-cases/${caseId}`)
+    router.push(`/space/${spaceId.value}/test-cases/${caseId}`)
   })
 }
 

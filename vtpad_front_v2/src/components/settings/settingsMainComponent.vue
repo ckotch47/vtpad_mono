@@ -1,105 +1,90 @@
 <template>
   <div v-if="loader">
-    <v-progress-linear
-      color="primary"
-      indeterminate
-    ></v-progress-linear>
+    <v-progress-linear color="primary" indeterminate />
   </div>
-  <div class="mx-auto my-2" v-if="!loader">
+  <div v-if="!loader" class="mx-auto my-2">
     <h2>Settings</h2>
     <v-text-field
-      label="Space name"
       v-model="space.name"
-      :append-inner-icon="'mdi-content-save'"
-      @click:append-inner="saveName"
+      label="Space name"
+      append-inner-icon="mdi-content-save"
       clearable
+      @click:append-inner="saveName"
     />
     <v-text-field
-      label="Short name"
       v-model="space.short_name"
-      :append-inner-icon="'mdi-content-save'"
-      @click:append-inner="saveName"
+      label="Short name"
+      append-inner-icon="mdi-content-save"
       clearable
+      @click:append-inner="saveName"
     />
-
   </div>
-  <div class="mx-auto my-2" v-if="!loader">
+  <div v-if="!loader" class="mx-auto my-2">
     <h2>Delete</h2>
     <p>Enter DELETE for delete space</p>
     <v-text-field
-      label="Delete"
       v-model="deleteSpace"
-      :append-inner-icon="'mdi-delete-forever'"
-      @click:append-inner="delSpace"
+      label="Delete"
+      append-inner-icon="mdi-delete-forever"
       clearable
+      @click:append-inner="delSpace"
     />
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { spaceService } from '@/services'
 
-export default {
-  name: "settingsMainComponent",
-  watch:{
-    $route: {
-      handler() {
-        this.spaceId= this.$route.params.spaceId;
-        this.getSpaceSetting()
-      },
-      deep: false
-    },
-  },
-  data(){
-    return {
-      loader: true,
-      spaceId: this.$route.params.spaceId,
-      deleteSpace: null,
-      space: {
-        "short_name": null,
-        "sort": 2000,
-        "name": "",
-        "id": ""
-      }
-    }
-  },
-  mounted() {
-    this.getSpaceSetting()
-  },
-  updated() {
+const route = useRoute()
+const spaceId = ref(route.params.spaceId)
 
-  },
-  methods:{
-    getSpaceSetting(){
-      spaceService.getById(this.spaceId).then(res => {
-        this.space = res.data
-        this.loader = false;
-      })
-    },
-    saveName(){
-      spaceService.update(this.spaceId,{
-        name: this.space.name,
-        short_name: this.space.short_name
-      }).then(res => {
-        if(res.status === 200) this.getSpaceSetting()
-      })
-    },
-    delSpace(){
-      if(this.deleteSpace !== 'DELETE'){
-        this.deleteSpace = null
-        return false
-      }else{
-        spaceService.delete(this.spaceId).then(()=>{
-          location.href = '/space'
-        })
-      }
-    },
-  }
+const loader = ref(true)
+const deleteSpace = ref(null)
+const space = ref({
+  short_name: null,
+  sort: 2000,
+  name: '',
+  id: ''
+})
+
+function getSpaceSetting() {
+  spaceService.getById(spaceId.value).then(res => {
+    space.value = res.data
+    loader.value = false
+  })
 }
+
+function saveName() {
+  spaceService.update(spaceId.value, {
+    name: space.value.name,
+    short_name: space.value.short_name
+  }).then(res => {
+    if (res.status === 200) getSpaceSetting()
+  })
+}
+
+function delSpace() {
+  if (deleteSpace.value !== 'DELETE') {
+    deleteSpace.value = null
+    return false
+  }
+  spaceService.delete(spaceId.value).then(() => {
+    location.href = '/space'
+  })
+}
+
+watch(() => route.params.spaceId, (val) => {
+  spaceId.value = val
+  getSpaceSetting()
+}, { deep: false })
+
+onMounted(getSpaceSetting)
 </script>
 
-<style >
-input{
+<style scoped>
+input {
   border: none;
   background: none;
 }

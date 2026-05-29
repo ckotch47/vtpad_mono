@@ -1,42 +1,32 @@
 <template>
   <v-autocomplete
+    v-model="inputValue"
     label="Find user"
     :items="searchUserItem"
-    :item-title="'mail'"
+    item-title="mail"
     item-value="mail"
-    v-model="inputValue"
     @update:modelValue="selectUser"
-  ></v-autocomplete>
+  />
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue'
 import { userService } from '@/services'
 
-export default {
-  name: "settingsUserFindUserComponent",
-  emits: ['addUserIntoSpaceEmit'],
-  data(){
-    return {
-      searchUserItem: [],
-      inputValue: ''
-    }
-  },
-  mounted() {
-    this.searchUser('')
-  },
-  methods:{
-    searchUser(event){
-      userService.searchByMail(event).then(res => {
-        this.searchUserItem = res.data
-      })
-    },
-    selectUser(){
-      this.$emit('addUserIntoSpaceEmit', this.inputValue)
-    }
-  }
+const emit = defineEmits(['addUserIntoSpaceEmit'])
+
+const searchUserItem = ref([])
+const inputValue = ref('')
+
+function searchUser(event) {
+  userService.searchByMail(event).then(res => {
+    searchUserItem.value = res.data
+  })
 }
+
+function selectUser() {
+  emit('addUserIntoSpaceEmit', inputValue.value)
+}
+
+onMounted(() => searchUser(''))
 </script>
-
-<style scoped>
-
-</style>

@@ -1,101 +1,121 @@
 <template>
   <v-app>
     <v-fab
+      v-if="authToken"
       class="me-4 menu-show--main"
       icon="mdi-arrow-collapse-right"
-
       absolute
       offset
       @click="drawer = !drawer"
-      v-if="auth_token"
+    />
 
-    ></v-fab>
-
-    <v-navigation-drawer v-model="drawer" width="300" v-if="auth_token">
-      <profile-left-component @hide-left-menu="drawer = !drawer"/>
+    <v-navigation-drawer v-if="authToken" v-model="drawer" width="300">
+      <profile-left-component @hide-left-menu="drawer = !drawer" />
       <spaces-list-component />
     </v-navigation-drawer>
 
     <v-main>
       <v-container fluid>
-        <router-view></router-view>
+        <router-view />
       </v-container>
     </v-main>
 
     <command-palette-component ref="commandPalette" />
+
+    <!-- Keyboard shortcuts help -->
+    <v-dialog v-model="showShortcuts" max-width="400">
+      <v-card>
+        <v-card-title>Keyboard Shortcuts</v-card-title>
+        <v-divider />
+        <v-card-text>
+          <v-list density="compact">
+            <v-list-item title="Esc" subtitle="Close overlay / dialog" />
+            <v-list-item title="?" subtitle="Show this help" />
+            <v-list-item title="Cmd / Ctrl + K" subtitle="Open command palette" />
+          </v-list>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showShortcuts = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
-
 <script setup>
-import { ref } from 'vue'
-import ProfileLeftComponent from "@/components/leftAsideMain/ProfileLeftComponent.vue";
-import SpacesListComponent from "@/components/leftAsideMain/SpacesListComponent.vue";
-import CommandPaletteComponent from "@/components/common/commandPaletteComponent.vue";
-import 'vue3-toastify/dist/index.css';
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import ProfileLeftComponent from '@/components/leftAsideMain/ProfileLeftComponent.vue'
+import SpacesListComponent from '@/components/leftAsideMain/SpacesListComponent.vue'
+import CommandPaletteComponent from '@/components/common/commandPaletteComponent.vue'
+import 'vue3-toastify/dist/index.css'
+
+const route = useRoute()
+const router = useRouter()
 
 const drawer = ref(null)
-</script>
+const spaceId = ref(null)
+const routerMeta = ref({})
+const authToken = ref(undefined)
+const showShortcuts = ref(false)
+const commandPalette = ref(null)
 
-<script>
-import {useRouter} from "vue-router";
+function checkAuth() {
+  authToken.value = localStorage.getItem('auth_token')
+  if (!authToken.value && location.pathname !== '/auth' && location.pathname !== '/404') {
+    location.href = '/auth'
+  }
+}
 
+function updateRouteMeta() {
+  routerMeta.value = router.currentRoute.value
+  if (route.params?.id) {
+    spaceId.value = route.params.id
+  }
+}
 
-export default {
-  data: () => ({
-    drawer: null,
-    spaceId: null,
-    routerMeta: {},
-    auth_token: undefined,
-  }),
-  mounted() {
-    this.auth_token = localStorage.getItem('auth_token')
-    if(!this.auth_token && location.pathname !== '/auth' && location.pathname !== '/404') location.href = '/auth'
-    this.routerMeta = useRouter().currentRoute.value;
-    if(this.$route?.params.id)
-      this.spaceId = this.$route?.params.id
-
-    // Global Esc handler — close topmost overlay (dialog, menu, etc.)
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        const activeOverlays = document.querySelectorAll('.v-overlay__scrim');
-        if (activeOverlays.length > 0) {
-          activeOverlays[activeOverlays.length - 1].click();
-        }
-      }
-    });
-  },
-  updated() {
-    this.routerMeta = useRouter().currentRoute.value;
-    if(this.$route?.params.id)
-      this.spaceId = this.$route?.params.id
-  },
-  methods:{
-    hideMenu(){
-      this.drawer = !this.drawer
+function onKeydown(e) {
+  if (e.key === 'Escape') {
+    const activeOverlays = document.querySelectorAll('.v-overlay__scrim')
+    if (activeOverlays.length > 0) {
+      activeOverlays[activeOverlays.length - 1].click()
+    }
+  }
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const tag = document.activeElement?.tagName
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+      showShortcuts.value = !showShortcuts.value
     }
   }
 }
+
+onMounted(() => {
+  checkAuth()
+  updateRouteMeta()
+  document.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+})
+
+watch(route, updateRouteMeta, { deep: true })
 </script>
+
 <style lang="scss">
-
-.menu-show--main{
+.menu-show--main {
   z-index: 99;
-  //.v-fab__container{
-  //  //left: -30px;
-  //  //top: 300px;
-  //  top: 0;
-  //  left: 0;
-  //}
 
-  &.v-fab--absolute{
+  &.v-fab--absolute {
     position: fixed;
     top: 200px;
     left: 30px;
   }
 }
 
-body::-webkit-scrollbar, *::-webkit-scrollbar, *::-webkit-scrollbar  {
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
   width: .3em;
   height: .3em;
   cursor: default !important;
@@ -105,66 +125,86 @@ body::-webkit-scrollbar, *::-webkit-scrollbar, *::-webkit-scrollbar  {
   cursor: default !important;
 }
 
-body::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb {
-  background-color: rgb(var(--v-theme-primary))  !important;
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--v-theme-primary)) !important;
   cursor: default !important;
 }
-input{
-  border: none !important;
+
+input:not(.v-field__input):not(.v-text-field__input) {
+  border: none;
 }
-.custom-container{
+
+.custom-container {
   margin: 0;
   max-width: unset;
 }
-.max-width-1500{
+
+.max-width-1500 {
   max-width: 1500px !important;
 }
-.router--link{
+
+.router--link {
   color: unset;
   background-color: unset;
   text-decoration: unset;
 }
-select, input{
-  background: none !important;
+
+select:not(.v-field__input),
+input:not(.v-field__input):not(.v-text-field__input) {
+  background: none;
 }
-.v-application__wrap{
-  //min-height: 90vh;
+
+.color-state {
+  &--READY {
+    color: rgb(var(--v-theme-warning));
+  }
+
+  &--OPEN {
+    color: rgb(var(--v-theme-success));
+  }
+
+  &--CLOSED {
+    color: rgb(var(--v-theme-info));
+  }
+
+  &--REOPEN {
+    color: rgb(var(--v-theme-error));
+  }
+
+  &--FIXED {
+    color: rgb(var(--v-theme-warning));
+  }
 }
-.color-state{
-  &--READY{
-    color: #e6bb00;
-  }
-  &--OPEN{
-    color: #07d401;
-  }
-  &--CLOSED{
-    color: #15d1d1;
-  }
-  &--REOPEN{
-    color: #e6003a;
-  }
-  &--FIXED{
-    color: #ffea5f;
-  }
-}
-.w-90{
+
+.w-90 {
   width: 90% !important;
 }
-.fab_btn{
+
+.fab_btn {
   z-index: 9;
 }
+
 @media (width <= 720px) {
-  .v-container{
+  .v-container {
     padding: 4px !important;
   }
 }
-.rounded-0_custom{
-  .rounded-xl{
+
+/* Keyboard focus indicators */
+*:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.rounded-0_custom {
+  .rounded-xl {
     border-radius: 2px !important;
   }
 }
-.no-padding-important{
-  .v-expansion-panel-text__wrapper{
+
+.no-padding-important {
+  .v-expansion-panel-text__wrapper {
     padding: 0 !important;
   }
 }

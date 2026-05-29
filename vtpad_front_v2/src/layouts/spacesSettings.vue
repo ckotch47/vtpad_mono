@@ -10,38 +10,20 @@
       <v-tab :to="`/space/${spaceId}/settings`" value="index">Main</v-tab>
       <v-tab :to="`/space/${spaceId}/settings/users`" value="users">Users</v-tab>
       <v-tab :to="`/space/${spaceId}/settings/tags`" value="tags">Tags</v-tab>
-
+      <v-tab :to="`/space/${spaceId}/settings/custom-fields`" value="custom-fields">Custom Fields</v-tab>
     </v-tabs>
-
-        <router-view></router-view>
-
+    <router-view :key="route.params.spaceId" />
   </v-app>
 </template>
 
-<script>
-import {useRouter} from "vue-router";
+<script setup>
+import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 
-export default {
-  name: "spacesSettings",
-  data: () => ({
-    drawer: null,
-    routerMeta: {},
-    spaceId: undefined,
-    tab: undefined
-  }),
-  mounted() {
-    this.routerMeta = useRouter().currentRoute.value.meta;
-    this.spaceId = useRouter().currentRoute.value.params.spaceId;
-    this.tab = this.routerMeta.tabValue;
-  },
-  updated() {
-    this.routerMeta = useRouter().currentRoute.value.meta;
-    this.spaceId = useRouter().currentRoute.value.params.spaceId;
-    this.tab = this.routerMeta.tabValue;
-  }
-}
+const route = useRoute()
+const spaceId = ref(route.params?.spaceId)
+const tab = ref(route.meta?.tabValue)
 </script>
 
 <style scoped>
-
 </style>

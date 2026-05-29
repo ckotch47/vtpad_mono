@@ -4,13 +4,8 @@
   </v-container>
 </template>
 
-<script>
-import StatisticPageComponent from "@/components/reports/statisticPage/statisticPageComponent.vue";
-
-export default {
-  name: "statisticPage",
-  components: {StatisticPageComponent}
-}
+<script setup>
+import StatisticPageComponent from '@/components/reports/statisticPage/statisticPageComponent.vue'
 </script>
 <route>
 {
@@ -20,6 +15,3 @@ tabValue: "statistic"
 }
 }
 </route>
-<style scoped>
-
-</style>

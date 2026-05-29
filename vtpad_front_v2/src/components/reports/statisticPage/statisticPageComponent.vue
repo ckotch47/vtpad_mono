@@ -1,14 +1,11 @@
 <template>
   <div v-if="loader">
-    <v-progress-linear
-      color="primary"
-      indeterminate
-    ></v-progress-linear>
+    <v-progress-linear color="primary" indeterminate />
   </div>
-  <v-card min-height="400" v-if="!loader">
+  <v-card v-if="!loader" min-height="400">
     <v-card-item>
       <div class="d-flex">
-        <statistic-page-pad-component :pads-statistic="statisticItem.pads" v-if="statisticItem?.pads"/>
+        <statistic-page-pad-component v-if="statisticItem?.pads" :pads-statistic="statisticItem.pads" />
       </div>
     </v-card-item>
 
@@ -20,7 +17,7 @@
     </v-card-item>
 
     <v-card-item v-if="statisticItem?.bugs?.state.length > 0">
-      <div class="d-flex justify-space-between" >
+      <div class="d-flex justify-space-between">
         <statistic-page-bugs-component :bug-statistic="statisticItem.bugs" />
         <reports-pie-chart-component v-if="dataChartBugs" :data-chart="dataChartBugs" />
       </div>
@@ -28,84 +25,70 @@
   </v-card>
 </template>
 
-<script>
-import StatisticPagePadComponent from "@/components/reports/statisticPage/statisticPagePadComponent.vue";
-import StatisticPageRunComponent from "@/components/reports/statisticPage/statisticPageRunComponent.vue";
-import StatisticPageBugsComponent from "@/components/reports/statisticPage/statisticPageBugsComponent.vue";
-import ReportsPieChartComponent from "@/components/reports/reportsPieChartComponent.vue";
+<script setup>
+import { ref, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import StatisticPagePadComponent from '@/components/reports/statisticPage/statisticPagePadComponent.vue'
+import StatisticPageRunComponent from '@/components/reports/statisticPage/statisticPageRunComponent.vue'
+import StatisticPageBugsComponent from '@/components/reports/statisticPage/statisticPageBugsComponent.vue'
+import ReportsPieChartComponent from '@/components/reports/reportsPieChartComponent.vue'
 import { spaceService } from '@/services'
-import {color} from "@/components/common/collorList";
+import { color } from '@/components/common/collorList'
 
-export default {
-  name: "statisticPageComponent",
-  components: {
-    ReportsPieChartComponent,
-    StatisticPageBugsComponent, StatisticPageRunComponent, StatisticPagePadComponent},
-  watch:{
-    $route: {
-      handler() {
-        this.loader = true;
-        this.spaceId = this.$route.params.spaceId;
-        this.statisticItem = undefined;
-        this.dataChartRuns = undefined;
-        this.dataChartBugs = undefined;
-        this.getStatistics()
-      },
-      deep: false
-    },
-  },
-  data(){
-    return{
-      loader: true,
-      statisticItem: {},
-      dataChartRuns: undefined,
-      dataChartBugs: undefined,
-      spaceId: this.$route.params.spaceId,
+const route = useRoute()
+const spaceId = ref(route.params.spaceId)
 
-    }
-  },
-  mounted() {
-    this.getStatistics();
-  },
-  methods:{
-    getStatistics(){
-      spaceService.getStatistic(this.spaceId).then(res => {
-        this.statisticItem = res.data;
-        this.updateChartsRuns();
-        this.updateChartsBugs();
-        this.loader = false
-      })
-    },
-    updateChartsRuns(){
-      this.dataChartRuns = {
-        labelList: [],
-        colorList: [],
-        dataList: []
-      };
-      let data = this.statisticItem;
-      for(const elem of data.runs.state){
-        this.dataChartRuns.labelList.push(elem.state ?? 'null')
-        this.dataChartRuns.colorList.push(color[elem.state ? elem.state.toLowerCase() : 'null'])
-        this.dataChartRuns.dataList.push(elem.item_count)
-      }
-    },
-    updateChartsBugs(){
-      this.dataChartBugs = {
-        labelList: [],
-        colorList: [],
-        dataList: []
-      };
-      let data = this.statisticItem;
-      for(const elem of data.bugs.state){
-        this.dataChartBugs.labelList.push(elem.state ?? 'null')
-        this.dataChartBugs.colorList.push(color[elem.state ? elem.state.toLowerCase() : 'null'])
-        this.dataChartBugs.dataList.push(elem.item_count)
-      }
-    }
+const loader = ref(true)
+const statisticItem = ref({})
+const dataChartRuns = ref(undefined)
+const dataChartBugs = ref(undefined)
+
+function getStatistics() {
+  spaceService.getStatistic(spaceId.value).then(res => {
+    statisticItem.value = res.data
+    updateChartsRuns()
+    updateChartsBugs()
+    loader.value = false
+  })
+}
+
+function updateChartsRuns() {
+  dataChartRuns.value = {
+    labelList: [],
+    colorList: [],
+    dataList: []
+  }
+  for (const elem of statisticItem.value.runs.state) {
+    dataChartRuns.value.labelList.push(elem.state ?? 'null')
+    dataChartRuns.value.colorList.push(color[elem.state ? elem.state.toLowerCase() : 'null'])
+    dataChartRuns.value.dataList.push(elem.item_count)
   }
 }
+
+function updateChartsBugs() {
+  dataChartBugs.value = {
+    labelList: [],
+    colorList: [],
+    dataList: []
+  }
+  for (const elem of statisticItem.value.bugs.state) {
+    dataChartBugs.value.labelList.push(elem.state ?? 'null')
+    dataChartBugs.value.colorList.push(color[elem.state ? elem.state.toLowerCase() : 'null'])
+    dataChartBugs.value.dataList.push(elem.item_count)
+  }
+}
+
+watch(() => route.params.spaceId, (val) => {
+  loader.value = true
+  spaceId.value = val
+  statisticItem.value = undefined
+  dataChartRuns.value = undefined
+  dataChartBugs.value = undefined
+  getStatistics()
+}, { deep: false })
+
+onMounted(getStatistics)
 </script>
 
 <style scoped>
-
 </style>

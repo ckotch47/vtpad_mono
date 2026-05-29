@@ -7,72 +7,62 @@
     min-height="600"
     @update:modelValue="$emit('closeNewUserModalEmit', isActive)"
   >
-
     <v-card>
-      <v-toolbar :title="'Nwe user'" />
-
-      <div class="w-100" >
+      <v-toolbar title="New user" />
+      <div class="w-100">
         <v-text-field
+          v-model="user.username"
           class="ma-4"
           variant="underlined"
           label="username"
-          v-model="user.username"
         />
         <v-text-field
+          v-model="user.mail"
           class="ma-4"
           variant="underlined"
           label="mail"
-          v-model="user.mail"
         />
         <v-text-field
+          v-model="user.password"
           :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
           :type="visible ? 'text' : 'password'"
-          @click:append-inner="visible = !visible"
           class="ma-4"
           variant="underlined"
           label="password"
-          v-model="user.password"
-
+          @click:append-inner="visible = !visible"
         />
-
       </div>
-
       <div class="d-flex justify-end ma-4">
         <v-btn
           text="Save"
           color="primary"
           @click="saveNewUser"
-        ></v-btn>
+        />
       </div>
     </v-card>
   </v-dialog>
 </template>
 
-<script>
-export default {
-  name: "companyUserNewModal",
-  emits: ['closeNewUserModalEmit', 'saveNewUserModalEmit'],
-  props:{
-    isActive: Boolean
-  },
-  data(){
-    return{
-      visible: false,
-      user:{
-        username: '',
-        password: '',
-        mail: ''
-      }
-    }
-  },
-  methods:{
-    saveNewUser(){
-      this.$emit('saveNewUserModalEmit', this.user)
-    }
-  }
+<script setup>
+import { ref } from 'vue'
+
+const props = defineProps({
+  isActive: Boolean
+})
+
+const emit = defineEmits(['closeNewUserModalEmit', 'saveNewUserModalEmit'])
+
+const visible = ref(false)
+const user = ref({
+  username: '',
+  password: '',
+  mail: ''
+})
+
+function saveNewUser() {
+  emit('saveNewUserModalEmit', user.value)
 }
 </script>
 
 <style scoped>
-
 </style>

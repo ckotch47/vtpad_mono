@@ -4,15 +4,14 @@
   </v-container>
 </template>
 
-<script>
-import NotificationListComponent from "@/components/notifications/notificationListComponent.vue";
-
-export default {
-  name: "notificationPage",
-  components: {NotificationListComponent}
-}
+<script setup>
+import NotificationListComponent from '@/components/notifications/notificationListComponent.vue'
 </script>
-
-<style scoped>
-
-</style>
+<route>
+{
+  meta: {
+    layout: "profile",
+    tabValue: "notification"
+  }
+}
+</route>

@@ -87,10 +87,10 @@
     <v-container fluid class="py-0">
       <v-row>
         <v-col>
-          <v-btn v-if="run.status === 'draft'" color="primary" prepend-icon="mdi-play" @click="startRun" class="mr-2">
+          <v-btn v-if="run.status === 'draft'" color="primary" prepend-icon="mdi-play" class="mr-2" @click="startRun">
             Start Run
           </v-btn>
-          <v-btn v-if="run.status === 'active'" color="success" prepend-icon="mdi-check" @click="completeRun" class="mr-2">
+          <v-btn v-if="run.status === 'active'" color="success" prepend-icon="mdi-check" class="mr-2" @click="completeRun">
             Complete Run
           </v-btn>
         </v-col>
@@ -117,7 +117,7 @@
                   :key="result.id"
                   class="result-item"
                 >
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon :color="statusColor(result.status)">
                       {{ statusIcon(result.status) }}
                     </v-icon>
@@ -133,7 +133,7 @@
                     <span v-else class="text-grey">No comment</span>
                     <span v-if="result.duration_seconds" class="ml-2 text-caption">({{ result.duration_seconds }}s)</span>
                   </v-list-item-subtitle>
-                  <template v-slot:append>
+                  <template #append>
                     <v-chip
                       v-for="bugId in result.linked_bug_ids"
                       :key="bugId"
@@ -277,165 +277,170 @@
   </div>
 </template>
 
-<script>
-import { testRunService, bugService } from '@/services';
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { testRunService, bugService } from '@/services'
 
-export default {
-  name: "testRunDetailComponent",
-  data: () => ({
-    run: {},
-    stats: {},
-    results: [],
-    spaceId: undefined,
-    runId: undefined,
-    loader: true,
-    editModal: false,
-    editingResult: null,
-    spaceBugs: [],
-    editTab: 'result',
-    stepResults: [],
-    bugModal: false,
-    newBug: { title: '', steps: '', expected: '', actual: '' }
-  }),
-  computed: {
-    groupedResults() {
-      const map = {};
-      for (const r of this.results) {
-        const sectionId = r.testcase?.section?.id || 'no-section';
-        const sectionName = r.testcase?.section?.name || 'No Section';
-        if (!map[sectionId]) {
-          map[sectionId] = { sectionId, sectionName, results: [] };
-        }
-        map[sectionId].results.push(r);
-      }
-      return Object.values(map);
+const route = useRoute()
+
+const spaceId = computed(() => route.params.spaceId)
+const runId = computed(() => route.params.runId)
+
+const run = ref({})
+const stats = ref({})
+const results = ref([])
+const loader = ref(true)
+const editModal = ref(false)
+const editingResult = ref(null)
+const spaceBugs = ref([])
+const editTab = ref('result')
+const stepResults = ref([])
+const bugModal = ref(false)
+const newBug = ref({ title: '', steps: '', expected: '', actual: '' })
+
+const groupedResults = computed(() => {
+  const map = {}
+  for (const r of results.value) {
+    const sectionId = r.testcase?.section?.id || 'no-section'
+    const sectionName = r.testcase?.section?.name || 'No Section'
+    if (!map[sectionId]) {
+      map[sectionId] = { sectionId, sectionName, results: [] }
     }
-  },
-  mounted() {
-    this.spaceId = this.$route.params.spaceId;
-    this.runId = this.$route.params.runId;
-    this.loadRun();
-    this.loadBugs();
-  },
-  methods: {
-    loadRun() {
-      testRunService.getDetail(this.runId).then(res => {
-        this.run = res.data.run;
-        this.stats = res.data.stats;
-        this.results = res.data.results;
-        this.loader = false;
-      }).catch(() => { this.loader = false; });
-    },
-    loadBugs() {
-      bugService.list({
-        space_id: this.spaceId,
-        state: ['OPEN', 'REOPEN', 'FIXED'],
-        limit: 100
-      }).then(res => {
-        this.spaceBugs = res.data || [];
-      }).catch(() => {
-        this.spaceBugs = [];
-      });
-    },
-    startRun() {
-      testRunService.start(this.runId).then(() => this.loadRun());
-    },
-    completeRun() {
-      testRunService.complete(this.runId).then(() => this.loadRun());
-    },
-    openResultModal(result) {
-      this.editingResult = {
-        ...result,
-        linked_bug_ids: result.linked_bug_ids || []
-      };
-      this.editTab = 'result';
-      this.stepResults = [];
-      this.loadStepResults(result.id);
-      this.editModal = true;
-    },
-    loadStepResults(resultId) {
-      testRunService.getStepResults(resultId).then(res => {
-        this.stepResults = res.data;
-      }).catch(() => {
-        this.stepResults = [];
-      });
-    },
-    saveResult() {
-      // Save main result
-      testRunService.updateResult(this.editingResult.id, {
-        status: this.editingResult.status,
-        duration_seconds: parseInt(this.editingResult.duration_seconds) || null,
-        comment: this.editingResult.comment,
-        linked_bug_ids: this.editingResult.linked_bug_ids
-      }).then(() => {
-        // Save step results if any
-        if (this.stepResults.length > 0) {
-          return testRunService.updateStepResults(this.editingResult.id, {
-            steps: this.stepResults.map(s => ({
-              step_index: s.step_index,
-              step_text: s.step_text,
-              status: s.status,
-              comment: s.comment,
-              screenshot_url: s.screenshot_url
-            }))
-          });
-        }
-      }).then(() => {
-        this.editModal = false;
-        this.loadRun();
-      });
-    },
-    openBugModal() {
-      this.newBug = {
-        title: `Bug: ${this.editingResult.testcase?.title || 'Failed test'}`,
-        steps: this.editingResult.testcase?.steps || '',
-        expected: this.editingResult.testcase?.expected_results || '',
-        actual: this.editingResult.comment || ''
-      };
-      this.bugModal = true;
-    },
-    createBug() {
-      bugService.create({
-        title: this.newBug.title,
-        text: this.newBug.actual,
-        steps: this.newBug.steps,
-        spaces: this.spaceId,
-        state: 'OPEN'
-      }).then(res => {
-        const bugShortName = res.data.short_name;
-        // Link bug to result
-        const bugs = [...(this.editingResult.linked_bug_ids || []), bugShortName];
-        return testRunService.updateResult(this.editingResult.id, {
-          linked_bug_ids: bugs
-        });
-      }).then(() => {
-        this.bugModal = false;
-        this.editModal = false;
-        this.loadRun();
-      }).catch(err => {
-        console.error(err);
-      });
-    },
-    statusColor(status) {
-      const map = { passed: 'success', failed: 'error', blocked: 'warning', skipped: 'grey', not_run: 'default' };
-      return map[status] || 'default';
-    },
-    statusIcon(status) {
-      const map = {
-        passed: 'mdi-check-circle',
-        failed: 'mdi-close-circle',
-        blocked: 'mdi-minus-circle',
-        skipped: 'mdi-arrow-right-circle',
-        not_run: 'mdi-circle-outline'
-      };
-      return map[status] || 'mdi-help-circle';
-    },
-    typeColor(type) {
-      const map = { manual: 'primary', checklist: 'success', automated: 'warning' };
-      return map[type] || 'grey';
-    }
+    map[sectionId].results.push(r)
   }
+  return Object.values(map)
+})
+
+function loadRun() {
+  testRunService.getDetail(runId.value).then(res => {
+    run.value = res.data.run
+    stats.value = res.data.stats
+    results.value = res.data.results
+    loader.value = false
+  }).catch(() => { loader.value = false })
 }
+
+function loadBugs() {
+  bugService.list({
+    space_id: spaceId.value,
+    state: ['OPEN', 'REOPEN', 'FIXED'],
+    limit: 100
+  }).then(res => {
+    spaceBugs.value = res.data || []
+  }).catch(() => {
+    spaceBugs.value = []
+  })
+}
+
+function startRun() {
+  testRunService.start(runId.value).then(() => loadRun())
+}
+
+function completeRun() {
+  testRunService.complete(runId.value).then(() => loadRun())
+}
+
+function openResultModal(result) {
+  editingResult.value = {
+    ...result,
+    linked_bug_ids: result.linked_bug_ids || []
+  }
+  editTab.value = 'result'
+  stepResults.value = []
+  loadStepResults(result.id)
+  editModal.value = true
+}
+
+function loadStepResults(resultId) {
+  testRunService.getStepResults(resultId).then(res => {
+    stepResults.value = res.data
+  }).catch(() => {
+    stepResults.value = []
+  })
+}
+
+function saveResult() {
+  testRunService.updateResult(editingResult.value.id, {
+    status: editingResult.value.status,
+    duration_seconds: parseInt(editingResult.value.duration_seconds) || null,
+    comment: editingResult.value.comment,
+    linked_bug_ids: editingResult.value.linked_bug_ids
+  }).then(() => {
+    if (stepResults.value.length > 0) {
+      return testRunService.updateStepResults(editingResult.value.id, {
+        steps: stepResults.value.map(s => ({
+          step_index: s.step_index,
+          step_text: s.step_text,
+          status: s.status,
+          comment: s.comment,
+          screenshot_url: s.screenshot_url
+        }))
+      })
+    }
+  }).then(() => {
+    editModal.value = false
+    loadRun()
+  })
+}
+
+function openBugModal() {
+  newBug.value = {
+    title: `Bug: ${editingResult.value.testcase?.title || 'Failed test'}`,
+    steps: editingResult.value.testcase?.steps || '',
+    expected: editingResult.value.testcase?.expected_results || '',
+    actual: editingResult.value.comment || ''
+  }
+  bugModal.value = true
+}
+
+function createBug() {
+  bugService.create({
+    title: newBug.value.title,
+    text: newBug.value.actual,
+    steps: newBug.value.steps,
+    spaces: spaceId.value,
+    state: 'OPEN'
+  }).then(res => {
+    const bugShortName = res.data.short_name
+    const bugs = [...(editingResult.value.linked_bug_ids || []), bugShortName]
+    return testRunService.updateResult(editingResult.value.id, {
+      linked_bug_ids: bugs
+    })
+  }).then(() => {
+    bugModal.value = false
+    editModal.value = false
+    loadRun()
+  }).catch(err => {
+    console.error(err)
+  })
+}
+
+function statusColor(status) {
+  const map = { passed: 'success', failed: 'error', blocked: 'warning', skipped: 'grey', not_run: 'default' }
+  return map[status] || 'default'
+}
+
+function statusIcon(status) {
+  const map = {
+    passed: 'mdi-check-circle',
+    failed: 'mdi-close-circle',
+    blocked: 'mdi-minus-circle',
+    skipped: 'mdi-arrow-right-circle',
+    not_run: 'mdi-circle-outline'
+  }
+  return map[status] || 'mdi-help-circle'
+}
+
+function typeColor(type) {
+  const map = { manual: 'primary', checklist: 'success', automated: 'warning' }
+  return map[type] || 'grey'
+}
+
+onMounted(() => {
+  loadRun()
+  loadBugs()
+})
 </script>
 
 <style scoped>

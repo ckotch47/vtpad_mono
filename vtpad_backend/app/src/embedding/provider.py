@@ -4,6 +4,8 @@ import os
 from typing import Optional
 
 import httpx
+import logging
+logger = logging.getLogger(__name__)
 
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://192.168.3.15:11434")
@@ -64,7 +66,8 @@ class EmbeddingProvider:
                 emb = data.get("embedding")
                 if emb:
                     embeddings.append(emb)
-            except Exception:
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
                 return None
         return embeddings if embeddings else None
 
@@ -86,7 +89,8 @@ class EmbeddingProvider:
             response.raise_for_status()
             data = response.json()
             return [item["embedding"] for item in data["data"]]
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             return None
 
     async def close(self):

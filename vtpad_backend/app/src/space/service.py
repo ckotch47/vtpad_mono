@@ -8,6 +8,8 @@ from .dto import *
 
 from ..spacesuser.model import SpacesUserModel, SpacesUserRole
 from ..users.model import UserModel
+import logging
+logger = logging.getLogger(__name__)
 
 
 async def translate(name):
@@ -46,7 +48,8 @@ class SpaceService:
             last_sort = await SpaceService.get_space(user, 'DESC')
             last_sort = last_sort[0].get('sort')
             sort = ((last_sort / 10) + 1) * 10
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             sort = 10
 
         temp = await self.model.create(
@@ -68,12 +71,14 @@ class SpaceService:
         try:
             this_space_name = await translate(
                 f"{space_name.split(' ')[0][0].upper()}{space_name.split(' ')[1][0].upper()}")
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             try:
                 if len(space_name) > 2:
                     this_space_name = await translate(
                         f"{space_name[0].upper()}{space_name[int(len(space_name) / 2)].upper()}")
-            except Exception:
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
                 this_space_name = await translate(space_name.upper())
 
         try:
@@ -82,7 +87,8 @@ class SpaceService:
             if temp.short_name:
                 this_space_name = f"{this_space_name}{(await SpaceModel.filter(id=space_id).get()).sort}"
                 return this_space_name.replace('0', '')
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             return this_space_name
 
     @staticmethod
@@ -97,7 +103,8 @@ class SpaceService:
         try:
             temp['right'] = json.loads(temp['right'])
             return temp
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             return temp
 
     @staticmethod
@@ -256,14 +263,16 @@ class SpaceService:
                     raise HTTPException(status_code=403, detail="not have rule")
             else:
                 return True
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             try:
                 # role = (await conn.execute_query_dict(sql_check_role_company_admin, [user_payload.get('id'), space_id]))[0]
                 if temp.get('role') == 'company_admin':
                     return True
                 else:
                     raise HTTPException(status_code=403, detail="not have rule")
-            except Exception:
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
                 raise HTTPException(status_code=403, detail="not have rule")
     @staticmethod
     async def update_user_rules_in_space(space_id: str, user_id: str, dto: UpdateUserRulesForSpaceDto):
@@ -362,7 +371,8 @@ class SpaceService:
     def get_arg(obj: list, name: str):
         try:
             return obj[0][name]
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             return 0
 
     @staticmethod

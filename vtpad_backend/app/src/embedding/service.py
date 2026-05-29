@@ -9,6 +9,8 @@ from tortoise.expressions import Q
 
 from .model import EmbeddingModel
 from .provider import EmbeddingProvider, EMBEDDING_DIMENSIONS
+import logging
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
@@ -215,7 +217,8 @@ class EmbeddingService:
                 top_k=top_k,
                 min_score=min_score,
             )
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             # Fallback to Python cosine similarity
             pass
 

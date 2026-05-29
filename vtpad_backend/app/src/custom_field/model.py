@@ -3,6 +3,8 @@ from enum import Enum
 
 from tortoise.models import Model
 from tortoise import fields
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SafeJSONField(fields.JSONField):
@@ -14,7 +16,8 @@ class SafeJSONField(fields.JSONField):
         if isinstance(value, (str, bytes)):
             try:
                 return self.decoder(value)
-            except Exception:
+            except Exception as e:
+                logger.error('Unexpected error: %s', e, exc_info=True)
                 # If it's a plain string (not JSON-encoded), return as-is
                 return value.decode() if isinstance(value, bytes) else value
         return value

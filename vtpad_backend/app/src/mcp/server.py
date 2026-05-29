@@ -26,6 +26,8 @@ from ..section.dto import SectionUpdateDto
 from ..test_plan.model import TestPlanModel
 from ..test_plan.service import TestPlanService
 from ..analytics.service import AnalyticsService
+import logging
+logger = logging.getLogger(__name__)
 
 
 class MCPAuthMiddleware(BaseHTTPMiddleware):
@@ -42,7 +44,8 @@ class MCPAuthMiddleware(BaseHTTPMiddleware):
             request.state.user_id = str(api_token.user_id)
             request.state.api_token_id = str(api_token.id)
             request.state.api_token_scopes = api_token.scopes or []
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             return JSONResponse({"error": "Invalid or expired API token"}, status_code=401)
 
         return await call_next(request)
@@ -146,7 +149,8 @@ async def get_test_case(case_id: str) -> dict | None:
     try:
         case = await TestCaseService.get_by_id(case_id)
         return _case_to_dict(case)
-    except Exception:
+    except Exception as e:
+        logger.error('Unexpected error: %s', e, exc_info=True)
         return None
 
 
@@ -597,7 +601,8 @@ async def get_run_results(run_id: str) -> dict | None:
     try:
         data = await TestRunService.get_with_results(run_id)
         return data
-    except Exception:
+    except Exception as e:
+        logger.error('Unexpected error: %s', e, exc_info=True)
         return None
 
 

@@ -2,6 +2,8 @@ from fastapi import HTTPException
 from tortoise import Tortoise
 
 from .model import SpacesUserModel, SpacesUserRole
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SpacesUserService:
@@ -10,7 +12,8 @@ class SpacesUserService:
         user_id = str(user_payload.get('id'))
         try:
             temp = await SpacesUserModel.filter(userId=user_id).get()
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             raise HTTPException(status_code=403, detail="not have right")
 
     @staticmethod

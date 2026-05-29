@@ -47,5 +47,5 @@ class RedisService:
     async def del_by_key(self, key):
         try:
             await self.redis.delete(key)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)

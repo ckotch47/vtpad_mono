@@ -6,6 +6,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from passlib.context import CryptContext
 from .config import EnvConfig
+import logging
+logger = logging.getLogger(__name__)
 
 env_config = EnvConfig()
 
@@ -61,7 +63,8 @@ async def decode_refresh(refresh: str):
 def user_payload(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except Exception:
+    except Exception as e:
+        logger.error('Unexpected error: %s', e, exc_info=True)
         raise HTTPException(status_code=401, detail="not auth")
 
 
@@ -71,8 +74,8 @@ async def get_user_id_by_token(token: str) -> str:
         from ..api_token.service import ApiTokenService
         api_token = await ApiTokenService.validate_token(token)
         return str(api_token.user_id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error('Unexpected error: %s', e, exc_info=True)
 
     # Fallback to JWT (web auth)
     payload = user_payload(token)

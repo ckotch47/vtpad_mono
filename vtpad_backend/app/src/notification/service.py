@@ -34,7 +34,8 @@ class NotificationService:
             ).get()
             if temp:
                 return None
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             # Expected when notification does not exist yet
             try:
                 # todo add redis counter

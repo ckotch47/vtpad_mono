@@ -2,6 +2,8 @@ import os
 
 from dotenv import load_dotenv
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+import logging
+logger = logging.getLogger(__name__)
 
 class EnvConfig:
     def __init__(self):
@@ -39,7 +41,8 @@ class EnvConfig:
         self.main_admin_id: str = os.getenv('main_admin_id')
         try:
             self.use_mail = True if os.getenv('use_mail') == '1' else False
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             self.use_mail = False
         if self.use_mail:
             self.mail_conf = ConnectionConfig(

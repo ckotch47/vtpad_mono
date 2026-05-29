@@ -3,6 +3,8 @@ from tortoise import Tortoise
 
 from .model import BugTagsModel
 from ..tag import TagModel
+import logging
+logger = logging.getLogger(__name__)
 
 
 class BugTagsService:
@@ -14,7 +16,8 @@ class BugTagsService:
                 tag_id=tag_id
             )
             return await TagModel.filter(id=tag_id).get()
-        except Exception:
+        except Exception as e:
+            logger.error('Unexpected error: %s', e, exc_info=True)
             raise HTTPException(status_code=400, detail="not save")
 
     @staticmethod

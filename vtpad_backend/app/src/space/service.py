@@ -1,38 +1,37 @@
-import json
-
 from fastapi import HTTPException
 from tortoise import Tortoise
 
 from .model import SpaceModel
 from .dto import *
-
+from .utils import translate
+from . import queries, stats
 from ..spacesuser.model import SpacesUserModel, SpacesUserRole
 from ..users.model import UserModel
 import logging
 logger = logging.getLogger(__name__)
 
 
-async def translate(name):
-    slovar = {'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-              'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n',
-              'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h',
-              'ц': 'c', 'ч': 'cz', 'ш': 'sh', 'щ': 'scz', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e',
-              'ю': 'u', 'я': 'ja', 'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
-              'Ж': 'ZH', 'З': 'Z', 'И': 'I', 'Й': 'I', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N',
-              'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'H',
-              'Ц': 'C', 'Ч': 'CZ', 'Ш': 'SH', 'Щ': 'SCH', 'Ъ': '', 'Ы': 'y', 'Ь': '', 'Э': 'E',
-              'Ю': 'U', 'Я': 'YA'}
-
-    for key in slovar:
-        name = name.replace(key, slovar[key])
-    return name
-
-
 class SpaceService:
     model = SpaceModel()
 
+    # ─── Delegates to queries ────────────────────────────────────────────────
+    get_space_by_id = staticmethod(queries.get_space_by_id)
+    get_user_for_space = staticmethod(queries.get_user_for_space)
+    get_user_for_filterV2 = staticmethod(queries.get_user_for_filterV2)
+    get_space = staticmethod(queries.get_space)
+    get_by_short_name = staticmethod(queries.get_by_short_name)
+    check_short_name = staticmethod(queries.check_short_name)
+
+    # ─── Delegates to stats ──────────────────────────────────────────────────
+    get_all_runs_spaces = staticmethod(stats.get_all_runs_spaces)
+    get_statistic_for_space = staticmethod(stats.get_statistic_for_space)
+    get_statistic_for_space_old = staticmethod(stats.get_statistic_for_space_old)
+    get_bugs_count = staticmethod(stats.get_bugs_count)
+    get_pads_count = staticmethod(stats.get_pads_count)
+    get_runs_statistic = staticmethod(stats.get_runs_statistic)
+    get_arg = staticmethod(stats.get_arg)
+
     async def create_space(self, space: CreateSpaceDto, user: dict):
-        # this_user = await UserModel.filter(id=user.get('id')).get_or_none()
         conn = Tortoise.get_connection('default')
         sql = """
             SELECT usermodel.id as id, u.role as company_role, u.company_id FROM usermodel
@@ -92,73 +91,6 @@ class SpaceService:
             return this_space_name
 
     @staticmethod
-    async def get_space_by_id(user: dict, space_id: str):
-        # todo add owner user and rigth for user
-        conn = Tortoise.get_connection("default")
-        sql = f'SELECT spacemodel.*, su."right", su."role" FROM spacemodel ' \
-              f'LEFT JOIN spacesusermodel su on (su."spaceId" = $2 AND su."userId" = $1) ' \
-              f'WHERE spacemodel.id = $2'
-        temp = (await conn.execute_query_dict(sql, [user.get('id'), space_id]))[0]
-
-        try:
-            temp['right'] = json.loads(temp['right'])
-            return temp
-        except Exception as e:
-            logger.error('Unexpected error: %s', e, exc_info=True)
-            return temp
-
-    @staticmethod
-    async def get_user_for_space(space_id: str):
-        conn = Tortoise.get_connection("default")
-
-        temp = await conn.execute_query_dict(
-            'SELECT "userId" as id, "spaceId", role, "right", username, mail, '
-            '(avatar_id, filepath) as avatar '
-            'FROM spacesusermodel '
-            'LEFT JOIN usermodel on spacesusermodel."userId" = usermodel.id '
-            'LEFT JOIN filemodel f on usermodel.avatar_id = f.id '
-            'WHERE spacesusermodel."spaceId" = $1 '
-            'ORDER BY spacesusermodel.role DESC',
-            [space_id])
-        for i in temp:
-            i['right'] = json.loads(i['right'])
-            tmp = i['avatar']
-            i['avatar'] = {
-                'id': tmp[0],
-                'filepath': tmp[1]
-            }
-
-        return temp
-
-    @staticmethod
-    async def get_user_for_filterV2(space_id: str):
-        conn = Tortoise.get_connection('default')
-        sql = """
-            SELECT usermodel.id,  username, mail, (avatar_id, f.filepath) as avatar FROM usermodel
-            LEFT JOIN filemodel f on usermodel.avatar_id = f.id
-            WHERE usermodel.id IN (SELECT DISTINCT u.id FROM bugsmodel
-                                    LEFT JOIN usermodel u on u.id = bugsmodel.assigner_id
-                                    WHERE bugsmodel.spaces_id = $1)
-            OR usermodel.id IN (SELECT DISTINCT u.id FROM bugsmodel
-                                    LEFT JOIN usermodel u on u.id = bugsmodel.create_user_id
-                                    WHERE bugsmodel.spaces_id = $1)
-            OR usermodel.id IN (SELECT DISTINCT u.id FROM bugsmodel
-                        LEFT JOIN spacesusermodel sp on sp."spaceId" = $1
-                        LEFT JOIN usermodel u on u.id = sp."userId"
-                        WHERE bugsmodel.spaces_id = $1);
-        """
-        return await conn.execute_query_dict(sql, [space_id])
-    @staticmethod
-    async def get_space(user: dict, order='ASC'):
-        conn = Tortoise.get_connection("default")
-        order_direction = order.upper() if order.upper() in ('ASC', 'DESC') else 'ASC'
-        sql = 'SELECT "spaceId" as id, role, name, sort, short_name FROM spacesusermodel ' \
-              'LEFT JOIN spacemodel s on spacesusermodel."spaceId" = s.id ' \
-              'WHERE spacesusermodel."userId" = $1 ORDER BY s.sort ' + order_direction
-        temp = await conn.execute_query_dict(sql, [user.get('id')])
-        return temp
-
-    @staticmethod
     async def update_space(space_id: str, space: UpdateSpaceDto, user: dict):
         this_space = await SpaceModel.filter(id=space_id).get()
         short_name = this_space.short_name
@@ -172,35 +104,6 @@ class SpaceService:
         await SpaceService.check_short_name(short_name, space_id, user.get('company'))
 
         return bool(await SpaceModel.filter(id=space_id).update(name=space.name, short_name=short_name))
-
-    @staticmethod
-    async def get_by_short_name(short_name:str, user: dict):
-        conn = Tortoise.get_connection('default')
-        sql = """
-            SELECT spacemodel.* FROM spacemodel
-            LEFT JOIN companymodel c on spacemodel.company_id = c.id
-            WHERE c.id = $1
-            AND spacemodel.short_name = $2
-        """
-        result = await conn.execute_query_dict(sql, [user.get('company'), short_name])
-        if not result:
-            raise HTTPException(status_code=404, detail="not found")
-        return result[0]
-
-    @staticmethod
-    async def check_short_name(short_name: str, space_id: str, company_id: str):
-        conn = Tortoise.get_connection('default')
-        sql = """
-            SELECT array_agg(short_name) FROM spacemodel
-            LEFT JOIN companymodel c on spacemodel.company_id = c.id
-            AND c.id = $1
-        """
-        tmp = (await conn.execute_query_dict(sql, [company_id,]))[0]
-        tmp_array = tmp.get('array_agg')
-        if short_name and short_name not in tmp_array:
-            return True
-        raise HTTPException(status_code=403, detail="short name is used")
-
 
     @staticmethod
     async def add_user_space(space_id: str, dto: AddUserSpaceDto, user: dict):
@@ -224,7 +127,6 @@ class SpaceService:
     async def delete_space(space_id: str):
         temp = bool(await SpaceModel.filter(id=space_id).delete())
         await SpacesUserModel.filter(spaceId=space_id).delete()
-        # todo delete all data from space
         return temp
 
     @staticmethod
@@ -266,7 +168,6 @@ class SpaceService:
         except Exception as e:
             logger.error('Unexpected error: %s', e, exc_info=True)
             try:
-                # role = (await conn.execute_query_dict(sql_check_role_company_admin, [user_payload.get('id'), space_id]))[0]
                 if temp.get('role') == 'company_admin':
                     return True
                 else:
@@ -274,6 +175,7 @@ class SpaceService:
             except Exception as e:
                 logger.error('Unexpected error: %s', e, exc_info=True)
                 raise HTTPException(status_code=403, detail="not have rule")
+
     @staticmethod
     async def update_user_rules_in_space(space_id: str, user_id: str, dto: UpdateUserRulesForSpaceDto):
         temp: dict = (await SpacesUserModel.filter(spaceId=space_id, userId=user_id).get()).right
@@ -298,146 +200,3 @@ class SpaceService:
     async def make_user_owner_to_space(space_id: str, user_id: str):
         await SpacesUserModel.filter(spaceId=space_id, userId=user_id).update(role=SpacesUserRole.owner)
         return await SpaceService.get_user_for_space(space_id)
-
-    @staticmethod
-    async def get_all_runs_spaces(space_id):
-        from ..test_run.model import TestRunModel, TestResultModel
-        space = await SpaceService.get_space_by_id({}, space_id)
-        runs = await TestRunModel.filter(space_id=space_id).order_by('-created_at')
-        res = []
-        for run in runs:
-            results = await TestResultModel.filter(run_id=str(run.id))
-            passed = sum(1 for r in results if str(r.status) == 'passed')
-            failed = sum(1 for r in results if str(r.status) == 'failed')
-            total = len(results)
-            res.append({
-                "run_id": str(run.id),
-                "run_name": run.name,
-                "date": run.created_at.isoformat() if run.created_at else None,
-                "items_count": {
-                    "pass": passed,
-                    "fail": failed,
-                    "all": total
-                }
-            })
-        return {
-            "space_id": str(space['id']),
-            "space_name": space['name'],
-            "pad": res
-        }
-
-    @staticmethod
-    async def get_statistic_for_space(space_id: str):
-        from ..test_suite.model import TestSuiteModel
-        from ..section.model import SectionModel
-        from ..test_run.model import TestRunModel, TestResultModel
-        conn = Tortoise.get_connection('default')
-
-        suite_count = await TestSuiteModel.filter(space_id=space_id).count()
-        section_count = await SectionModel.filter(suite__space_id=space_id).count()
-
-        run_count = await TestRunModel.filter(space_id=space_id).count()
-        runs = await TestRunModel.filter(space_id=space_id).all()
-        run_ids = [str(r.id) for r in runs]
-        results = await TestResultModel.filter(run_id__in=run_ids) if run_ids else []
-        runs_state_map = {}
-        for r in results:
-            st = str(r.status)
-            runs_state_map[st] = runs_state_map.get(st, 0) + 1
-        runs_state = [{"item_count": v, "state": k} for k, v in runs_state_map.items()]
-
-        sql_bugs = "SELECT count(bugsmodel.id) as item_count, state FROM bugsmodel \
-                    WHERE bugsmodel.spaces_id = $1 \
-                    GROUP BY state;"
-        sql_all_bugs = "SELECT count(bugsmodel.id) FROM bugsmodel \
-                            WHERE bugsmodel.spaces_id = $1;"
-
-        bugs = await conn.execute_query_dict(sql_bugs, [space_id])
-        all_bugs = await conn.execute_query_dict(sql_all_bugs, [space_id])
-
-        return {
-            'pads': {"count": suite_count, "items_count": section_count},
-            'runs': {
-                'count': run_count,
-                'state': runs_state
-            },
-            'bugs': {
-                'count': SpaceService.get_arg(all_bugs, 'count'),
-                'state': bugs
-            }
-        }
-
-    @staticmethod
-    def get_arg(obj: list, name: str):
-        try:
-            return obj[0][name]
-        except Exception as e:
-            logger.error('Unexpected error: %s', e, exc_info=True)
-            return 0
-
-    @staticmethod
-    async def get_statistic_for_space_old(space_id: str):
-        return {
-            "pads": await SpaceService.get_pads_count(space_id),
-            "runs": await SpaceService.get_runs_statistic(space_id),
-            "bugs": {
-                "count": await SpaceService.get_bugs_count(space_id),
-                "open": await SpaceService.get_bugs_count(space_id, 'OPEN'),
-                "reopen": await SpaceService.get_bugs_count(space_id, 'REOPEN'),
-                "closed": await SpaceService.get_bugs_count(space_id, 'CLOSED'),
-                "fixed": await SpaceService.get_bugs_count(space_id, 'FIXED'),
-                "hold": await SpaceService.get_bugs_count(space_id, 'HOLD')
-            }
-        }
-
-    @staticmethod
-    async def get_bugs_count(space_id, state=None):
-        conn = Tortoise.get_connection('default')
-        sql = "SELECT count(id) FROM bugsmodel " \
-              "WHERE spaces_id = $1"
-
-        params = [space_id]
-        if state:
-            ALLOWED_STATES = {'OPEN', 'REOPEN', 'CLOSED', 'FIXED', 'HOLD', 'READY'}
-            if state.upper() in ALLOWED_STATES:
-                sql += " AND state = $2"
-                params.append(state.upper())
-        return (await conn.execute_query_dict(sql, params))[0]['count']
-
-    @staticmethod
-    async def get_pads_count(space_id):
-        from ..test_suite.model import TestSuiteModel
-        from ..section.model import SectionModel
-        suites = await TestSuiteModel.filter(space_id=space_id)
-        suite_ids = [str(s.id) for s in suites]
-        sections_count = 0
-        if suite_ids:
-            sections_count = await SectionModel.filter(suite_id__in=suite_ids).count()
-        return {
-            "count": len(suites),
-            "items_count": sections_count
-        }
-
-    @staticmethod
-    async def get_runs_statistic(space_id: str):
-        from ..test_run.model import TestRunModel, TestResultModel
-        runs = await TestRunModel.filter(space_id=space_id)
-        run_ids = [str(r.id) for r in runs]
-        total = 0
-        passed = 0
-        failed = 0
-        not_run = 0
-        if run_ids:
-            results = await TestResultModel.filter(run_id__in=run_ids)
-            total = len(results)
-            passed = sum(1 for r in results if str(r.status) == 'passed')
-            failed = sum(1 for r in results if str(r.status) == 'failed')
-            not_run = sum(1 for r in results if str(r.status) == 'not_run')
-        return {
-            "count": len(runs),
-            "items_count": total,
-            "passed": passed,
-            "fail": failed,
-            "not_status": not_run
-        }
-

@@ -4,13 +4,8 @@
   </v-container>
 </template>
 
-<script>
-import TagsListComponent from "@/components/tags/tagsListComponent.vue";
-
-export default {
-  name: "tags",
-  components: {TagsListComponent}
-}
+<script setup>
+import TagsListComponent from '@/components/tags/tagsListComponent.vue'
 </script>
 <route lang="json">
 {
@@ -43,4 +38,3 @@ export default {
   }
 }
 </style>
-

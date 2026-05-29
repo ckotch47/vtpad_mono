@@ -1,57 +1,43 @@
 <template>
   <div v-if="loader">
-    <v-progress-linear
-      color="primary"
-      indeterminate
-    ></v-progress-linear>
+    <v-progress-linear color="primary" indeterminate />
   </div>
   <v-card v-if="!loader">
     <v-card-item class="tag-list py-4">
-      <div class="d-flex flex-column" v-if="!loader">
-        <tags-new-tag-component @createNewTagEmit="getTagForSpace" :space-id="spaceId"/>
+      <div class="d-flex flex-column">
+        <tags-new-tag-component :space-id="spaceId" @create-new-tag-emit="getTagForSpace" />
         <tag-item-list-component
           v-for="item in tagItems"
           :key="item.id"
           :tag="item"
-          @deleteTagEmit="getTagForSpace"
-          @updateTagEmit="getTagForSpace"
+          @delete-tag-emit="getTagForSpace"
+          @update-tag-emit="getTagForSpace"
         />
       </div>
     </v-card-item>
   </v-card>
-
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { tagService } from '@/services'
-import TagsNewTagComponent from "@/components/tags/list/tagsNewTagComponent.vue";
-import TagItemListComponent from "@/components/tags/list/tagItemListComponent.vue";
+import TagsNewTagComponent from '@/components/tags/list/tagsNewTagComponent.vue'
+import TagItemListComponent from '@/components/tags/list/tagItemListComponent.vue'
 
-export default {
-  name: "tagsListComponent",
-  components: {TagItemListComponent, TagsNewTagComponent},
-  data(){
-    return{
-      loader: true,
-      tagItems: [],
-      spaceId: this.$route.params.spaceId,
-    }
-  },
-  mounted() {
-    this.getTagForSpace()
-  },
-  methods:{
-    getTagForSpace(){
-      this.loader = true
-      tagService.list(this.spaceId).then(res => {
-        this.tagItems = res.data;
-        this.loader = false
-      })
-    }
-  }
+const route = useRoute()
+const spaceId = computed(() => route.params.spaceId)
+
+const loader = ref(true)
+const tagItems = ref([])
+
+function getTagForSpace() {
+  loader.value = true
+  tagService.list(spaceId.value).then(res => {
+    tagItems.value = res.data
+    loader.value = false
+  })
 }
+
+onMounted(() => getTagForSpace())
 </script>
-
-<style scoped>
-
-</style>

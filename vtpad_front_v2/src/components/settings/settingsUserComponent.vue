@@ -1,125 +1,112 @@
 <template>
   <div v-if="loader">
-    <v-progress-linear
-      color="primary"
-      indeterminate
-    ></v-progress-linear>
+    <v-progress-linear color="primary" indeterminate />
   </div>
 
-  <settings-user-find-user-component @addUserIntoSpaceEmit="addUserIntoSpace"/>
+  <settings-user-find-user-component @add-user-into-space-emit="addUserIntoSpace" />
 
   <v-card
-    class="mx-auto my-2 custom-user"
-    elevation="2"
     v-for="user in users"
     :key="user.id"
+    class="mx-auto my-2 custom-user"
+    elevation="2"
   >
-    <v-card-item >
-      <template v-slot:prepend>
-        <v-avatar
-          class="custom-user--avatar"
-          color="grey"
-          image=""
-          size="40"
-        >
-          <span class="text-h5" v-if="!user.avatar.filepath">{{user?.username ? user?.username[0].toLowerCase() : '@'}}</span>
-          <v-img :src="user.avatar.filepath" cover v-else></v-img>
+    <v-card-item>
+      <template #prepend>
+        <v-avatar class="custom-user--avatar" color="grey" size="40">
+          <span v-if="!user.avatar?.filepath" class="text-h5">
+            {{ user?.username ? user.username[0].toLowerCase() : '@' }}
+          </span>
+          <v-img v-else :src="user.avatar.filepath" cover />
         </v-avatar>
       </template>
-      <div >
+      <div>
         <v-card-title v-if="user.id">
-          <div class="user-username">
-          {{user?.username ?? '@username'}}
-          </div>
-
+          <div class="user-username">{{ user?.username ?? '@username' }}</div>
         </v-card-title>
-        <v-card-subtitle>
-          {{user.mail}} - {{user.role}}
-        </v-card-subtitle>
+        <v-card-subtitle>{{ user.mail }} - {{ user.role }}</v-card-subtitle>
       </div>
       <v-card-actions>
         <div class="user-action--btn">
-          <v-btn v-if="user.role !== 'OWNER'" class="user-owner--btn" color="primary" text="Owner" @click="makeOwnerUser(user.id)"></v-btn>
-
+          <v-btn
+            v-if="user.role !== 'OWNER'"
+            class="user-owner--btn"
+            color="primary"
+            text="Owner"
+            @click="makeOwnerUser(user.id)"
+          />
           <settings-user-right-menu-component
             v-if="user.role !== 'OWNER'"
             :user-right="user.right"
             :space-id="spaceId"
             :user-id="user.id"
           />
-
-          <v-btn class="user-delete--btn" color="red" text="Delete" @click="deleteUserFromSpace(user.id)"></v-btn>
+          <v-btn class="user-delete--btn" color="red" text="Delete" @click="deleteUserFromSpace(user.id)" />
         </div>
       </v-card-actions>
     </v-card-item>
-
   </v-card>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { spaceService } from '@/services'
-import SettingsUserRightMenuComponent from "@/components/settings/user/settingsUserRightMenuComponent.vue";
-import SettingsUserFindUserComponent from "@/components/settings/user/settingsUserFindUserComponent.vue";
+import SettingsUserRightMenuComponent from '@/components/settings/user/settingsUserRightMenuComponent.vue'
+import SettingsUserFindUserComponent from '@/components/settings/user/settingsUserFindUserComponent.vue'
 
-export default {
-  name: "settingsUserComponent",
-  components: {SettingsUserFindUserComponent, SettingsUserRightMenuComponent},
-  data(){
-    return{
-      loader: true,
-      spaceId: this.$route.params.spaceId,
-      users: []
-    }
-  },
-  mounted() {
-    this.getUsers()
-  },
-  methods:{
-    getUsers(){
-      spaceService.getUsers(this.spaceId).then(res => {
-        this.users = res.data
-        this.loader = false
-      })
-    },
-    makeOwnerUser(userId){
-      this.loader = true
-      spaceService.makeOwner(this.spaceId, userId).then(res => {
-        this.users = res.data
-        this.loader = false
-      })
-    },
-    deleteUserFromSpace(userId){
-      this.loader = true
-      spaceService.removeUser(this.spaceId, userId).then(res => {
-        this.users = res.data
-        this.loader = false
-      }).catch(()=>{
-        this.loader = false})
-    },
-    addUserIntoSpace(userMail){
-      if(!userMail) return
-      this.loader = true
-      spaceService.addUser(this.spaceId,{
-        mail: userMail
-      }).then(res => {
-        if(!res.data) {
-          this.loader = false
-          return
-        }
-        this.users = res.data
-        this.loader = false
-      })
-    }
-  }
+const route = useRoute()
+const spaceId = computed(() => route.params.spaceId)
+
+const loader = ref(true)
+const users = ref([])
+
+function getUsers() {
+  spaceService.getUsers(spaceId.value).then(res => {
+    users.value = res.data
+    loader.value = false
+  })
 }
+
+function makeOwnerUser(userId) {
+  loader.value = true
+  spaceService.makeOwner(spaceId.value, userId).then(res => {
+    users.value = res.data
+    loader.value = false
+  })
+}
+
+function deleteUserFromSpace(userId) {
+  loader.value = true
+  spaceService.removeUser(spaceId.value, userId).then(res => {
+    users.value = res.data
+    loader.value = false
+  }).catch(() => {
+    loader.value = false
+  })
+}
+
+function addUserIntoSpace(userMail) {
+  if (!userMail) return
+  loader.value = true
+  spaceService.addUser(spaceId.value, { mail: userMail }).then(res => {
+    if (!res.data) {
+      loader.value = false
+      return
+    }
+    users.value = res.data
+    loader.value = false
+  })
+}
+
+onMounted(() => getUsers())
 </script>
 
 <style lang="scss">
-.user-action--btn{
-    //position: absolute;
-    top: 30%;
-    right: 0;
-  button{
+.user-action--btn {
+  top: 30%;
+  right: 0;
+  button {
     margin-left: 20px;
   }
 }
@@ -128,24 +115,19 @@ export default {
     display: flex;
     justify-content: space-between;
   }
-  &--avatar{
+  &--avatar {
     margin: auto;
   }
-  .v-card-item__content{
+  .v-card-item__content {
     display: flex;
     justify-content: space-between;
   }
-  .show-one{
-    .v-field__input{
-      .v-select__selection:nth-child(n+2){
+  .show-one {
+    .v-field__input {
+      .v-select__selection:nth-child(n+2) {
         display: none;
       }
     }
   }
-  //.v-avatar::before{
-  //  color: white;
-  //  content: attr(data-placeholder);
-  //  margin-left: 40px;
-  //}
 }
 </style>

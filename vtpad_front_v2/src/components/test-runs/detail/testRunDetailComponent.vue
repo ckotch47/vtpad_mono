@@ -8,18 +8,11 @@
     <v-container fluid class="pb-0">
       <v-row align="center">
         <v-col>
-          <v-btn
-            variant="text"
-            prepend-icon="mdi-arrow-left"
-            :to="`/space/${spaceId}/test-runs`"
-            class="pl-0"
-          >
+          <v-btn variant="text" prepend-icon="mdi-arrow-left" :to="`/space/${spaceId}/test-runs`" class="pl-0">
             Test Runs
           </v-btn>
           <h1 class="text-h4 font-weight-bold mt-1">{{ run.name }}</h1>
-          <p v-if="run.description" class="text-body-1 text-medium-emphasis mt-1">
-            {{ run.description }}
-          </p>
+          <p v-if="run.description" class="text-body-1 text-medium-emphasis mt-1">{{ run.description }}</p>
         </v-col>
         <v-col cols="auto">
           <v-chip :color="statusColor(run.status)" size="large" class="text-uppercase font-weight-bold">
@@ -29,59 +22,7 @@
       </v-row>
     </v-container>
 
-    <!-- Stats -->
-    <v-container fluid class="py-3">
-      <v-row>
-        <v-col cols="4" md="2">
-          <v-card variant="outlined">
-            <v-card-text class="text-center py-3">
-              <div class="text-h5 font-weight-bold">{{ stats.total }}</div>
-              <div class="text-caption text-medium-emphasis">Total</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="4" md="2">
-          <v-card variant="outlined">
-            <v-card-text class="text-center py-3">
-              <div class="text-h5 font-weight-bold text-success">{{ stats.passed }}</div>
-              <div class="text-caption text-medium-emphasis">Passed</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="4" md="2">
-          <v-card variant="outlined">
-            <v-card-text class="text-center py-3">
-              <div class="text-h5 font-weight-bold text-error">{{ stats.failed }}</div>
-              <div class="text-caption text-medium-emphasis">Failed</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="4" md="2">
-          <v-card variant="outlined">
-            <v-card-text class="text-center py-3">
-              <div class="text-h5 font-weight-bold text-warning">{{ stats.blocked }}</div>
-              <div class="text-caption text-medium-emphasis">Blocked</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="4" md="2">
-          <v-card variant="outlined">
-            <v-card-text class="text-center py-3">
-              <div class="text-h5 font-weight-bold text-grey">{{ stats.skipped }}</div>
-              <div class="text-caption text-medium-emphasis">Skipped</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="4" md="2">
-          <v-card variant="outlined">
-            <v-card-text class="text-center py-3">
-              <div class="text-h5 font-weight-bold">{{ stats.not_run }}</div>
-              <div class="text-caption text-medium-emphasis">Not Run</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
+    <run-stats-panel :stats="stats" />
 
     <!-- Actions -->
     <v-container fluid class="py-0">
@@ -105,25 +46,19 @@
             <v-card-title class="d-flex align-center py-3">
               <v-icon class="mr-2">mdi-folder-outline</v-icon>
               {{ group.sectionName }}
-              <v-chip size="small" class="ml-2" color="primary">
-                {{ group.results.length }}
-              </v-chip>
+              <v-chip size="small" class="ml-2" color="primary">{{ group.results.length }}</v-chip>
             </v-card-title>
             <v-divider />
             <v-card-text class="pa-0">
               <v-list density="compact">
-                <v-list-item
-                  v-for="result in group.results"
-                  :key="result.id"
-                  class="result-item"
-                >
+                <v-list-item v-for="result in group.results" :key="result.id" class="result-item">
                   <template #prepend>
-                    <v-icon :color="statusColor(result.status)">
-                      {{ statusIcon(result.status) }}
-                    </v-icon>
+                    <v-icon :color="statusColor(result.status)">{{ statusIcon(result.status) }}</v-icon>
                   </template>
                   <v-list-item-title class="font-weight-medium">
-                    <span class="cursor-pointer" @click.stop="openCaseDialog(result.testcase_id)">{{ result.testcase?.title || 'Unknown Case' }}</span>
+                    <span class="cursor-pointer" @click.stop="openCaseDialog(result.testcase_id)">
+                      {{ result.testcase?.title || 'Unknown Case' }}
+                    </span>
                     <v-chip size="x-small" :color="typeColor(result.testcase?.type)" class="ml-2">
                       {{ result.testcase?.type }}
                     </v-chip>
@@ -161,119 +96,23 @@
       </v-row>
     </v-container>
 
-    <!-- Edit Result Dialog -->
-    <v-dialog v-model="editModal" max-width="600" scrollable>
-      <v-card v-if="editingResult">
-        <v-card-title class="d-flex align-center">
-          <span>Update Result</span>
-          <v-spacer />
-          <v-btn v-if="editingResult.status === 'failed'" color="error" size="small" prepend-icon="mdi-bug" @click="openBugModal">
-            Create Bug
-          </v-btn>
-        </v-card-title>
-        <v-divider />
-        <v-card-text>
-          <div class="text-subtitle-1 font-weight-medium mb-3">{{ editingResult.testcase?.title }}</div>
+    <run-result-edit-dialog
+      v-model="editModal"
+      :result="editingResult"
+      :space-bugs="spaceBugs"
+      @update:result="editingResult = $event"
+      @save="saveResult"
+      @create-bug="openBugModal"
+    />
 
-          <v-window>
-              <v-select
-                v-model="editingResult.status"
-                :items="['not_run','passed','failed','blocked','skipped']"
-                label="Status"
-                class="mb-2"
-              />
-              <v-text-field
-                v-model="editingResult.duration_seconds"
-                label="Duration (seconds)"
-                type="number"
-                class="mb-2"
-              />
-              <v-textarea v-model="editingResult.comment" label="Comment" rows="2" class="mb-2" />
-              <v-combobox
-                v-model="editingResult.linked_bug_ids"
-                :items="spaceBugs"
-                item-title="short_name"
-                item-value="short_name"
-                label="Linked Bugs"
-                multiple
-                chips
-                closable-chips
-                clearable
-                :return-object="false"
-              />
-          </v-window>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="editModal = false">Cancel</v-btn>
-          <v-btn color="primary" @click="saveResult">Save</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <case-view-dialog v-model="caseDialogOpen" :test-case="selectedCase" @edit="caseDialogOpen = false" />
 
-    <!-- View Case Dialog -->
-    <v-dialog v-model="caseDialogOpen" max-width="900" scrollable>
-      <v-card v-if="selectedCase">
-        <v-card-title class="d-flex align-center">
-          <span class="text-truncate" style="max-width: 500px">{{ selectedCase.title }}</span>
-          <v-spacer />
-          <v-chip size="small" :color="typeColor(selectedCase.type)" class="mr-1">{{ selectedCase.type }}</v-chip>
-          <v-chip size="small" :color="statusColor(selectedCase.status)">{{ selectedCase.status }}</v-chip>
-          <v-btn
-            size="small"
-            color="primary"
-            variant="text"
-            prepend-icon="mdi-pencil"
-            class="ml-2"
-            :to="`/space/${spaceId}/test-cases/${selectedCase.id}/edit`"
-            @click="caseDialogOpen = false"
-          >
-            Edit
-          </v-btn>
-          <v-btn icon="mdi-close" size="small" variant="text" @click="caseDialogOpen = false" />
-        </v-card-title>
-        <v-divider />
-        <v-card-text>
-          <div v-if="selectedCase.text">
-            <div class="text-subtitle-2 text-medium-emphasis mb-1">Description</div>
-            <editor-component :text="selectedCase.text" :edit="false" />
-          </div>
-          <div v-if="selectedCase.preconditions" class="mt-4">
-            <div class="text-subtitle-2 text-medium-emphasis mb-1">Preconditions</div>
-            <editor-component :text="selectedCase.preconditions" :edit="false" />
-          </div>
-          <div v-if="selectedCase.steps" class="mt-4">
-            <div class="text-subtitle-2 text-medium-emphasis mb-1">Steps</div>
-            <editor-component :text="selectedCase.steps" :edit="false" />
-          </div>
-          <div v-if="selectedCase.expected_results" class="mt-4">
-            <div class="text-subtitle-2 text-medium-emphasis mb-1">Expected Results</div>
-            <editor-component :text="selectedCase.expected_results" :edit="false" />
-          </div>
-          <div v-if="!selectedCase.text && !selectedCase.preconditions && !selectedCase.steps && !selectedCase.expected_results" class="text-center text-grey py-8">
-            No content in this test case
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
-
-    <!-- Quick Bug Modal -->
-    <v-dialog v-model="bugModal" max-width="560">
-      <v-card>
-        <v-card-title>Create Bug</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="newBug.title" label="Title" required autofocus />
-          <v-textarea v-model="newBug.steps" label="Steps to Reproduce" rows="3" />
-          <v-textarea v-model="newBug.expected" label="Expected Result" rows="2" />
-          <v-textarea v-model="newBug.actual" label="Actual Result" rows="2" />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="bugModal = false">Cancel</v-btn>
-          <v-btn color="error" @click="createBug">Create Bug</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <quick-bug-dialog
+      v-model="bugModal"
+      :bug="newBug"
+      @update:bug="newBug = $event"
+      @create="createBug"
+    />
   </div>
 </template>
 
@@ -281,7 +120,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { testRunService, bugService, testCaseService } from '@/services'
-import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import RunStatsPanel from './RunStatsPanel.vue'
+import RunResultEditDialog from './RunResultEditDialog.vue'
+import QuickBugDialog from './QuickBugDialog.vue'
+import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
 
 const route = useRoute()
 
@@ -438,5 +280,4 @@ onMounted(() => {
 .cursor-pointer {
   cursor: pointer;
 }
-
 </style>

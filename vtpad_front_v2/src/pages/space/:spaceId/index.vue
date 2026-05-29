@@ -6,34 +6,10 @@
 }
 </route>
 
-<template >
-
+<template>
+  <div />
 </template>
 
-<script>
-
-
-export default {
-  name: "SpaceDetailPage",
-  meta: {
-    newMeta: 'asdd'
-  },
-  data(){
-    return{
-      spaceId: this.$route.params.spaceId
-    }
-  },
-  updated() {
-    this.spaceId= this.$route.params.spaceId
-  },
-  mounted() {
-
-  }
-
-
-}
+<script setup>
+// SpaceDetailPage — placeholder page that just renders the spaces layout
 </script>
-
-<style scoped>
-
-</style>

@@ -18,167 +18,139 @@
             <v-list-item
               v-for="item in results"
               :key="item.id + item.type"
-              @click="navigate(item)"
               class="command-item"
+              @click="navigate(item)"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon :color="item.color">{{ item.icon }}</v-icon>
               </template>
               <v-list-item-title>{{ item.title }}</v-list-item-title>
               <v-list-item-subtitle>{{ item.subtitle }}</v-list-item-subtitle>
-              <template v-slot:append>
+              <template #append>
                 <v-chip size="x-small" :color="item.color" variant="outlined">{{ item.type }}</v-chip>
               </template>
             </v-list-item>
           </template>
-          <v-empty-state
-            v-else-if="query.length > 1"
-            icon="mdi-magnify"
-            text="No results found"
-          />
+          <v-empty-state v-else-if="query.length > 1" icon="mdi-magnify" text="No results found" />
         </v-list>
       </v-card-text>
     </v-card>
   </v-dialog>
 </template>
 
-<script>
+<script setup>
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { testCaseService, testSuiteService, testRunService } from '@/services'
 
-export default {
-  name: "commandPaletteComponent",
-  data: () => ({
-    isOpen: false,
-    query: '',
-    searchTimer: null,
-    results: []
-  }),
-  mounted() {
-    document.addEventListener('keydown', this.onKeyDown);
-  },
-  beforeUnmount() {
-    document.removeEventListener('keydown', this.onKeyDown);
-  },
-  methods: {
-    onKeyDown(e) {
-      // Cmd+K or Ctrl+K
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        this.open();
-      }
-    },
-    open() {
-      this.isOpen = true;
-      this.query = '';
-      this.results = [];
-    },
-    close() {
-      this.isOpen = false;
-    },
-    selectFirst() {
-      if (this.results.length) {
-        this.navigate(this.results[0]);
-      }
-    },
-    navigate(item) {
-      this.close();
-      this.$router.push(item.to);
-    }
-  },
-  watch: {
-    query(val) {
-      clearTimeout(this.searchTimer);
-      if (!val || val.length < 2) {
-        this.results = [];
-        return;
-      }
-      this.searchTimer = setTimeout(() => {
-        this.doSearch(val);
-      }, 200);
-    }
-  },
-  methods: {
-    async doSearch(q) {
-      const spaceId = this.$route.params.spaceId;
-      if (!spaceId) return;
+const route = useRoute()
+const router = useRouter()
 
-      const results = [];
+const isOpen = ref(false)
+const query = ref('')
+const searchTimer = ref(null)
+const results = ref([])
 
-      // Search test cases
-      try {
-        const casesRes = await testCaseService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 });
-        (casesRes.data.items || []).forEach(c => {
-          results.push({
-            id: c.id,
-            type: 'Case',
-            title: c.title,
-            subtitle: c.short_name || '',
-            icon: 'mdi-test-tube',
-            color: 'primary',
-            to: `/space/${spaceId}/test-cases/${c.id}`
-          });
-        });
-      } catch (e) { /* ignore */ }
-
-      // Search suites
-      try {
-        const suitesRes = await testSuiteService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 });
-        (suitesRes.data.items || []).forEach(s => {
-          results.push({
-            id: s.id,
-            type: 'Suite',
-            title: s.name,
-            subtitle: s.description || '',
-            icon: 'mdi-folder-open-outline',
-            color: 'info',
-            to: `/space/${spaceId}/test-suites/${s.id}`
-          });
-        });
-      } catch (e) { /* ignore */ }
-
-      // Search runs
-      try {
-        const runsRes = await testRunService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 });
-        (runsRes.data.items || []).forEach(r => {
-          results.push({
-            id: r.id,
-            type: 'Run',
-            title: r.name,
-            subtitle: r.status || '',
-            icon: 'mdi-play-circle-outline',
-            color: 'success',
-            to: `/space/${spaceId}/test-runs/${r.id}`
-          });
-        });
-      } catch (e) { /* ignore */ }
-
-      this.results = results;
-    },
-    onKeyDown(e) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        this.open();
-      }
-    },
-    open() {
-      this.isOpen = true;
-      this.query = '';
-      this.results = [];
-    },
-    close() {
-      this.isOpen = false;
-    },
-    selectFirst() {
-      if (this.results.length) {
-        this.navigate(this.results[0]);
-      }
-    },
-    navigate(item) {
-      this.close();
-      this.$router.push(item.to);
-    }
+function onKeyDown(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    open()
   }
 }
+
+function open() {
+  isOpen.value = true
+  query.value = ''
+  results.value = []
+}
+
+function close() {
+  isOpen.value = false
+}
+
+function selectFirst() {
+  if (results.value.length) {
+    navigate(results.value[0])
+  }
+}
+
+function navigate(item) {
+  close()
+  router.push(item.to)
+}
+
+async function doSearch(q) {
+  const spaceId = route.params.spaceId
+  if (!spaceId) return
+
+  const all = []
+
+  try {
+    const casesRes = await testCaseService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 })
+    for (const c of (casesRes.data.items || [])) {
+      all.push({
+        id: c.id,
+        type: 'Case',
+        title: c.title,
+        subtitle: c.short_name || '',
+        icon: 'mdi-test-tube',
+        color: 'primary',
+        to: `/space/${spaceId}/test-cases/${c.id}`
+      })
+    }
+  } catch (e) { /* ignore */ }
+
+  try {
+    const suitesRes = await testSuiteService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 })
+    for (const s of (suitesRes.data.items || [])) {
+      all.push({
+        id: s.id,
+        type: 'Suite',
+        title: s.name,
+        subtitle: s.description || '',
+        icon: 'mdi-folder-open-outline',
+        color: 'info',
+        to: `/space/${spaceId}/test-suites/${s.id}`
+      })
+    }
+  } catch (e) { /* ignore */ }
+
+  try {
+    const runsRes = await testRunService.listBySpace(spaceId, { search: q, page: 1, page_size: 5 })
+    for (const r of (runsRes.data.items || [])) {
+      all.push({
+        id: r.id,
+        type: 'Run',
+        title: r.name,
+        subtitle: r.status || '',
+        icon: 'mdi-play-circle-outline',
+        color: 'success',
+        to: `/space/${spaceId}/test-runs/${r.id}`
+      })
+    }
+  } catch (e) { /* ignore */ }
+
+  results.value = all
+}
+
+watch(query, (val) => {
+  clearTimeout(searchTimer.value)
+  if (!val || val.length < 2) {
+    results.value = []
+    return
+  }
+  searchTimer.value = setTimeout(() => {
+    doSearch(val)
+  }, 200)
+})
+
+onMounted(() => {
+  document.addEventListener('keydown', onKeyDown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeyDown)
+})
 </script>
 
 <style scoped>

@@ -10,8 +10,8 @@
         variant="solo"
         class="mx-2"
         clearable
-        @update:model-value="onSearch"
         style="max-width: 260px"
+        @update:model-value="onSearch"
       />
       <v-select
         v-model="filterStatus"
@@ -107,135 +107,142 @@
   </div>
 </template>
 
-<script>
-import { testSuiteService } from '@/services';
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { testSuiteService } from '@/services'
 
-export default {
-  name: "testSuitesListComponent",
-  data: () => ({
-    suites: [],
-    totalSuites: 0,
-    page: 1,
-    itemsPerPage: 25,
-    sortBy: [{ key: 'created_at', order: 'desc' }],
-    spaceId: undefined,
-    tableLoading: false,
-    firstLoad: true,
-    search: '',
-    searchDebounce: null,
-    optionsDebounce: null,
-    openCreate: false,
-    openEdit: false,
-    newSuite: { name: '', description: '' },
-    editSuiteData: { id: null, name: '', description: '', status: 'active' },
-    filterStatus: '',
-    headers: [
-      { title: 'Name', key: 'name', sortable: true },
-      { title: 'Cases', key: 'cases_count', width: '100px', sortable: false },
-      { title: 'Sections', key: 'sections_count', width: '100px', sortable: false },
-      { title: 'Status', key: 'status', width: '100px', sortable: false },
-      { title: 'Created', key: 'created_at', width: '150px', sortable: true },
-      { title: 'Actions', key: 'actions', width: '120px', sortable: false }
-    ]
-  }),
-  created() {
-    this.spaceId = this.$route.params.spaceId;
-    const q = this.$route.query;
-    this.page = parseInt(q.page) || 1;
-    this.itemsPerPage = parseInt(q.page_size) || 25;
-    this.search = q.search || '';
-    this.filterStatus = q.status || '';
-    if (q.sort_by && q.sort_order) {
-      this.sortBy = [{ key: q.sort_by, order: q.sort_order }];
-    }
-  },
-  methods: {
-    loadSuites(options) {
-      clearTimeout(this.optionsDebounce);
-      this.optionsDebounce = setTimeout(() => {
-        this._doLoadSuites(options);
-      }, 150);
-    },
-    _doLoadSuites(options) {
-      if (!this.spaceId || this.tableLoading) return;
-      this.tableLoading = true;
-      const page = this.firstLoad ? this.page : (options?.page || this.page);
-      const pageSize = this.firstLoad ? this.itemsPerPage : (options?.itemsPerPage || this.itemsPerPage);
-      this.firstLoad = false;
-      const sortBy = options?.sortBy?.[0];
-      const sortKey = sortBy?.key || 'created_at';
-      const sortOrder = sortBy?.order || 'desc';
+const route = useRoute()
+const router = useRouter()
 
-      const query = { page, page_size: pageSize };
-      if (this.search) query.search = this.search;
-      if (this.filterStatus) query.status = this.filterStatus;
-      if (sortKey !== 'created_at' || sortOrder !== 'desc') {
-        query.sort_by = sortKey;
-        query.sort_order = sortOrder;
-      }
-      this.$router.replace({ query });
+const spaceId = computed(() => route.params.spaceId)
 
-      testSuiteService.listBySpace(this.spaceId, {
-        page,
-        page_size: pageSize,
-        sort_by: sortKey,
-        sort_order: sortOrder,
-        search: this.search || undefined,
-        status: this.filterStatus || undefined
-      }).then(res => {
-        this.suites = res.data.items || res.data;
-        this.totalSuites = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
-        this.itemsPerPage = res.data.page_size || this.itemsPerPage;
-        this.tableLoading = false;
-      }).catch(() => {
-        this.tableLoading = false;
-      });
-    },
-    onSearch() {
-      clearTimeout(this.searchDebounce);
-      this.searchDebounce = setTimeout(() => {
-        this.page = 1;
-        this.loadSuites({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      }, 400);
-    },
-    onFilterChange() {
-      this.page = 1;
-      this.loadSuites({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-    },
-    createSuite() {
-      testSuiteService.create({
-        name: this.newSuite.name,
-        description: this.newSuite.description,
-        space_id: this.spaceId
-      }).then(() => {
-        this.openCreate = false;
-        this.newSuite = { name: '', description: '' };
-        this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      });
-    },
-    editSuite(item) {
-      this.editSuiteData = { ...item };
-      this.openEdit = true;
-    },
-    saveSuite() {
-      testSuiteService.update(this.editSuiteData.id, {
-        name: this.editSuiteData.name,
-        description: this.editSuiteData.description,
-        status: this.editSuiteData.status
-      }).then(() => {
-        this.openEdit = false;
-        this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      });
-    },
-    deleteSuite(item) {
-      if (!confirm(`Archive test suite "${item.name}"?`)) return;
-      testSuiteService.delete(item.id).then(() => {
-        this.loadSuites({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      });
-    },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleDateString() : '';
-    }
+const suites = ref([])
+const totalSuites = ref(0)
+const page = ref(1)
+const itemsPerPage = ref(25)
+const sortBy = ref([{ key: 'created_at', order: 'desc' }])
+const tableLoading = ref(false)
+const firstLoad = ref(true)
+const search = ref('')
+const searchDebounce = ref(null)
+const optionsDebounce = ref(null)
+const openCreate = ref(false)
+const openEdit = ref(false)
+const newSuite = ref({ name: '', description: '' })
+const editSuiteData = ref({ id: null, name: '', description: '', status: 'active' })
+const filterStatus = ref('')
+
+const headers = [
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Cases', key: 'cases_count', width: '100px', sortable: false },
+  { title: 'Sections', key: 'sections_count', width: '100px', sortable: false },
+  { title: 'Status', key: 'status', width: '100px', sortable: false },
+  { title: 'Created', key: 'created_at', width: '150px', sortable: true },
+  { title: 'Actions', key: 'actions', width: '120px', sortable: false }
+]
+
+const q = route.query
+page.value = parseInt(q.page) || 1
+itemsPerPage.value = parseInt(q.page_size) || 25
+search.value = q.search || ''
+filterStatus.value = q.status || ''
+if (q.sort_by && q.sort_order) {
+  sortBy.value = [{ key: q.sort_by, order: q.sort_order }]
+}
+
+function loadSuites(options) {
+  clearTimeout(optionsDebounce.value)
+  optionsDebounce.value = setTimeout(() => {
+    doLoadSuites(options)
+  }, 150)
+}
+
+function doLoadSuites(options) {
+  if (!spaceId.value || tableLoading.value) return
+  tableLoading.value = true
+  const p = firstLoad.value ? page.value : (options?.page || page.value)
+  const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
+  firstLoad.value = false
+  const sb = options?.sortBy?.[0]
+  const sortKey = sb?.key || 'created_at'
+  const sortOrder = sb?.order || 'desc'
+
+  const query = { page: p, page_size: pageSize }
+  if (search.value) query.search = search.value
+  if (filterStatus.value) query.status = filterStatus.value
+  if (sortKey !== 'created_at' || sortOrder !== 'desc') {
+    query.sort_by = sortKey
+    query.sort_order = sortOrder
   }
+  router.replace({ query })
+
+  testSuiteService.listBySpace(spaceId.value, {
+    page: p,
+    page_size: pageSize,
+    sort_by: sortKey,
+    sort_order: sortOrder,
+    search: search.value || undefined,
+    status: filterStatus.value || undefined
+  }).then(res => {
+    suites.value = res.data.items || res.data
+    totalSuites.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
+    itemsPerPage.value = res.data.page_size || itemsPerPage.value
+    tableLoading.value = false
+  }).catch(() => {
+    tableLoading.value = false
+  })
+}
+
+function onSearch() {
+  clearTimeout(searchDebounce.value)
+  searchDebounce.value = setTimeout(() => {
+    page.value = 1
+    loadSuites({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  }, 400)
+}
+
+function onFilterChange() {
+  page.value = 1
+  loadSuites({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+}
+
+function createSuite() {
+  testSuiteService.create({
+    name: newSuite.value.name,
+    description: newSuite.value.description,
+    space_id: spaceId.value
+  }).then(() => {
+    openCreate.value = false
+    newSuite.value = { name: '', description: '' }
+    loadSuites({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  })
+}
+
+function editSuite(item) {
+  editSuiteData.value = { ...item }
+  openEdit.value = true
+}
+
+function saveSuite() {
+  testSuiteService.update(editSuiteData.value.id, {
+    name: editSuiteData.value.name,
+    description: editSuiteData.value.description,
+    status: editSuiteData.value.status
+  }).then(() => {
+    openEdit.value = false
+    loadSuites({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  })
+}
+
+function deleteSuite(item) {
+  if (!confirm(`Archive test suite "${item.name}"?`)) return
+  testSuiteService.delete(item.id).then(() => {
+    loadSuites({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  })
+}
+
+function formatDate(date) {
+  return date ? new Date(date).toLocaleDateString() : ''
 }
 </script>

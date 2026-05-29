@@ -52,77 +52,70 @@
   </div>
 </template>
 
-<script>
-import { testPlanService } from '@/services';
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { testPlanService } from '@/services'
 
-export default {
-  name: "testPlansListComponent",
-  data: () => ({
-    spaceId: undefined,
-    plans: [],
-    total: 0,
-    page: 1,
-    pageSize: 25,
-    loading: false,
-    openDialog: false,
-    newPlan: { name: '', description: '' }
-  }),
-  computed: {
-    headers() {
-      return [
-        { title: 'Name', key: 'name', sortable: false },
-        { title: 'Cases', key: 'case_count', sortable: false },
-        { title: 'Description', key: 'description', sortable: false },
-        { title: 'Created', key: 'created_at', sortable: false },
-        { title: 'Actions', key: 'actions', sortable: false, align: 'end' }
-      ];
-    }
-  },
-  created() {
-    this.spaceId = this.$route.params.spaceId;
-  },
-  mounted() {
-    // v-data-table-server triggers loadPlans on mount; spaceId must be set in created()
-  },
-  methods: {
-    async loadPlans({ page, itemsPerPage }) {
-      if (!this.spaceId || this.spaceId === 'undefined') return;
-      this.loading = true;
-      this.page = page;
-      this.pageSize = itemsPerPage;
-      try {
-        const res = await testPlanService.listBySpace(this.spaceId, { page, page_size: itemsPerPage });
-        this.plans = res.data.items;
-        this.total = res.data.total;
-      } catch (e) {
-        console.error(e);
-      } finally {
-        this.loading = false;
-      }
-    },
-    async createPlan() {
-      try {
-        await testPlanService.create({
-          name: this.newPlan.name,
-          description: this.newPlan.description,
-          space_id: this.spaceId
-        });
-        this.openDialog = false;
-        this.newPlan = { name: '', description: '' };
-        this.loadPlans({ page: this.page, itemsPerPage: this.pageSize });
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    async deletePlan(id) {
-      if (!confirm('Delete this test plan?')) return;
-      try {
-        await testPlanService.delete(id);
-        this.loadPlans({ page: this.page, itemsPerPage: this.pageSize });
-      } catch (e) {
-        console.error(e);
-      }
-    }
+const route = useRoute()
+const router = useRouter()
+
+const spaceId = computed(() => route.params.spaceId)
+
+const plans = ref([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(25)
+const loading = ref(false)
+const openDialog = ref(false)
+const newPlan = ref({ name: '', description: '' })
+
+const headers = computed(() => [
+  { title: 'Name', key: 'name', sortable: false },
+  { title: 'Cases', key: 'case_count', sortable: false },
+  { title: 'Description', key: 'description', sortable: false },
+  { title: 'Created', key: 'created_at', sortable: false },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' }
+])
+
+async function loadPlans({ page: p, itemsPerPage }) {
+  if (!spaceId.value || spaceId.value === 'undefined') return
+  loading.value = true
+  page.value = p
+  pageSize.value = itemsPerPage
+  try {
+    const res = await testPlanService.listBySpace(spaceId.value, { page: p, page_size: itemsPerPage })
+    plans.value = res.data.items
+    total.value = res.data.total
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function createPlan() {
+  try {
+    await testPlanService.create({
+      name: newPlan.value.name,
+      description: newPlan.value.description,
+      space_id: spaceId.value
+    })
+    openDialog.value = false
+    newPlan.value = { name: '', description: '' }
+    loadPlans({ page: page.value, itemsPerPage: pageSize.value })
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function deletePlan(id) {
+  if (!confirm('Delete this test plan?')) return
+  try {
+    await testPlanService.delete(id)
+    loadPlans({ page: page.value, itemsPerPage: pageSize.value })
+  } catch (e) {
+    console.error(e)
   }
 }
 </script>

@@ -66,112 +66,117 @@
   </div>
 </template>
 
-<script>
-import { testRunService, testSuiteService } from '@/services';
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { testRunService, testSuiteService } from '@/services'
 
-export default {
-  name: "testRunsListComponent",
-  data: () => ({
-    runs: [],
-    totalRuns: 0,
-    page: 1,
-    itemsPerPage: 25,
-    spaceId: undefined,
-    tableLoading: false,
-    firstLoad: true,
-    search: '',
-    searchDebounce: null,
-    optionsDebounce: null,
-    openCreate: false,
-    suites: [],
-    newRun: { name: '', description: '', suite_id: null },
-    headers: [
-      { title: 'Name', key: 'name', sortable: true },
-      { title: 'Status', key: 'status', width: '140px', sortable: true },
-      { title: 'Created', key: 'created_at', width: '150px', sortable: true },
-      { title: 'Actions', key: 'actions', width: '100px', sortable: false }
-    ]
-  }),
-  created() {
-    this.spaceId = this.$route.params.spaceId;
-  },
-  methods: {
-    loadRuns(options) {
-      clearTimeout(this.optionsDebounce);
-      this.optionsDebounce = setTimeout(() => {
-        this._doLoadRuns(options);
-      }, 150);
-    },
-    _doLoadRuns(options) {
-      if (!this.spaceId || this.tableLoading) return;
-      this.tableLoading = true;
-      const page = this.firstLoad ? this.page : (options?.page || this.page);
-      const pageSize = this.firstLoad ? this.itemsPerPage : (options?.itemsPerPage || this.itemsPerPage);
-      this.firstLoad = false;
-      const sortBy = options?.sortBy?.[0];
-      const sortKey = sortBy?.key || 'created_at';
-      const sortOrder = sortBy?.order || 'desc';
+const route = useRoute()
+const spaceId = computed(() => route.params.spaceId)
 
-      testRunService.listBySpace(this.spaceId, {
-        page,
-        page_size: pageSize,
-        sort_by: sortKey,
-        sort_order: sortOrder,
-        search: this.search || undefined
-      }).then(res => {
-        this.runs = res.data.items || res.data;
-        this.totalRuns = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
-        this.itemsPerPage = res.data.page_size || this.itemsPerPage;
-        this.tableLoading = false;
-      }).catch(() => {
-        this.tableLoading = false;
-      });
-    },
-    onSearch() {
-      clearTimeout(this.searchDebounce);
-      this.searchDebounce = setTimeout(() => {
-        this.page = 1;
-        this.loadRuns({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: [] });
-      }, 400);
-    },
-    statusColor(status) {
-      const map = { completed: 'success', active: 'primary', draft: 'grey' };
-      return map[status] || 'grey';
-    },
-    statusIcon(status) {
-      const map = { completed: 'mdi-check-circle', active: 'mdi-play-circle', draft: 'mdi-circle-outline' };
-      return map[status] || 'mdi-circle-outline';
-    },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleDateString() : '';
-    },
-    openCreateDialog() {
-      this.newRun = { name: '', description: '', suite_id: null };
-      this.loadSuites();
-      this.openCreate = true;
-    },
-    loadSuites() {
-      testSuiteService.listBySpace(this.spaceId, { page: 1, page_size: 100, status: 'active' }).then(res => {
-        this.suites = res.data.items || [];
-      });
-    },
-    createRun() {
-      testRunService.create({
-        name: this.newRun.name,
-        description: this.newRun.description,
-        suite_id: this.newRun.suite_id,
-        space_id: this.spaceId
-      }).then(() => {
-        this.openCreate = false;
-        this.loadRuns({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: [] });
-      });
-    },
-    deleteRun(item) {
-      if (!confirm(`Delete test run "${item.name}"?`)) return;
-      testRunService.delete(item.id).then(() => {
-        this.loadRuns({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: [] });
-      });
-    }
-  }
+const runs = ref([])
+const totalRuns = ref(0)
+const page = ref(1)
+const itemsPerPage = ref(25)
+const tableLoading = ref(false)
+const firstLoad = ref(true)
+const search = ref('')
+const searchDebounce = ref(null)
+const optionsDebounce = ref(null)
+const openCreate = ref(false)
+const suites = ref([])
+const newRun = ref({ name: '', description: '', suite_id: null })
+
+const headers = [
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Status', key: 'status', width: '140px', sortable: true },
+  { title: 'Created', key: 'created_at', width: '150px', sortable: true },
+  { title: 'Actions', key: 'actions', width: '100px', sortable: false }
+]
+
+function loadRuns(options) {
+  clearTimeout(optionsDebounce.value)
+  optionsDebounce.value = setTimeout(() => {
+    doLoadRuns(options)
+  }, 150)
+}
+
+function doLoadRuns(options) {
+  if (!spaceId.value || tableLoading.value) return
+  tableLoading.value = true
+  const p = firstLoad.value ? page.value : (options?.page || page.value)
+  const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
+  firstLoad.value = false
+  const sortBy = options?.sortBy?.[0]
+  const sortKey = sortBy?.key || 'created_at'
+  const sortOrder = sortBy?.order || 'desc'
+
+  testRunService.listBySpace(spaceId.value, {
+    page: p,
+    page_size: pageSize,
+    sort_by: sortKey,
+    sort_order: sortOrder,
+    search: search.value || undefined
+  }).then(res => {
+    runs.value = res.data.items || res.data
+    totalRuns.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
+    itemsPerPage.value = res.data.page_size || itemsPerPage.value
+    tableLoading.value = false
+  }).catch(() => {
+    tableLoading.value = false
+  })
+}
+
+function onSearch() {
+  clearTimeout(searchDebounce.value)
+  searchDebounce.value = setTimeout(() => {
+    page.value = 1
+    loadRuns({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] })
+  }, 400)
+}
+
+function statusColor(status) {
+  const map = { completed: 'success', active: 'primary', draft: 'grey' }
+  return map[status] || 'grey'
+}
+
+function statusIcon(status) {
+  const map = { completed: 'mdi-check-circle', active: 'mdi-play-circle', draft: 'mdi-circle-outline' }
+  return map[status] || 'mdi-circle-outline'
+}
+
+function formatDate(date) {
+  return date ? new Date(date).toLocaleDateString() : ''
+}
+
+function openCreateDialog() {
+  newRun.value = { name: '', description: '', suite_id: null }
+  loadSuites()
+  openCreate.value = true
+}
+
+function loadSuites() {
+  testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 100, status: 'active' }).then(res => {
+    suites.value = res.data.items || []
+  })
+}
+
+function createRun() {
+  testRunService.create({
+    name: newRun.value.name,
+    description: newRun.value.description,
+    suite_id: newRun.value.suite_id,
+    space_id: spaceId.value
+  }).then(() => {
+    openCreate.value = false
+    loadRuns({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] })
+  })
+}
+
+function deleteRun(item) {
+  if (!confirm(`Delete test run "${item.name}"?`)) return
+  testRunService.delete(item.id).then(() => {
+    loadRuns({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: [] })
+  })
 }
 </script>

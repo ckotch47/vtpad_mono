@@ -10,8 +10,8 @@
         variant="solo"
         class="mx-2"
         clearable
-        @update:model-value="onSearch"
         style="max-width: 260px"
+        @update:model-value="onSearch"
       />
       <v-select
         v-model="filterType"
@@ -87,11 +87,7 @@
         <v-card-title>Create Test Case</v-card-title>
         <v-card-text>
           <v-text-field v-model="newCase.title" label="Title" required />
-          <v-select
-            v-model="newCase.type"
-            :items="['manual','checklist','automated']"
-            label="Type"
-          />
+          <v-select v-model="newCase.type" :items="['manual','checklist','automated']" label="Type" />
           <v-textarea v-model="newCase.steps" label="Steps" rows="4" />
           <v-textarea v-model="newCase.expected_results" label="Expected Results" rows="3" />
           <v-textarea v-model="newCase.preconditions" label="Preconditions" rows="2" />
@@ -108,11 +104,7 @@
       <v-card>
         <v-card-title>Change Status</v-card-title>
         <v-card-text>
-          <v-select
-            v-model="bulkStatus"
-            :items="['draft','active','deprecated']"
-            label="New Status"
-          />
+          <v-select v-model="bulkStatus" :items="['draft','active','deprecated']" label="New Status" />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -124,154 +116,162 @@
   </div>
 </template>
 
-<script>
-import { testCaseService } from '@/services';
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { testCaseService } from '@/services'
 
-export default {
-  name: "testCasesListComponent",
-  data: () => ({
-    cases: [],
-    totalCases: 0,
-    page: 1,
-    itemsPerPage: 25,
-    sortBy: [{ key: 'created_at', order: 'desc' }],
-    spaceId: undefined,
-    tableLoading: false,
-    creating: false,
-    firstLoad: true,
-    search: '',
-    filterType: '',
-    filterStatus: '',
-    searchDebounce: null,
-    optionsDebounce: null,
-    openCreate: false,
-    newCase: { title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' },
-    selectedCases: [],
-    bulkStatusDialog: false,
-    bulkStatus: 'active',
-    headers: [
-      { title: 'Title', key: 'title', sortable: true },
-      { title: 'Type', key: 'type', width: '120px', sortable: true },
-      { title: 'Status', key: 'status', width: '120px', sortable: true },
-      { title: 'Short Name', key: 'short_name', sortable: true },
-      { title: 'Updated', key: 'updated_at', width: '150px', sortable: true },
-      { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
-    ]
-  }),
-  created() {
-    this.spaceId = this.$route.params.spaceId;
-    const q = this.$route.query;
-    this.page = parseInt(q.page) || 1;
-    this.itemsPerPage = parseInt(q.page_size) || 25;
-    this.search = q.search || '';
-    this.filterType = q.type || '';
-    this.filterStatus = q.status || '';
-    if (q.sort_by && q.sort_order) {
-      this.sortBy = [{ key: q.sort_by, order: q.sort_order }];
-    }
-  },
-  methods: {
-    loadCases(options) {
-      clearTimeout(this.optionsDebounce);
-      this.optionsDebounce = setTimeout(() => {
-        this._doLoadCases(options);
-      }, 150);
-    },
-    _doLoadCases(options) {
-      if (!this.spaceId || this.tableLoading) return;
-      this.tableLoading = true;
-      const page = this.firstLoad ? this.page : (options?.page || this.page);
-      const pageSize = this.firstLoad ? this.itemsPerPage : (options?.itemsPerPage || this.itemsPerPage);
-      this.firstLoad = false;
-      const sortBy = options?.sortBy?.[0];
-      const sortKey = sortBy?.key || 'created_at';
-      const sortOrder = sortBy?.order || 'desc';
+const route = useRoute()
+const router = useRouter()
 
-      // Update URL
-      const query = { page, page_size: pageSize };
-      if (this.search) query.search = this.search;
-      if (this.filterType) query.type = this.filterType;
-      if (this.filterStatus) query.status = this.filterStatus;
-      if (sortKey !== 'created_at' || sortOrder !== 'desc') {
-        query.sort_by = sortKey;
-        query.sort_order = sortOrder;
-      }
-      this.$router.replace({ query });
+const spaceId = computed(() => route.params.spaceId)
 
-      testCaseService.listBySpace(this.spaceId, {
-        page,
-        page_size: pageSize,
-        sort_by: sortKey,
-        sort_order: sortOrder,
-        search: this.search || undefined,
-        type: this.filterType || undefined,
-        status: this.filterStatus || undefined
-      }).then(res => {
-        this.cases = res.data.items || res.data;
-        this.totalCases = res.data.total !== undefined ? res.data.total : (res.data.length || 0);
-        this.itemsPerPage = res.data.page_size || this.itemsPerPage;
-        this.tableLoading = false;
-      }).catch(() => {
-        this.tableLoading = false;
-      });
-    },
-    onSearch() {
-      clearTimeout(this.searchDebounce);
-      this.searchDebounce = setTimeout(() => {
-        this.page = 1;
-        this.loadCases({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      }, 400);
-    },
-    onFilterChange() {
-      this.page = 1;
-      this.loadCases({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-    },
-    createCase() {
-      this.creating = true;
-      testCaseService.create({
-        ...this.newCase,
-        space_id: this.spaceId
-      }).then(() => {
-        this.openCreate = false;
-        this.newCase = { title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' };
-        this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      }).finally(() => {
-        this.creating = false;
-      });
-    },
-    bulkDelete() {
-      if (!confirm(`Delete ${this.selectedCases.length} test cases?`)) return;
-      Promise.all(this.selectedCases.map(id => testCaseService.delete(id)))
-        .then(() => {
-          this.selectedCases = [];
-          this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-        });
-    },
-    bulkChangeStatus() {
-      Promise.all(this.selectedCases.map(id =>
-        testCaseService.update(id, { status: this.bulkStatus })
-      )).then(() => {
-        this.selectedCases = [];
-        this.bulkStatusDialog = false;
-        this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      });
-    },
-    duplicateCase(id) {
-      testCaseService.duplicate(id).then(() => {
-        this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
-      });
-    },
-    typeColor(type) {
-      const map = { manual: 'primary', checklist: 'warning', automated: 'success' };
-      return map[type] || 'grey';
-    },
-    statusColor(status) {
-      const map = { active: 'success', draft: 'grey', deprecated: 'error' };
-      return map[status] || 'grey';
-    },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleDateString() : '';
-    }
+const cases = ref([])
+const totalCases = ref(0)
+const page = ref(1)
+const itemsPerPage = ref(25)
+const sortBy = ref([{ key: 'created_at', order: 'desc' }])
+const tableLoading = ref(false)
+const creating = ref(false)
+const firstLoad = ref(true)
+const search = ref('')
+const filterType = ref('')
+const filterStatus = ref('')
+const searchDebounce = ref(null)
+const optionsDebounce = ref(null)
+const openCreate = ref(false)
+const newCase = ref({ title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' })
+const selectedCases = ref([])
+const bulkStatusDialog = ref(false)
+const bulkStatus = ref('active')
+
+const headers = [
+  { title: 'Title', key: 'title', sortable: true },
+  { title: 'Type', key: 'type', width: '120px', sortable: true },
+  { title: 'Status', key: 'status', width: '120px', sortable: true },
+  { title: 'Short Name', key: 'short_name', sortable: true },
+  { title: 'Updated', key: 'updated_at', width: '150px', sortable: true },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
+]
+
+const q = route.query
+page.value = parseInt(q.page) || 1
+itemsPerPage.value = parseInt(q.page_size) || 25
+search.value = q.search || ''
+filterType.value = q.type || ''
+filterStatus.value = q.status || ''
+if (q.sort_by && q.sort_order) {
+  sortBy.value = [{ key: q.sort_by, order: q.sort_order }]
+}
+
+function loadCases(options) {
+  clearTimeout(optionsDebounce.value)
+  optionsDebounce.value = setTimeout(() => {
+    doLoadCases(options)
+  }, 150)
+}
+
+function doLoadCases(options) {
+  if (!spaceId.value || tableLoading.value) return
+  tableLoading.value = true
+  const p = firstLoad.value ? page.value : (options?.page || page.value)
+  const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
+  firstLoad.value = false
+  const sb = options?.sortBy?.[0]
+  const sortKey = sb?.key || 'created_at'
+  const sortOrder = sb?.order || 'desc'
+
+  const query = { page: p, page_size: pageSize }
+  if (search.value) query.search = search.value
+  if (filterType.value) query.type = filterType.value
+  if (filterStatus.value) query.status = filterStatus.value
+  if (sortKey !== 'created_at' || sortOrder !== 'desc') {
+    query.sort_by = sortKey
+    query.sort_order = sortOrder
   }
+  router.replace({ query })
+
+  testCaseService.listBySpace(spaceId.value, {
+    page: p,
+    page_size: pageSize,
+    sort_by: sortKey,
+    sort_order: sortOrder,
+    search: search.value || undefined,
+    type: filterType.value || undefined,
+    status: filterStatus.value || undefined
+  }).then(res => {
+    cases.value = res.data.items || res.data
+    totalCases.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
+    itemsPerPage.value = res.data.page_size || itemsPerPage.value
+    tableLoading.value = false
+  }).catch(() => {
+    tableLoading.value = false
+  })
+}
+
+function onSearch() {
+  clearTimeout(searchDebounce.value)
+  searchDebounce.value = setTimeout(() => {
+    page.value = 1
+    loadCases({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  }, 400)
+}
+
+function onFilterChange() {
+  page.value = 1
+  loadCases({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+}
+
+function createCase() {
+  creating.value = true
+  testCaseService.create({
+    ...newCase.value,
+    space_id: spaceId.value
+  }).then(() => {
+    openCreate.value = false
+    newCase.value = { title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' }
+    loadCases({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  }).finally(() => {
+    creating.value = false
+  })
+}
+
+function bulkDelete() {
+  if (!confirm(`Delete ${selectedCases.value.length} test cases?`)) return
+  Promise.all(selectedCases.value.map(id => testCaseService.delete(id)))
+    .then(() => {
+      selectedCases.value = []
+      loadCases({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+    })
+}
+
+function bulkChangeStatus() {
+  Promise.all(selectedCases.value.map(id =>
+    testCaseService.update(id, { status: bulkStatus.value })
+  )).then(() => {
+    selectedCases.value = []
+    bulkStatusDialog.value = false
+    loadCases({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  })
+}
+
+function duplicateCase(id) {
+  testCaseService.duplicate(id).then(() => {
+    loadCases({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  })
+}
+
+function typeColor(type) {
+  const map = { manual: 'primary', checklist: 'warning', automated: 'success' }
+  return map[type] || 'grey'
+}
+
+function statusColor(status) {
+  const map = { active: 'success', draft: 'grey', deprecated: 'error' }
+  return map[status] || 'grey'
+}
+
+function formatDate(date) {
+  return date ? new Date(date).toLocaleDateString() : ''
 }
 </script>

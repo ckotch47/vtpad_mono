@@ -161,14 +161,7 @@ After adding the config, restart Claude Desktop. You should see VTPad tools avai
 | Tool | Description |
 |------|-------------|
 | `get_analytics` | Get space high-level stats |
-| `get_analytics_trend` | Daily pass/fail trend |
-| `get_analytics_top_failed` | Cases with most failures |
 | `get_analytics_coverage` | Suite coverage breakdown |
-
-### Analytics
-| Tool | Description |
-|------|-------------|
-| `get_analytics` | Get space analytics |
 | `get_case_history` | Get run history for a case |
 
 ## Example Agent Workflows

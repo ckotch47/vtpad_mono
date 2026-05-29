@@ -11,6 +11,7 @@
 | PostgreSQL | 14 (prod) / 13.3 (dev) | Основная БД | `docker-compose.yml`, `.env` (`db_*`) |
 | Redis | 6 | Кеш, refresh-токены | `docker-compose.yml`, `.env` (`redis_*`) |
 | Prometheus | — | Метрики backend | `app/main.py` (Instrumentator) |
+| LiteLLM Proxy | `ghcr.io/berriai/litellm:main-latest` | Единый OpenAI-совместимый прокси для локальных LLM через Ollama | `docker-compose.litellm.yaml`, `litellm/config.yaml` |
 
 ## Backend зависимости (Python)
 
@@ -42,6 +43,7 @@
 
 - `report_url`, `report_port`, `report_api_hash` — интеграция с внешним report-порталом.
 - SMTP (опционально, через `fastapi-mail`) — если `use_mail=1`.
+- Ollama (`http://192.168.3.15:11434`) — upstream для LiteLLM моделей в `litellm/config.yaml`.
 
 ## Источники в коде
 
@@ -49,3 +51,5 @@
 - `vtpad_front_v2/package.json`
 - `vtpad_backend/app/main.py`
 - `vtpad_backend/.env.example`
+- `docker-compose.litellm.yaml`
+- `litellm/config.yaml`

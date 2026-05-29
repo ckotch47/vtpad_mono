@@ -33,13 +33,4 @@ class TestResultBulkUpdateDto(BaseModel):
     status: str
 
 
-class TestStepResultUpdateDto(BaseModel):
-    step_index: int
-    step_text: Optional[str] = None
-    status: str
-    comment: Optional[str] = None
-    screenshot_url: Optional[str] = None
 
-
-class TestStepResultBulkUpdateDto(BaseModel):
-    steps: List[TestStepResultUpdateDto]

@@ -61,18 +61,4 @@ class TestResultModel(Model):
         table = "test_result"
 
 
-class TestStepResultModel(Model):
-    id = fields.UUIDField(pk=True, index=True)
-    step_index = fields.IntField(default=0)
-    step_text = fields.TextField(null=True)
-    status = fields.CharEnumField(TestResultStatus, default=TestResultStatus.not_run, max_length=20)
-    comment = fields.TextField(null=True)
-    screenshot_url = fields.TextField(null=True)
 
-    result = fields.ForeignKeyField('models.TestResultModel', related_name='step_results')
-
-    created_at = fields.DatetimeField(null=False, auto_now_add=True)
-    updated_at = fields.DatetimeField(null=False, auto_now=True)
-
-    class Meta:
-        table = "test_step_result"

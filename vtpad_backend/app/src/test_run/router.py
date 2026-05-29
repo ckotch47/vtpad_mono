@@ -93,12 +93,4 @@ async def update_result(result_id: str, dto: TestResultUpdateDto, token: str = D
     return await TestResultService.update_result(result_id, dto, token)
 
 
-# Step-level result endpoints
-@router.get('/result/{result_id}/steps', dependencies=[Depends(bearer)])
-async def get_step_results(result_id: str):
-    return await TestResultService.get_step_results(result_id)
 
-
-@router.patch('/result/{result_id}/steps', dependencies=[Depends(bearer)])
-async def update_step_results(result_id: str, dto: TestStepResultBulkUpdateDto, token: str = Depends(bearer)):
-    return await TestResultService.update_step_results(result_id, dto, token)

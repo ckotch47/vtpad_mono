@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from tortoise.expressions import Q
 
-from .model import TestRunModel, TestResultModel, TestStepResultModel, TestRunStatus, TestResultStatus
+from .model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 
@@ -53,18 +53,6 @@ class TestRunService:
                 testcase_version_id=str(last_version.id) if last_version else None,
                 status=TestResultStatus.not_run,
             )
-
-            # Create step-level results from testcase steps (if steps exist)
-            if tc.steps:
-                # Simple split by newlines for now; can be enhanced with structured steps
-                step_lines = [s.strip() for s in tc.steps.split('\n') if s.strip()]
-                for idx, step_text in enumerate(step_lines):
-                    await TestStepResultModel.create(
-                        result_id=str(result.id),
-                        step_index=idx,
-                        step_text=step_text,
-                        status=TestResultStatus.not_run,
-                    )
 
         return run
 
@@ -247,40 +235,4 @@ class TestResultService:
         )
         return count
 
-    @staticmethod
-    async def get_step_results(result_id: str) -> list:
-        result = await TestResultModel.get_or_none(id=result_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Test result not found")
-        steps = await TestStepResultModel.filter(result_id=result_id).order_by('step_index').all()
-        return [
-            {
-                'id': str(s.id),
-                'step_index': s.step_index,
-                'step_text': s.step_text,
-                'status': s.status,
-                'comment': s.comment,
-                'screenshot_url': s.screenshot_url,
-            }
-            for s in steps
-        ]
 
-    @staticmethod
-    async def update_step_results(result_id: str, dto: TestStepResultBulkUpdateDto, token: str) -> list:
-        result = await TestResultModel.get_or_none(id=result_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Test result not found")
-
-        for step_dto in dto.steps:
-            await TestStepResultModel.update_or_create(
-                result_id=result_id,
-                step_index=step_dto.step_index,
-                defaults={
-                    'step_text': step_dto.step_text,
-                    'status': step_dto.status,
-                    'comment': step_dto.comment,
-                    'screenshot_url': step_dto.screenshot_url,
-                }
-            )
-
-        return await TestResultService.get_step_results(result_id)

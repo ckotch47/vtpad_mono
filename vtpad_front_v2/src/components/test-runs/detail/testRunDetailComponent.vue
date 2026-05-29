@@ -123,7 +123,7 @@
                     </v-icon>
                   </template>
                   <v-list-item-title class="font-weight-medium">
-                    {{ result.testcase?.title || 'Unknown Case' }}
+                    <span class="cursor-pointer" @click.stop="openCaseDialog(result.testcase_id)">{{ result.testcase?.title || 'Unknown Case' }}</span>
                     <v-chip size="x-small" :color="typeColor(result.testcase?.type)" class="ml-2">
                       {{ result.testcase?.type }}
                     </v-chip>
@@ -211,6 +211,52 @@
       </v-card>
     </v-dialog>
 
+    <!-- View Case Dialog -->
+    <v-dialog v-model="caseDialogOpen" max-width="900" scrollable>
+      <v-card v-if="selectedCase">
+        <v-card-title class="d-flex align-center">
+          <span class="text-truncate" style="max-width: 500px">{{ selectedCase.title }}</span>
+          <v-spacer />
+          <v-chip size="small" :color="typeColor(selectedCase.type)" class="mr-1">{{ selectedCase.type }}</v-chip>
+          <v-chip size="small" :color="statusColor(selectedCase.status)">{{ selectedCase.status }}</v-chip>
+          <v-btn
+            size="small"
+            color="primary"
+            variant="text"
+            prepend-icon="mdi-pencil"
+            class="ml-2"
+            :to="`/space/${spaceId}/test-cases/${selectedCase.id}/edit`"
+            @click="caseDialogOpen = false"
+          >
+            Edit
+          </v-btn>
+          <v-btn icon="mdi-close" size="small" variant="text" @click="caseDialogOpen = false" />
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <div v-if="selectedCase.text">
+            <div class="text-subtitle-2 text-medium-emphasis mb-1">Description</div>
+            <editor-component :text="selectedCase.text" :edit="false" />
+          </div>
+          <div v-if="selectedCase.preconditions" class="mt-4">
+            <div class="text-subtitle-2 text-medium-emphasis mb-1">Preconditions</div>
+            <editor-component :text="selectedCase.preconditions" :edit="false" />
+          </div>
+          <div v-if="selectedCase.steps" class="mt-4">
+            <div class="text-subtitle-2 text-medium-emphasis mb-1">Steps</div>
+            <editor-component :text="selectedCase.steps" :edit="false" />
+          </div>
+          <div v-if="selectedCase.expected_results" class="mt-4">
+            <div class="text-subtitle-2 text-medium-emphasis mb-1">Expected Results</div>
+            <editor-component :text="selectedCase.expected_results" :edit="false" />
+          </div>
+          <div v-if="!selectedCase.text && !selectedCase.preconditions && !selectedCase.steps && !selectedCase.expected_results" class="text-center text-grey py-8">
+            No content in this test case
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <!-- Quick Bug Modal -->
     <v-dialog v-model="bugModal" max-width="560">
       <v-card>
@@ -234,7 +280,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { testRunService, bugService } from '@/services'
+import { testRunService, bugService, testCaseService } from '@/services'
+import EditorComponent from '@/components/common/editor/editorComponent.vue'
 
 const route = useRoute()
 
@@ -250,6 +297,8 @@ const editingResult = ref(null)
 const spaceBugs = ref([])
 const bugModal = ref(false)
 const newBug = ref({ title: '', steps: '', expected: '', actual: '' })
+const caseDialogOpen = ref(false)
+const selectedCase = ref(null)
 
 const groupedResults = computed(() => {
   const map = {}
@@ -299,6 +348,13 @@ function openResultModal(result) {
     linked_bug_ids: result.linked_bug_ids || []
   }
   editModal.value = true
+}
+
+function openCaseDialog(id) {
+  testCaseService.getById(id).then(res => {
+    selectedCase.value = res.data
+    caseDialogOpen.value = true
+  })
 }
 
 function saveResult() {
@@ -378,6 +434,9 @@ onMounted(() => {
 }
 .result-item:last-child {
   border-bottom: none;
+}
+.cursor-pointer {
+  cursor: pointer;
 }
 
 </style>

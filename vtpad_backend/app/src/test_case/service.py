@@ -159,7 +159,10 @@ class TestCaseService:
     @staticmethod
     async def delete(testcase_id: str) -> bool:
         await TestCaseService.get_by_id(testcase_id)
-        await TestCaseModel.filter(id=testcase_id).update(status=TestCaseStatus.deprecated)
+        from ..test_run.model import TestResultModel
+        await TestResultModel.filter(testcase_id=testcase_id).delete()
+        await TestCaseVersionModel.filter(testcase_id=testcase_id).delete()
+        await TestCaseModel.filter(id=testcase_id).delete()
         return True
 
     @staticmethod
@@ -241,7 +244,6 @@ class TestCaseService:
         duplicated = await TestCaseModel.create(
             title=f"{original.title} (Copy)",
             text=original.text,
-            steps=original.steps,
             expected_results=original.expected_results,
             preconditions=original.preconditions,
             postconditions=original.postconditions,

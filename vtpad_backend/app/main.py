@@ -22,7 +22,6 @@ import app.src.bug as bug
 import app.src.comments as comments_bug
 import app.src.tag as tag
 import app.src.notification as notification
-import app.src.report as report
 from app.src.qa_report import router as qa_report_router
 
 # new v2 modules
@@ -118,18 +117,7 @@ config_orm = {
                 "ssl": False
                 }
         },
-        "report": {
-            "engine": "tortoise.backends.asyncpg",
-            "credentials": {
-                "database": config.db_report_name,
-                "host": config.db_report_host,
-                "password": config.db_report_password,
-                "port": config.db_report_port,
-                "user": config.db_report_user,
-                "ssl": False,
-                "application_name": "report"
-                },
-        },
+
     },
     "apps": {
         'models': {
@@ -137,7 +125,7 @@ config_orm = {
             # If no default_connection specified, defaults to 'default'
             'default_connection': 'default',
             },
-        'report': {"models": [], 'default_connection': 'report'}
+
     }
 }
 
@@ -231,7 +219,6 @@ app_utils.register_router(
         tag.router,
         file.router,
         notification.router,
-        report.router,
         company_router,
         user_company_router,
         router_company_admin,

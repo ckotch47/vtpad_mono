@@ -75,17 +75,23 @@ class TestRunService:
         page_size: int = 25,
         sort_by: Optional[str] = 'created_at',
         sort_order: Optional[str] = 'desc',
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        milestone_id: Optional[str] = None,
+        environment_id: Optional[str] = None,
     ) -> dict:
         q = TestRunModel.filter(space_id=space_id)
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
+        if milestone_id:
+            q = q.filter(milestone_id=milestone_id)
+        if environment_id:
+            q = q.filter(environment_id=environment_id)
 
         order = f'{"-" if sort_order == "desc" else ""}{sort_by}'
         q = q.order_by(order)
 
         total = await q.count()
-        items = await q.offset((page - 1) * page_size).limit(page_size).all()
+        items = await q.offset((page - 1) * page_size).limit(page_size).prefetch_related('milestone', 'environment').all()
 
         return {
             'items': [
@@ -96,6 +102,17 @@ class TestRunService:
                     'status': r.status,
                     'suite_id': str(r.suite_id) if r.suite_id else None,
                     'plan_id': str(r.plan_id) if r.plan_id else None,
+                    'milestone_id': str(r.milestone_id) if r.milestone_id else None,
+                    'milestone': {
+                        'id': str(r.milestone.id),
+                        'title': r.milestone.title,
+                        'status': r.milestone.status,
+                    } if r.milestone else None,
+                    'environment_id': str(r.environment_id) if r.environment_id else None,
+                    'environment': {
+                        'id': str(r.environment.id),
+                        'name': r.environment.name,
+                    } if r.environment else None,
                     'created_at': r.created_at.isoformat() if r.created_at else None,
                 }
                 for r in items
@@ -108,7 +125,7 @@ class TestRunService:
 
     @staticmethod
     async def get_by_id(run_id: str) -> TestRunModel:
-        run = await TestRunModel.get_or_none(id=run_id)
+        run = await TestRunModel.get_or_none(id=run_id).prefetch_related('milestone', 'environment')
         if not run:
             raise HTTPException(status_code=404, detail="Test run not found")
         return run
@@ -153,6 +170,17 @@ class TestRunService:
                 'status': run.status,
                 'suite_id': str(run.suite_id) if run.suite_id else None,
                 'plan_id': str(run.plan_id) if run.plan_id else None,
+                'milestone_id': str(run.milestone_id) if run.milestone_id else None,
+                'milestone': {
+                    'id': str(run.milestone.id),
+                    'title': run.milestone.title,
+                    'status': run.milestone.status,
+                } if run.milestone else None,
+                'environment_id': str(run.environment_id) if run.environment_id else None,
+                'environment': {
+                    'id': str(run.environment.id),
+                    'name': run.environment.name,
+                } if run.environment else None,
                 'created_at': run.created_at.isoformat() if run.created_at else None,
                 'started_at': run.started_at.isoformat() if run.started_at else None,
                 'completed_at': run.completed_at.isoformat() if run.completed_at else None,

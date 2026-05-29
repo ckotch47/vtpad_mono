@@ -11,6 +11,11 @@ router = APIRouter(
 )
 
 
+@router.post('/', dependencies=[Depends(bearer)])
+async def create(dto: AttachmentCreateDto, token: str = Depends(bearer)):
+    return await AttachmentService.create(dto.entity_type, dto.entity_id, dto.file_id, token)
+
+
 @router.get('/{entity_type}/{entity_id}', dependencies=[Depends(bearer)])
 async def get_by_entity(entity_type: str, entity_id: str):
     return await AttachmentService.get_by_entity(entity_type, entity_id)

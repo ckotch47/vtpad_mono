@@ -13,11 +13,11 @@ class UpdateBugDto(BaseModel):
     steps: str | None = None
     additional_link: str | None = None
 
-    assigner_id: Union[uuid.UUID, None]
+    assigner_id: Union[uuid.UUID, None] = None
 
-    state: StateBugEnum
+    state: StateBugEnum | None = None
 
-    estimate_date: Union[datetime, None]
+    estimate_date: Union[datetime, None] = None
 
     external_link: str | None = None
 

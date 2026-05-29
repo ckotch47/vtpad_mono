@@ -32,6 +32,7 @@ class TestCaseUpdateDto(BaseModel):
     short_name: Optional[str] = None
     link: Optional[str] = None
     external_id: Optional[str] = None
+    sort: Optional[int] = None
 
 
 class TestCaseSortDto(BaseModel):

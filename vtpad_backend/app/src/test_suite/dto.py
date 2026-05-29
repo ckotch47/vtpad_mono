@@ -12,6 +12,7 @@ class TestSuiteUpdateDto(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
+    sort: Optional[int] = None
 
 
 class TestSuiteSortDto(BaseModel):

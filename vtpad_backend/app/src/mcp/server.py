@@ -1308,34 +1308,6 @@ async def get_analytics_space(space_id: str) -> dict:
 
 
 @mcp.tool()
-async def get_analytics_trend(space_id: str, days: int = 30) -> list[dict]:
-    """Get daily pass/fail trend for completed runs.
-
-    Args:
-        space_id: UUID of the space
-        days: Number of days to look back (default 30)
-
-    Returns:
-        List of daily run stats
-    """
-    return await AnalyticsService.get_space_trend(space_id, days)
-
-
-@mcp.tool()
-async def get_analytics_top_failed(space_id: str, limit: int = 10) -> list[dict]:
-    """Get cases with the most failures.
-
-    Args:
-        space_id: UUID of the space
-        limit: Max number of cases (default 10)
-
-    Returns:
-        List of cases with fail counts
-    """
-    return await AnalyticsService.get_top_failed_cases(space_id, limit)
-
-
-@mcp.tool()
 async def get_analytics_coverage(suite_id: str) -> dict:
     """Get coverage breakdown for a suite (manual/automated/checklist percentages).
 

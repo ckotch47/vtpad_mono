@@ -361,7 +361,7 @@ class BugsService:
             steps=bug.steps,
             text=bug.text,
             state=bug.state,
-            assigner_id=bug.assigner,
+            assigner_id=bug.assigner_id,
             additional_link=bug.additional_link,
             estimate_date=estimate_date,
             external_link=bug.external_link
@@ -384,11 +384,11 @@ class BugsService:
         except Exception:
             pass
         # todo rework
-        if str(bug.assigner) != str(temp.assigner) and str(bug.assigner) != str(user.get('id')):
+        if str(bug.assigner_id) != str(temp.assigner) and str(bug.assigner_id) != str(user.get('id')):
             try:
                 background_tasks.add_task(NotificationService.add_notification_assign,
                                           CreateNotificationDto(
-                                              user=str(bug.assigner),
+                                              user=str(bug.assigner_id),
                                               data=f'You assigner bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                                               event=EventNotificationEnum.assign))
             except Exception:
@@ -396,10 +396,10 @@ class BugsService:
 
         if bug.state != temp.state:
             try:
-                if str(bug.assigner) != str(user.get('id')):
+                if str(bug.assigner_id) != str(user.get('id')):
                     background_tasks.add_task(NotificationService.update_state_bug,
                                               CreateNotificationDto(
-                                                  user=str(bug.assigner),
+                                                  user=str(bug.assigner_id),
                                                   data=f'Update bug {temp.short_name} <a href="/space/{temp.spaces_id}#bugs?shortName={temp.short_name}">{temp.short_name}</a>',
                                                   event=EventNotificationEnum.update))
 
@@ -573,20 +573,6 @@ class BugsService:
         return f"{space.short_name}-0"
 
     @staticmethod
-    async def get_bug_detail_by_short_name(space_id: uuid.UUID, short_name: str):
-        temp = await BugsModel.filter(spaces_id=str(space_id), short_name=short_name).get_or_none()
-        if not temp:
-            raise HTTPException(status_code=404, detail="Not found")
-        return await BugsService.get_bug_detail(bug_id=str(temp.id))
-
-    @staticmethod
-    async def get_id_by_short_name(space_id: uuid.UUID, short_name: str):
-        temp = await BugsModel.filter(short_name=short_name, spaces_id=space_id).get_or_none()
-        if not temp:
-            raise HTTPException(status_code=404, detail="Not found")
-        return temp.id
-
-    @staticmethod
     async def add_tag_to_bug(bug_id: str, dto: AddTagToBugDto):
         return await BugTagsService.add_bug_tag(bug_id, dto.tag_id)
 
@@ -605,13 +591,9 @@ class BugsService:
                 LEFT JOIN usermodel u2 on u2.id = bugsmodel.create_user_id \
                 LEFT JOIN filemodel f on u.avatar_id = f.id \
                 LEFT JOIN filemodel f2 on u2.avatar_id = f2.id \
-                LEFT JOIN spacemodel s on s.id = bugsmodel.spaces_id \
-                LEFT JOIN usercompanysettingsmodel u3 on u3.user_id = $2 \
-            WHERE bugsmodel.short_name = $1 \
-            AND u3.status = 'active' \
-            group by bugsmodel.id, u.id, f.id, u2.id, f2.id, u3.id;"
+            WHERE bugsmodel.short_name = $1;"
         try:
-            bug = (await conn.execute_query_dict(sql, [short_name, user_payload.get('id')]))[0]
+            bug = (await conn.execute_query_dict(sql, [short_name]))[0]
 
             bug.update({'tag': await BugTagsService.get_tags_fo_bug(bug.get('id'))})
             bug.update({'external_link': parse_external_link(bug.get('external_link'))})

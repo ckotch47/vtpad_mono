@@ -24,7 +24,6 @@ import app.src.bug as bug
 import app.src.comments as comments_bug
 import app.src.tag as tag
 import app.src.notification as notification
-import app.src.report as report
 import app.utils.register_router as app_utils
 
 import app.src.qa_report.router as qa_report

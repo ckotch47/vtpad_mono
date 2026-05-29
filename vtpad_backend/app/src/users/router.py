@@ -42,3 +42,8 @@ routerV2 = APIRouter(
 @routerV2.get('', dependencies=[Depends(bearer)])
 async def get_user(token: str = Depends(bearer)):
     return await UserService.get_user_by_id_V2(user_payload(token))
+
+
+@routerV2.patch('', dependencies=[Depends(bearer)])
+async def update_user(user: UpdateUserDto, token: str = Depends(bearer)):
+    return await UserService.update_user(user, user_payload(token))

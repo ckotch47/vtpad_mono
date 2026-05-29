@@ -1,7 +1,29 @@
+import json
 from enum import Enum
 
 from tortoise.models import Model
 from tortoise import fields
+
+
+class SafeJSONField(fields.JSONField):
+    """JSONField that correctly handles primitive strings."""
+
+    def to_python_value(self, value):
+        if value is None:
+            return None
+        if isinstance(value, (str, bytes)):
+            try:
+                return self.decoder(value)
+            except Exception:
+                # If it's a plain string (not JSON-encoded), return as-is
+                return value.decode() if isinstance(value, bytes) else value
+        return value
+
+    def to_db_value(self, value, instance):
+        if value is None:
+            return None
+        # Always serialize through encoder so primitives are valid JSON
+        return self.encoder(value)
 
 
 class CustomFieldEntityType(str, Enum):
@@ -39,7 +61,7 @@ class CustomFieldModel(Model):
 class CustomFieldValueModel(Model):
     id = fields.UUIDField(pk=True, index=True)
     entity_id = fields.UUIDField(null=False, index=True)  # UUID of testcase or testrun
-    value = fields.JSONField(null=True)  # stored as JSON (string, number, list, bool)
+    value = SafeJSONField(null=True)  # stored as JSON (string, number, list, bool)
 
     field = fields.ForeignKeyField('models.CustomFieldModel', related_name='values')
 

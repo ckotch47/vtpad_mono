@@ -52,7 +52,8 @@ class SpaceService:
         temp = await self.model.create(
             name=space.name,
             sort=int(sort),
-            company_id=this_user.get('company_id')
+            company_id=this_user.get('company_id'),
+            short_name=space.short_name,
         )
 
         await SpacesUserModel.create(
@@ -198,8 +199,8 @@ class SpaceService:
     async def add_user_space(space_id: str, dto: AddUserSpaceDto, user: dict):
         temp_user = await UserModel.filter(mail=dto.mail).first()
 
-        if not temp_user.id:
-            return None
+        if not temp_user:
+            raise HTTPException(status_code=404, detail="user not found")
 
         temp = await SpacesUserModel.filter(userId=temp_user.id, spaceId=space_id)
         if temp:
@@ -311,8 +312,8 @@ class SpaceService:
                 }
             })
         return {
-            "space_id": str(space.id),
-            "space_name": space.name,
+            "space_id": str(space['id']),
+            "space_name": space['name'],
             "pad": res
         }
 

@@ -34,20 +34,10 @@ async def get_bug_detail(bug_id: str):
     return await BugsService.get_bug_detail(bug_id)
 
 
-@router.get('/detail-short', dependencies=[Depends(bearer)], response_model=GetBugsWithFilterRto)
-async def get_bug_detail_by_short_name(dto: GetBugDetailByShortNameDto = Depends(GetBugDetailByShortNameDto)):
-    return await BugsService.get_bug_detail_by_short_name(dto.space_id, dto.short_name)
-
-
-@router.get('/id/by-short', dependencies=[Depends(bearer)], response_model=str | None, deprecated=True)
-async def get_id_by_short_name(dto: GetBugDetailByShortNameDto = Depends(GetBugDetailByShortNameDto)):
-    return None # await BugsService.get_id_by_short_name(dto.space_id, dto.short_name)
-
-
 @router.put('/{bug_id}', dependencies=[Depends(bearer)], response_model=GetBugsWithFilterRto, deprecated=True)
 async def update_bug(bug_id: str, dto: UpdateBugDto, token: str = Depends(bearer),
                      background_tasks: BackgroundTasks = BackgroundTasks()):
-    return None # await BugsService.update_bug(dto, bug_id, user_payload(token), background_tasks)
+    return await BugsService.update_bug(dto, bug_id, user_payload(token), background_tasks)
 
 
 @router.get('/filters', dependencies=[Depends(bearer)], response_model=GetFiltersRto | Any)

@@ -13,6 +13,7 @@ class SectionUpdateDto(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     parent_id: Optional[str] = None
+    sort: Optional[int] = None
 
 
 class SectionSortDto(BaseModel):

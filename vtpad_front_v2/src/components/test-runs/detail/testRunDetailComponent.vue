@@ -162,10 +162,10 @@
     </v-container>
 
     <!-- Edit Result Dialog -->
-    <v-dialog v-model="editModal" max-width="720" scrollable>
+    <v-dialog v-model="editModal" max-width="600" scrollable>
       <v-card v-if="editingResult">
         <v-card-title class="d-flex align-center">
-          <span>{{ editingResult.testcase?.title }}</span>
+          <span>Update Result</span>
           <v-spacer />
           <v-btn v-if="editingResult.status === 'failed'" color="error" size="small" prepend-icon="mdi-bug" @click="openBugModal">
             Create Bug
@@ -173,87 +173,40 @@
         </v-card-title>
         <v-divider />
         <v-card-text>
-          <!-- Case Content -->
-          <div v-if="caseDetailLoading" class="text-center py-4">
-            <v-progress-circular indeterminate color="primary" size="32" />
-          </div>
-          <div v-else-if="caseDetail">
-            <v-expansion-panels variant="accordion" multiple>
-              <v-expansion-panel v-if="caseDetail.text">
-                <v-expansion-panel-title>Description</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <editor-component :text="caseDetail.text || ''" :edit="false" />
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel v-if="caseDetail.preconditions">
-                <v-expansion-panel-title>Preconditions</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <editor-component :text="caseDetail.preconditions || ''" :edit="false" />
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel v-if="caseDetail.steps">
-                <v-expansion-panel-title>Steps</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <editor-component :text="caseDetail.steps || ''" :edit="false" />
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel v-if="caseDetail.expected_results">
-                <v-expansion-panel-title>Expected Results</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <editor-component :text="caseDetail.expected_results || ''" :edit="false" />
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-            <v-empty-state
-              v-if="!caseDetail.text && !caseDetail.preconditions && !caseDetail.steps && !caseDetail.expected_results"
-              icon="mdi-text-box-outline"
-              text="No content in this test case"
-            />
-          </div>
+          <div class="text-subtitle-1 font-weight-medium mb-3">{{ editingResult.testcase?.title }}</div>
 
-          <v-divider class="my-4" />
-
-          <!-- Quick Status Buttons -->
-          <div class="d-flex gap-2 mb-4">
-            <v-btn
-              v-for="s in quickStatuses"
-              :key="s.value"
-              :color="s.color"
-              :variant="editingResult.status === s.value ? 'flat' : 'outlined'"
-              prepend-icon="mdi-check"
-              class="flex-grow-1"
-              :disabled="savingResult"
-              @click="quickSave(s.value)"
-            >
-              {{ s.label }}
-            </v-btn>
-          </div>
-
-          <!-- Detail Fields -->
-          <v-text-field
-            v-model="editingResult.duration_seconds"
-            label="Duration (seconds)"
-            type="number"
-            class="mb-2"
-          />
-          <v-textarea v-model="editingResult.comment" label="Comment" rows="2" class="mb-2" />
-          <v-combobox
-            v-model="editingResult.linked_bug_ids"
-            :items="spaceBugs"
-            item-title="short_name"
-            item-value="short_name"
-            label="Linked Bugs"
-            multiple
-            chips
-            closable-chips
-            clearable
-            :return-object="false"
-          />
+          <v-window>
+              <v-select
+                v-model="editingResult.status"
+                :items="['not_run','passed','failed','blocked','skipped']"
+                label="Status"
+                class="mb-2"
+              />
+              <v-text-field
+                v-model="editingResult.duration_seconds"
+                label="Duration (seconds)"
+                type="number"
+                class="mb-2"
+              />
+              <v-textarea v-model="editingResult.comment" label="Comment" rows="2" class="mb-2" />
+              <v-combobox
+                v-model="editingResult.linked_bug_ids"
+                :items="spaceBugs"
+                item-title="short_name"
+                item-value="short_name"
+                label="Linked Bugs"
+                multiple
+                chips
+                closable-chips
+                clearable
+                :return-object="false"
+              />
+          </v-window>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="editModal = false" :disabled="savingResult">Cancel</v-btn>
-          <v-btn color="primary" @click="saveResult" :loading="savingResult" :disabled="savingResult">Save</v-btn>
+          <v-btn variant="text" @click="editModal = false">Cancel</v-btn>
+          <v-btn color="primary" @click="saveResult">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -281,8 +234,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { testRunService, bugService, testCaseService } from '@/services'
-import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import { testRunService, bugService } from '@/services'
 
 const route = useRoute()
 
@@ -298,16 +250,6 @@ const editingResult = ref(null)
 const spaceBugs = ref([])
 const bugModal = ref(false)
 const newBug = ref({ title: '', steps: '', expected: '', actual: '' })
-const caseDetail = ref(null)
-const caseDetailLoading = ref(false)
-const savingResult = ref(false)
-
-const quickStatuses = [
-  { value: 'passed', label: 'Passed', color: 'success' },
-  { value: 'failed', label: 'Failed', color: 'error' },
-  { value: 'blocked', label: 'Blocked', color: 'warning' },
-  { value: 'skipped', label: 'Skipped', color: 'grey' },
-]
 
 const groupedResults = computed(() => {
   const map = {}
@@ -356,36 +298,10 @@ function openResultModal(result) {
     ...result,
     linked_bug_ids: result.linked_bug_ids || []
   }
-  caseDetail.value = null
-  caseDetailLoading.value = true
   editModal.value = true
-
-  testCaseService.getById(result.testcase_id).then(res => {
-    caseDetail.value = res.data
-  }).catch(() => {
-    caseDetail.value = null
-  }).finally(() => {
-    caseDetailLoading.value = false
-  })
-}
-
-function quickSave(status) {
-  savingResult.value = true
-  testRunService.updateResult(editingResult.value.id, {
-    status,
-    duration_seconds: parseInt(editingResult.value.duration_seconds) || null,
-    comment: editingResult.value.comment,
-    linked_bug_ids: editingResult.value.linked_bug_ids
-  }).then(() => {
-    editModal.value = false
-    loadRun()
-  }).finally(() => {
-    savingResult.value = false
-  })
 }
 
 function saveResult() {
-  savingResult.value = true
   testRunService.updateResult(editingResult.value.id, {
     status: editingResult.value.status,
     duration_seconds: parseInt(editingResult.value.duration_seconds) || null,
@@ -394,16 +310,14 @@ function saveResult() {
   }).then(() => {
     editModal.value = false
     loadRun()
-  }).finally(() => {
-    savingResult.value = false
   })
 }
 
 function openBugModal() {
   newBug.value = {
     title: `Bug: ${editingResult.value.testcase?.title || 'Failed test'}`,
-    steps: caseDetail.value?.steps || editingResult.value.testcase?.steps || '',
-    expected: caseDetail.value?.expected_results || editingResult.value.testcase?.expected_results || '',
+    steps: editingResult.value.testcase?.steps || '',
+    expected: editingResult.value.testcase?.expected_results || '',
     actual: editingResult.value.comment || ''
   }
   bugModal.value = true
@@ -465,7 +379,5 @@ onMounted(() => {
 .result-item:last-child {
   border-bottom: none;
 }
-.gap-2 {
-  gap: 8px;
-}
+
 </style>

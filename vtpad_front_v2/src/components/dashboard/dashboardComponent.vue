@@ -215,47 +215,47 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { analyticsService } from '@/services'
 
-export default {
-  name: "dashboardComponent",
-  data: () => ({
-    spaceId: undefined,
-    loader: true,
-    stats: {
-      cases: { total: 0, manual: 0, checklist: 0, automated: 0 },
-      suites: 0,
-      runs: { total: 0, active: 0 },
-      latest_results: { total: 0, passed: 0, failed: 0, blocked: 0, skipped: 0, not_run: 0 }
-    },
-    topFailed: [],
-    trend: []
-  }),
-  created() {
-    this.spaceId = this.$route.params.spaceId;
-  },
-  mounted() {
-    this.loadDashboard();
-  },
-  methods: {
-    async loadDashboard() {
-      this.loader = true;
-      try {
-        const [statsRes, topRes, trendRes] = await Promise.all([
-          analyticsService.getSpaceStats(this.spaceId),
-          analyticsService.getTopFailed(this.spaceId),
-          analyticsService.getTrend(this.spaceId)
-        ]);
-        this.stats = statsRes.data;
-        this.topFailed = topRes.data;
-        this.trend = trendRes.data;
-      } catch (e) {
-        console.error(e);
-      } finally {
-        this.loader = false;
-      }
-    }
+const route = useRoute()
+const spaceId = computed(() => route.params.spaceId)
+
+const loader = ref(true)
+const stats = ref({
+  cases: { total: 0, manual: 0, checklist: 0, automated: 0 },
+  suites: 0,
+  runs: { total: 0, active: 0 },
+  latest_results: { total: 0, passed: 0, failed: 0, blocked: 0, skipped: 0, not_run: 0 }
+})
+const topFailed = ref([])
+const trend = ref([])
+
+async function loadDashboard() {
+  loader.value = true
+  try {
+    const [statsRes, topRes, trendRes] = await Promise.all([
+      analyticsService.getSpaceStats(spaceId.value),
+      analyticsService.getTopFailed(spaceId.value),
+      analyticsService.getTrend(spaceId.value)
+    ])
+    stats.value = statsRes.data
+    topFailed.value = topRes.data
+    trend.value = trendRes.data
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loader.value = false
   }
 }
+
+watch(spaceId, () => {
+  loadDashboard()
+})
+
+onMounted(() => {
+  loadDashboard()
+})
 </script>

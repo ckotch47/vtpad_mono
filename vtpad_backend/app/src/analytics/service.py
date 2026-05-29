@@ -56,6 +56,58 @@ class AnalyticsService:
         }
 
     @staticmethod
+    async def get_top_failed(space_id: str, limit: int = 10) -> list:
+        from tortoise.functions import Count
+        from ..test_case.model import TestCaseModel
+
+        # Count failed results per testcase in this space
+        results = await TestResultModel.filter(
+            run__space_id=space_id,
+            status=TestResultStatus.failed
+        ).group_by('testcase_id').annotate(fail_count=Count('id')).order_by('-fail_count').limit(limit).values('testcase_id', 'fail_count')
+
+        testcase_ids = [r['testcase_id'] for r in results]
+        testcases = await TestCaseModel.filter(id__in=testcase_ids).all()
+        tc_map = {str(tc.id): tc.title for tc in testcases}
+
+        return [
+            {
+                'id': str(r['testcase_id']),
+                'title': tc_map.get(str(r['testcase_id']), 'Unknown'),
+                'fail_count': r['fail_count'],
+            }
+            for r in results
+        ]
+
+    @staticmethod
+    async def get_trend(space_id: str, days: int = 30) -> list:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+        runs = await TestRunModel.filter(
+            space_id=space_id,
+            status='completed',
+            completed_at__gte=since
+        ).order_by('completed_at').all()
+
+        trend = []
+        for run in runs:
+            results = await TestResultModel.filter(run_id=str(run.id)).all()
+            total = len(results)
+            passed = sum(1 for r in results if r.status == TestResultStatus.passed)
+            failed = sum(1 for r in results if r.status == TestResultStatus.failed)
+            blocked = sum(1 for r in results if r.status == TestResultStatus.blocked)
+            trend.append({
+                'run_id': str(run.id),
+                'run_name': run.name,
+                'date': run.completed_at.strftime('%Y-%m-%d') if run.completed_at else '',
+                'total': total,
+                'passed': passed,
+                'failed': failed,
+                'blocked': blocked,
+            })
+        return trend
+
+    @staticmethod
     async def get_suite_coverage(suite_id: str) -> dict:
         total = await TestCaseModel.filter(suite_id=suite_id).count()
         if total == 0:

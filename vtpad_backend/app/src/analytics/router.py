@@ -16,6 +16,16 @@ async def get_space_stats(space_id: str):
     return await AnalyticsService.get_space_stats(space_id)
 
 
+@router.get('/space/{space_id}/top-failed', dependencies=[Depends(bearer)])
+async def get_top_failed(space_id: str, limit: int = 10):
+    return await AnalyticsService.get_top_failed(space_id, limit)
+
+
+@router.get('/space/{space_id}/trend', dependencies=[Depends(bearer)])
+async def get_trend(space_id: str, days: int = 30):
+    return await AnalyticsService.get_trend(space_id, days)
+
+
 @router.get('/suite/{suite_id}/coverage', dependencies=[Depends(bearer)])
 async def get_suite_coverage(suite_id: str):
     return await AnalyticsService.get_suite_coverage(suite_id)

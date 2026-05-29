@@ -54,7 +54,22 @@ class TestSuiteService:
         items = await q.offset((page - 1) * page_size).limit(page_size).all()
 
         return {
-            'items': items,
+            'items': [
+                {
+                    'id': str(s.id),
+                    'name': s.name,
+                    'description': s.description,
+                    'status': s.status,
+                    'sort': s.sort,
+                    'space_id': str(s.space_id) if s.space_id else None,
+                    'created_by_id': str(s.created_by_id) if s.created_by_id else None,
+                    'created_at': s.created_at.isoformat() if s.created_at else None,
+                    'updated_at': s.updated_at.isoformat() if s.updated_at else None,
+                    'cases_count': getattr(s, 'cases_count', 0),
+                    'sections_count': getattr(s, 'sections_count', 0),
+                }
+                for s in items
+            ],
             'total': total,
             'page': page,
             'page_size': page_size,

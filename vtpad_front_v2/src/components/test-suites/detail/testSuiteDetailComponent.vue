@@ -385,8 +385,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="openAddCase = false">Cancel</v-btn>
-          <v-btn color="primary" @click="addTestCase">Add</v-btn>
+          <v-btn variant="text" @click="openAddCase = false" :disabled="creatingCase">Cancel</v-btn>
+          <v-btn color="primary" @click="addTestCase" :loading="creatingCase" :disabled="creatingCase">Add</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -420,6 +420,7 @@ const existingCases = ref([])
 const selectedExistingCases = ref([])
 const existingCaseSearch = ref('')
 const newCase = ref({ title: '', type: 'manual', steps: '' })
+const creatingCase = ref(false)
 const sectionDialog = ref({
   open: false,
   isRename: false,
@@ -601,6 +602,7 @@ function addExistingCases() {
 }
 
 function addTestCase() {
+  creatingCase.value = true
   testCaseService.create({
     title: newCase.value.title,
     type: newCase.value.type,
@@ -613,6 +615,8 @@ function addTestCase() {
     newCase.value = { title: '', type: 'manual', steps: '' }
     loadTestCases(selectedSection.value.id)
     loadAllCases()
+  }).finally(() => {
+    creatingCase.value = false
   })
 }
 

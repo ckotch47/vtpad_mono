@@ -98,8 +98,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="openCreate = false">Cancel</v-btn>
-          <v-btn color="primary" @click="createCase">Create</v-btn>
+          <v-btn text @click="openCreate = false" :disabled="creating">Cancel</v-btn>
+          <v-btn color="primary" @click="createCase" :loading="creating" :disabled="creating">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -137,6 +137,7 @@ export default {
     sortBy: [{ key: 'created_at', order: 'desc' }],
     spaceId: undefined,
     tableLoading: false,
+    creating: false,
     firstLoad: true,
     search: '',
     filterType: '',
@@ -226,6 +227,7 @@ export default {
       this.loadCases({ page: 1, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
     },
     createCase() {
+      this.creating = true;
       testCaseService.create({
         ...this.newCase,
         space_id: this.spaceId
@@ -233,6 +235,8 @@ export default {
         this.openCreate = false;
         this.newCase = { title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' };
         this.loadCases({ page: this.page, itemsPerPage: this.itemsPerPage, sortBy: this.sortBy });
+      }).finally(() => {
+        this.creating = false;
       });
     },
     bulkDelete() {

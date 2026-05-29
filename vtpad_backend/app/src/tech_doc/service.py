@@ -8,6 +8,7 @@ from tortoise.expressions import Q
 from .model import TechDocModel, TechDocType
 from .dto import *
 from ..embedding.service import EmbeddingService
+from ..common.pagination import paginate
 
 
 class TechDocService:
@@ -65,16 +66,7 @@ class TechDocService:
         if query:
             q = q.filter(Q(title__icontains=query) | Q(content__icontains=query))
 
-        total = await q.count()
-        items = await q.order_by("sort").offset((page - 1) * page_size).limit(page_size).all()
-
-        return {
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "pages": (total + page_size - 1) // page_size,
-        }
+        return await paginate(q, page, page_size, sort_by="sort", sort_order="asc")
 
     @staticmethod
     async def get_tree(space_id: str) -> list[dict]:

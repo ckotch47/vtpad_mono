@@ -7,6 +7,7 @@ from .model import TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseSt
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 from ..embedding.service import EmbeddingService
+from ..common.pagination import paginate
 
 
 class TestCaseService:
@@ -91,19 +92,7 @@ class TestCaseService:
         if search:
             q = q.filter(Q(title__icontains=search) | Q(short_name__icontains=search))
 
-        order = f'{"-" if sort_order == "desc" else ""}{sort_by}'
-        q = q.order_by(order)
-
-        total = await q.count()
-        items = await q.offset((page - 1) * page_size).limit(page_size).all()
-
-        return {
-            'items': items,
-            'total': total,
-            'page': page,
-            'page_size': page_size,
-            'pages': (total + page_size - 1) // page_size
-        }
+        return await paginate(q, page, page_size, sort_by, sort_order)
 
     @staticmethod
     async def get_by_suite(suite_id: str) -> list[TestCaseModel]:
@@ -191,8 +180,8 @@ class TestCaseService:
         from ..test_run.model import TestResultModel, TestRunModel
 
         q = TestResultModel.filter(testcase_id=testcase_id).prefetch_related('run').order_by('-created_at')
-        total = await q.count()
-        items = await q.offset((page - 1) * page_size).limit(page_size).all()
+        result = await paginate(q, page, page_size)
+        items = result['items']
 
         results = []
         for r in items:
@@ -208,13 +197,7 @@ class TestCaseService:
                 'created_at': r.created_at.isoformat() if r.created_at else None,
             })
 
-        return {
-            'items': results,
-            'total': total,
-            'page': page,
-            'page_size': page_size,
-            'pages': (total + page_size - 1) // page_size
-        }
+        return {**result, 'items': results}
 
     @staticmethod
     async def _compute_next_sort(original):

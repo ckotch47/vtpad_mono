@@ -7,6 +7,7 @@ from tortoise.functions import Count
 from .model import TestSuiteModel, TestSuiteStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
+from ..common.pagination import paginate
 
 
 class TestSuiteService:
@@ -45,11 +46,8 @@ class TestSuiteService:
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
 
-        order = f'{"-" if sort_order == "desc" else ""}{sort_by}'
-        q = q.order_by(order)
-
-        total = await q.count()
-        items = await q.offset((page - 1) * page_size).limit(page_size).all()
+        result = await paginate(q, page, page_size, sort_by, sort_order)
+        items = result['items']
         suite_ids = [str(s.id) for s in items]
 
         # Count cases per suite
@@ -67,6 +65,7 @@ class TestSuiteService:
             section_counts = {str(r['suite_id']): r['count'] for r in section_rows}
 
         return {
+            **result,
             'items': [
                 {
                     'id': str(s.id),
@@ -83,10 +82,6 @@ class TestSuiteService:
                 }
                 for s in items
             ],
-            'total': total,
-            'page': page,
-            'page_size': page_size,
-            'pages': (total + page_size - 1) // page_size
         }
 
     @staticmethod

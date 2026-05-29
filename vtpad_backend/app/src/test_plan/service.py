@@ -6,6 +6,7 @@ from tortoise.expressions import Q
 from .model import TestPlanModel
 from .dto import *
 from ..common.crypto import get_user_id_by_token
+from ..common.pagination import paginate
 
 
 class TestPlanService:
@@ -37,19 +38,7 @@ class TestPlanService:
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
 
-        order = f'{"-" if sort_order == "desc" else ""}{sort_by}'
-        q = q.order_by(order)
-
-        total = await q.count()
-        items = await q.offset((page - 1) * page_size).limit(page_size).all()
-
-        return {
-            'items': items,
-            'total': total,
-            'page': page,
-            'page_size': page_size,
-            'pages': (total + page_size - 1) // page_size
-        }
+        return await paginate(q, page, page_size, sort_by, sort_order)
 
     @staticmethod
     async def get_by_id(plan_id: str) -> TestPlanModel:

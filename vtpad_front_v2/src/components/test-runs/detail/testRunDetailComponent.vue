@@ -175,13 +175,7 @@
         <v-card-text>
           <div class="text-subtitle-1 font-weight-medium mb-3">{{ editingResult.testcase?.title }}</div>
 
-          <v-tabs v-model="editTab" class="mb-3">
-            <v-tab value="result">Result</v-tab>
-            <v-tab value="steps">Steps</v-tab>
-          </v-tabs>
-
-          <v-window v-model="editTab">
-            <v-window-item value="result">
+          <v-window>
               <v-select
                 v-model="editingResult.status"
                 :items="['not_run','passed','failed','blocked','skipped']"
@@ -207,46 +201,6 @@
                 clearable
                 :return-object="false"
               />
-            </v-window-item>
-
-            <v-window-item value="steps">
-              <v-list density="compact">
-                <v-list-item v-for="(step, idx) in stepResults" :key="idx" class="step-item">
-                  <v-row align="center" no-gutters>
-                    <v-col cols="1">
-                      <span class="text-caption text-medium-emphasis">{{ idx + 1 }}</span>
-                    </v-col>
-                    <v-col cols="7">
-                      <span class="text-body-2">{{ step.step_text }}</span>
-                    </v-col>
-                    <v-col cols="4">
-                      <v-select
-                        v-model="step.status"
-                        :items="['not_run','passed','failed','blocked','skipped']"
-                        density="compact"
-                        hide-details
-                        variant="outlined"
-                        class="step-status-select"
-                      />
-                    </v-col>
-                  </v-row>
-                  <v-textarea
-                    v-model="step.comment"
-                    label="Step comment"
-                    rows="1"
-                    density="compact"
-                    hide-details
-                    variant="outlined"
-                    class="mt-1"
-                  />
-                </v-list-item>
-              </v-list>
-              <v-empty-state
-                v-if="stepResults.length === 0"
-                icon="mdi-format-list-bulleted"
-                text="No steps recorded for this case"
-              />
-            </v-window-item>
           </v-window>
         </v-card-text>
         <v-card-actions>
@@ -294,8 +248,6 @@ const loader = ref(true)
 const editModal = ref(false)
 const editingResult = ref(null)
 const spaceBugs = ref([])
-const editTab = ref('result')
-const stepResults = ref([])
 const bugModal = ref(false)
 const newBug = ref({ title: '', steps: '', expected: '', actual: '' })
 
@@ -346,18 +298,7 @@ function openResultModal(result) {
     ...result,
     linked_bug_ids: result.linked_bug_ids || []
   }
-  editTab.value = 'result'
-  stepResults.value = []
-  loadStepResults(result.id)
   editModal.value = true
-}
-
-function loadStepResults(resultId) {
-  testRunService.getStepResults(resultId).then(res => {
-    stepResults.value = res.data
-  }).catch(() => {
-    stepResults.value = []
-  })
 }
 
 function saveResult() {
@@ -366,18 +307,6 @@ function saveResult() {
     duration_seconds: parseInt(editingResult.value.duration_seconds) || null,
     comment: editingResult.value.comment,
     linked_bug_ids: editingResult.value.linked_bug_ids
-  }).then(() => {
-    if (stepResults.value.length > 0) {
-      return testRunService.updateStepResults(editingResult.value.id, {
-        steps: stepResults.value.map(s => ({
-          step_index: s.step_index,
-          step_text: s.step_text,
-          status: s.status,
-          comment: s.comment,
-          screenshot_url: s.screenshot_url
-        }))
-      })
-    }
   }).then(() => {
     editModal.value = false
     loadRun()
@@ -450,14 +379,5 @@ onMounted(() => {
 .result-item:last-child {
   border-bottom: none;
 }
-.step-item {
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  padding: 8px 0;
-}
-.step-item:last-child {
-  border-bottom: none;
-}
-.step-status-select {
-  min-width: 120px;
-}
+
 </style>

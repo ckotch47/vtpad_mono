@@ -12,6 +12,4 @@ export const testRunService = {
 
   updateResult: (resultId, data) => api.patch(`/api/v2/test-run/result/${resultId}`, data),
   bulkUpdateResults: (data) => api.patch('/api/v2/test-run/result/bulk', data),
-  getStepResults: (resultId) => api.get(`/api/v2/test-run/result/${resultId}/steps`),
-  updateStepResults: (resultId, data) => api.patch(`/api/v2/test-run/result/${resultId}/steps`, data),
 }

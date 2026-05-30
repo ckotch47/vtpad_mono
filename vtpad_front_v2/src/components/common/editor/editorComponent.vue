@@ -8,7 +8,6 @@
           :is-delete="isDelete"
           @editor-save-from-menu="$emit('editorSaveFromMenu')"
           @editor-delete-from-menu="$emit('editorDeleteFromMenu')"
-          @editor-update-emit="editorUpdate"
         />
       </div>
       <div
@@ -21,19 +20,13 @@
           :editor="editor"
           :tippy-options="{ duration: 100 }"
         >
-          <editor-menu-component :editor="editor" />
+          <editor-menu-component :editor="editor" bubble />
         </bubble-menu>
 
-        <floating-menu
-          v-if="editor && showMenuFloating"
-          :editor="editor"
-          :tippy-options="{ duration: 100 }"
-          max-with="732px"
-        >
-          <editor-menu-component :editor="editor" />
-        </floating-menu>
-
         <editor-content :editor="editor" />
+      </div>
+      <div v-if="editor && showCharacterCount" class="editor-character-count text-caption text-medium-emphasis px-2 py-1">
+        {{ editor.storage.characterCount.characters() }} chars / {{ editor.storage.characterCount.words() }} words
       </div>
     </div>
   </div>
@@ -41,7 +34,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Editor, EditorContent, BubbleMenu, FloatingMenu } from '@tiptap/vue-3'
+import { Editor, EditorContent, BubbleMenu } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Typography from '@tiptap/extension-typography'
@@ -49,21 +42,42 @@ import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import TaskItem from '@tiptap/extension-task-item'
 import TaskList from '@tiptap/extension-task-list'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
+import CharacterCount from '@tiptap/extension-character-count'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import Dropcursor from '@tiptap/extension-dropcursor'
+import { createLowlight } from 'lowlight'
+import js from 'highlight.js/lib/languages/javascript'
+import python from 'highlight.js/lib/languages/python'
+import bash from 'highlight.js/lib/languages/bash'
+import xml from 'highlight.js/lib/languages/xml'
+
 import EditorMenuComponent from '@/components/common/editor/editorMenuComponent.vue'
+import SlashCommands from '@/components/common/editor/editorSlashExtension.js'
+
+const lowlight = createLowlight()
+lowlight.register('javascript', js)
+lowlight.register('python', python)
+lowlight.register('bash', bash)
+lowlight.register('html', xml)
 
 const props = defineProps({
   text: String,
   edit: Boolean,
-  postId: { type: undefined, default: undefined },
   showMenuFixed: Boolean,
   showMenuBubble: Boolean,
   showMenuFloating: Boolean,
   placeHolderEditor: String,
-  menuPosition: { type: String, default: 'top' },
   isSave: Boolean,
   maxHeight: String,
   minHeight: String,
-  isDelete: Boolean
+  isDelete: Boolean,
+  showCharacterCount: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['editorSaveFromMenu', 'editorDeleteFromMenu', 'editor-update'])
@@ -79,7 +93,38 @@ watch(() => props.text, (newVal) => {
 })
 
 onMounted(() => {
-  window.addEventListener('scroll', handleScroll)
+  const extensions = [
+    Image.configure({ allowBase64: false, inline: true }),
+    Link.configure({ target: '_blank', linkOnPaste: true, openOnClick: !props.edit }),
+    Placeholder.configure({
+      placeholder: ({ node }) => {
+        if (node.type.name === 'heading') {
+          return `Heading ${node.attrs.level}`
+        }
+        return props.placeHolderEditor ?? 'Write something …'
+      }
+    }),
+    StarterKit.configure({ codeBlock: false }),
+    Typography,
+    TaskList,
+    TaskItem.configure({
+      nested: true,
+      HTMLAttributes: { class: 'custom-checklist--items' }
+    }),
+    Underline,
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    CharacterCount,
+    CodeBlockLowlight.configure({ lowlight }),
+    Dropcursor
+  ]
+
+  if (props.showMenuFloating) {
+    extensions.push(SlashCommands)
+  }
 
   editor.value = new Editor({
     content: props.text,
@@ -87,35 +132,13 @@ onMounted(() => {
     onUpdate: ({ editor: ed }) => {
       emit('editor-update', ed.getHTML())
     },
-    extensions: [
-      Image.configure({ allowBase64: false, inline: true }),
-      Link.configure({ target: null, linkOnPaste: true, openOnClick: true }),
-      Placeholder.configure({
-        placeholder: props.placeHolderEditor ?? 'Write something …'
-      }),
-      StarterKit,
-      Typography,
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-        HTMLAttributes: { class: 'custom-checklist--items' }
-      })
-    ]
+    extensions
   })
 })
 
 onBeforeUnmount(() => {
   editor.value?.destroy()
-  window.removeEventListener('scroll', handleScroll)
 })
-
-function editorUpdate(event) {
-  // placeholder for compatibility
-}
-
-function handleScroll() {
-  return false
-}
 </script>
 
 <style lang="scss">
@@ -304,10 +327,12 @@ function handleScroll() {
   border: 1px solid rgba(var(--v-border-color), 0.35);
   padding: 0.5rem 0.65rem;
   text-align: left;
+  vertical-align: top;
 }
 
 .ProseMirror th {
   background: rgba(var(--v-theme-surface-variant), 0.4);
+  font-weight: 600;
 }
 
 .ProseMirror a {
@@ -362,5 +387,10 @@ p.is-empty:first-child::before {
     padding: 3px;
     margin: 0.2rem;
   }
+}
+
+.editor-character-count {
+  text-align: right;
+  border-top: 1px solid rgba(var(--v-border-color), 0.2);
 }
 </style>

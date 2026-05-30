@@ -36,6 +36,9 @@
 | vue-router 4 | Роутинг |
 | Axios | HTTP-клиент |
 | TipTap v2 | Rich-text редактор |
+| TipTap extensions | Table, CharacterCount, CodeBlockLowlight, Dropcursor, Underline, TextAlign, TaskList, Suggestion |
+| lowlight v3 + highlight.js | Подсветка синтаксиса в code blocks |
+| tippy.js | Поповеры для slash-меню редактора |
 | vue-chartjs / Chart.js 4 | Графики |
 | MDI font | Иконки |
 

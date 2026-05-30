@@ -74,6 +74,7 @@ sequenceDiagram
 - Для `tech-docs` sidebar-дерево рендерится как управляемый `v-list` (иерархия с отступами), чтобы список гарантированно начинался сразу под поиском без layout-сдвигов `v-treeview`.
 - Для `tech-docs` просмотр контента выполняется через `editor-component` в режиме `readonly` (единый рендер с edit-режимом, без отдельного HTML/prose-рендера).
 - TipTap preset (`ProseMirror`) вынесен в общий `src/components/common/editor/editorComponent.vue` и используется на всех страницах редактора: типографика заголовков/списков, стили code/pre/table/blockquote/task-list, ограничение ширины чтения.
+- Композиция редактора: `editorComponent.vue` (контейнер + extensions), `editorMenuComponent.vue` (группированная тулбар-панель с tooltips, диалогом ссылки, загрузкой изображений, управлением таблицами), `editorSlashExtension.js` + `editorSlashMenu.vue` (slash-команды `/` для вставки блоков).
 - `ProseMirror` привязан к глобальным токенам типографики (`--vt-font-size-body-1`, `--vt-line-height-base`, `--vt-font-size-h*`), чтобы rich-text блоки не выбивались по размеру относительно остального UI.
 - Правило консистентности: визуальные изменения редактора (border/shadow/typography/spacing) вносятся только в `src/components/common/editor/editorComponent.vue`, без page-specific override в отдельных страницах.
 - Базовая типографика всего приложения централизована в `src/styles/typography.scss` (подключается в `src/main.js`): единая шкала размеров для заголовков/body/caption и ключевых Vuetify-элементов (`v-btn`, `v-field`, `v-list`, `v-table`).
@@ -95,3 +96,7 @@ sequenceDiagram
 - `vtpad_front_v2/src/main.js`
 - `vtpad_front_v2/src/router/index.js`
 - `vtpad_front_v2/src/stores/app.js`
+- `vtpad_front_v2/src/components/common/editor/editorComponent.vue`
+- `vtpad_front_v2/src/components/common/editor/editorMenuComponent.vue`
+- `vtpad_front_v2/src/components/common/editor/editorSlashExtension.js`
+- `vtpad_front_v2/src/components/common/editor/editorSlashMenu.vue`

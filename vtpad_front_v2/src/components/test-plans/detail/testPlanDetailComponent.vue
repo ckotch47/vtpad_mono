@@ -41,32 +41,14 @@
         <v-col cols="12" md="4">
           <plan-sources-panel
             :plan="plan"
-            :all-suites="allSuites"
-            :all-sections="allSections"
-            v-model:edit-suite-ids="editSuiteIds"
-            :saving-suites="savingSuites"
-            :suite-ids-changed="suiteIdsChanged"
-            v-model:section-source-suite="sectionSourceSuite"
-            :source-sections="sourceSections"
-            v-model:edit-section-ids="editSectionIds"
-            :saving-sections="savingSections"
-            v-model:case-source-suites="caseSourceSuites"
-            v-model:case-source-sections="caseSourceSections"
-            :case-source-sections-list="caseSourceSectionsList"
-            :available-cases="availableCases"
+            :all-cases="allCases"
             v-model:selected-cases="selectedCases"
             v-model:case-search="caseSearch"
             :saving-cases="savingCases"
             :filtered-available-cases="filteredAvailableCases"
             :runs="runs"
-            :case-map="caseMap"
             :is-case-in-plan="isCaseInPlan"
-            @save-suites="saveSuites"
-            @reset-suites="resetSuiteIds"
-            @save-sections="saveSections"
-            @remove-section="removeSection"
             @add-cases="addIndividualCases"
-            @remove-case="removeCase"
             @select-all-available="selectAllAvailable"
             @deselect-all="deselectAll"
           />
@@ -91,19 +73,7 @@ const {
   cases,
   runs,
   loader,
-  allSuites,
-  allSections,
-  editSuiteIds,
-  savingSuites,
-  suiteIdsChanged,
-  sectionSourceSuite,
-  sourceSections,
-  editSectionIds,
-  savingSections,
-  caseSourceSuites,
-  caseSourceSections,
-  caseSourceSectionsList,
-  availableCases,
+  allCases,
   selectedCases,
   caseSearch,
   savingCases,
@@ -111,10 +81,6 @@ const {
   caseMap,
   caseDialogOpen,
   selectedCase,
-  saveSuites,
-  resetSuiteIds,
-  saveSections,
-  removeSection,
   removeCase,
   isCaseInPlan,
   addIndividualCases,
@@ -125,5 +91,5 @@ const {
   init,
 } = useTestPlanDetail()
 
-onMounted(() => init())
+onMounted(init)
 </script>

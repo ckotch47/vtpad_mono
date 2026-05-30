@@ -1,0 +1,7 @@
+{
+  "data": [
+    "UPDATE test_plan SET case_ids = COALESCE(case_ids, '[]'::jsonb) WHERE suite_ids IS NOT NULL OR section_ids IS NOT NULL",
+    "ALTER TABLE test_plan DROP COLUMN IF EXISTS suite_ids",
+    "ALTER TABLE test_plan DROP COLUMN IF EXISTS section_ids"
+  ]
+}

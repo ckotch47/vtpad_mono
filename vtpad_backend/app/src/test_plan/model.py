@@ -7,10 +7,6 @@ class TestPlanModel(Model):
     name = fields.TextField(null=False)
     description = fields.TextField(null=True)
 
-    # Dynamic sources
-    suite_ids = fields.JSONField(null=True, default=list)
-    section_ids = fields.JSONField(null=True, default=list)
-    # Manual additions/removals on top of dynamic sources
     case_ids = fields.JSONField(null=True, default=list)
 
     space = fields.ForeignKeyField('models.SpaceModel', related_name='test_plans')

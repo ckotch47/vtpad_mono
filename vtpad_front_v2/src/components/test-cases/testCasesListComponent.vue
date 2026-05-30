@@ -39,6 +39,19 @@
         style="max-width: 140px"
         @update:model-value="onFilterChange"
       />
+      <v-select
+        v-model="filterSuite"
+        :items="[{title:'All Suites', value:''}, {title:'No Suite', value:'none'}]"
+        item-title="title"
+        item-value="value"
+        label="Suite"
+        density="compact"
+        hide-details
+        variant="solo"
+        class="mx-2"
+        style="max-width: 140px"
+        @update:model-value="onFilterChange"
+      />
       <v-spacer />
       <v-btn v-if="selectedCases.length" size="small" variant="text" color="error" class="mr-2" @click="bulkDelete">
         Delete ({{ selectedCases.length }})
@@ -71,6 +84,10 @@
       </template>
       <template v-slot:item.status="{ item }">
         <v-chip size="small" :color="statusColor(item.status)">{{ item.status }}</v-chip>
+      </template>
+      <template v-slot:item.suite="{ item }">
+        <span v-if="item.suite" class="text-caption">{{ item.suite.name }}</span>
+        <span v-else class="text-caption text-medium-emphasis">—</span>
       </template>
       <template v-slot:item.updated_at="{ item }">
         {{ formatDate(item.updated_at) }}
@@ -137,6 +154,7 @@ const firstLoad = ref(true)
 const search = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
+  const filterSuite = ref('')
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
@@ -149,6 +167,8 @@ const headers = [
   { title: 'Title', key: 'title', sortable: true },
   { title: 'Type', key: 'type', width: '120px', sortable: true },
   { title: 'Status', key: 'status', width: '120px', sortable: true },
+  { title: 'Suite', key: 'suite_name', sortable: false },
+  { title: 'Suite', key: 'suite', sortable: false },
   { title: 'Short Name', key: 'short_name', sortable: true },
   { title: 'Updated', key: 'updated_at', width: '150px', sortable: true },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
@@ -185,6 +205,7 @@ function doLoadCases(options) {
   if (search.value) query.search = search.value
   if (filterType.value) query.type = filterType.value
   if (filterStatus.value) query.status = filterStatus.value
+      if (filterSuite.value) query.suite_id = filterSuite.value
   if (sortKey !== 'created_at' || sortOrder !== 'desc') {
     query.sort_by = sortKey
     query.sort_order = sortOrder
@@ -198,7 +219,9 @@ function doLoadCases(options) {
     sort_order: sortOrder,
     search: search.value || undefined,
     type: filterType.value || undefined,
-    status: filterStatus.value || undefined
+    status: filterStatus.value || undefined,
+    suite_id: filterSuite.value || undefined,
+    suite_id: filterSuite.value || undefined
   }).then(res => {
     cases.value = res.data.items || res.data
     totalCases.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)

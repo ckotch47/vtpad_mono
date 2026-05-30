@@ -78,6 +78,7 @@ class TestCaseService:
         space_id: str,
         type_filter: Optional[str] = None,
         status_filter: Optional[str] = None,
+        suite_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 25,
         sort_by: Optional[str] = 'created_at',
@@ -89,6 +90,10 @@ class TestCaseService:
             q = q.filter(type=type_filter)
         if status_filter:
             q = q.filter(status=status_filter)
+        if suite_id == 'none':
+            q = q.filter(suite_id__isnull=True)
+        elif suite_id:
+            q = q.filter(suite_id=suite_id)
         if search:
             q = q.filter(Q(title__icontains=search) | Q(short_name__icontains=search))
 

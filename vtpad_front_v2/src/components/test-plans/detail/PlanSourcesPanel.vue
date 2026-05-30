@@ -1,9 +1,42 @@
 <template>
-  <!-- Cases -->
+  <!-- Suites -->
+  <v-card class="mb-4">
+    <v-card-title class="d-flex align-center">
+      <v-icon class="mr-2">mdi-folder-open</v-icon>
+      Suites
+      <v-spacer />
+      <v-chip size="small" color="primary">{{ (plan.suite_ids || []).length }}</v-chip>
+    </v-card-title>
+    <v-divider />
+    <v-card-text>
+      <v-select
+        v-model="localEditSuiteIds"
+        :items="allSuites"
+        item-title="name"
+        item-value="id"
+        label="Select suites"
+        multiple
+        chips
+        clearable
+        hide-details
+      />
+    </v-card-text>
+    <v-card-actions>
+      <v-spacer />
+      <v-btn size="small" variant="text" :disabled="!suiteIdsChanged" @click="$emit('reset-suites')">
+        Reset
+      </v-btn>
+      <v-btn color="primary" :disabled="!suiteIdsChanged" :loading="savingSuites" @click="$emit('save-suites')">
+        Save Suites
+      </v-btn>
+    </v-card-actions>
+  </v-card>
+
+  <!-- Individual Cases -->
   <v-card class="mb-4">
     <v-card-title class="d-flex align-center">
       <v-icon class="mr-2">mdi-test-tube</v-icon>
-      Cases
+      Individual Cases
       <v-spacer />
       <v-chip size="small" color="primary">{{ (plan.case_ids || []).length }}</v-chip>
     </v-card-title>
@@ -104,6 +137,10 @@ import { vElementVisibility } from '@vueuse/components'
 
 const props = defineProps({
   plan: { type: Object, required: true },
+  allSuites: { type: Array, default: () => [] },
+  editSuiteIds: { type: Array, default: () => [] },
+  savingSuites: { type: Boolean, default: false },
+  suiteIdsChanged: { type: Boolean, default: false },
   loadingCases: { type: Boolean, default: false },
   casesHasMore: { type: Boolean, default: false },
   selectedCases: { type: Array, default: () => [] },
@@ -115,13 +152,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'update:editSuiteIds',
   'update:selectedCases',
   'update:caseSearch',
+  'save-suites',
+  'reset-suites',
   'add-cases',
   'select-all-available',
   'deselect-all',
   'load-more-cases',
 ])
+
+const localEditSuiteIds = computed({
+  get: () => props.editSuiteIds,
+  set: (v) => emit('update:editSuiteIds', v),
+})
 
 const localCaseSearch = computed({
   get: () => props.caseSearch,

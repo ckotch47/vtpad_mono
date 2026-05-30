@@ -41,6 +41,10 @@
         <v-col cols="12" md="4">
           <plan-sources-panel
             :plan="plan"
+            :all-suites="allSuites"
+            v-model:edit-suite-ids="editSuiteIds"
+            :saving-suites="savingSuites"
+            :suite-ids-changed="suiteIdsChanged"
             :loading-cases="loadingCases"
             :cases-has-more="casesHasMore"
             v-model:selected-cases="selectedCases"
@@ -49,6 +53,8 @@
             :filtered-available-cases="filteredAvailableCases"
             :runs="runs"
             :is-case-in-plan="isCaseInPlan"
+            @save-suites="saveSuites"
+            @reset-suites="resetSuiteIds"
             @add-cases="addIndividualCases"
             @select-all-available="selectAllAvailable"
             @deselect-all="deselectAll"
@@ -75,6 +81,10 @@ const {
   cases,
   runs,
   loader,
+  allSuites,
+  editSuiteIds,
+  savingSuites,
+  suiteIdsChanged,
   loadingCases,
   casesHasMore,
   selectedCases,
@@ -84,7 +94,8 @@ const {
   caseMap,
   caseDialogOpen,
   selectedCase,
-  loadPlan,
+  saveSuites,
+  resetSuiteIds,
   loadMoreCases,
   removeCase,
   isCaseInPlan,

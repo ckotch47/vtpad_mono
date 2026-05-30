@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { testPlanService, testCaseService, testRunService } from '@/services'
+import { testPlanService, testCaseService, testRunService, testSuiteService } from '@/services'
 import { useLogger } from './useLogger'
 
 const CASES_PAGE_SIZE = 50
@@ -18,6 +18,10 @@ export function useTestPlanDetail() {
   const runs = ref([])
   const loader = ref(true)
 
+  const allSuites = ref([])
+  const editSuiteIds = ref([])
+  const savingSuites = ref(false)
+
   const availableCases = ref([])
   const casesPage = ref(1)
   const casesHasMore = ref(true)
@@ -30,6 +34,12 @@ export function useTestPlanDetail() {
 
   const caseDialogOpen = ref(false)
   const selectedCase = ref(null)
+
+  const suiteIdsChanged = computed(() => {
+    const current = plan.value.suite_ids || []
+    if (editSuiteIds.value.length !== current.length) return true
+    return editSuiteIds.value.some(id => !current.includes(id)) || current.some(id => !editSuiteIds.value.includes(id))
+  })
 
   const filteredAvailableCases = computed(() => {
     const plannedIds = new Set((plan.value.case_ids || []))
@@ -53,6 +63,7 @@ export function useTestPlanDetail() {
       ])
       plan.value = planRes.data
       cases.value = casesRes.data
+      editSuiteIds.value = [...(planRes.data.suite_ids || [])]
 
       const runsRes = await testRunService.listBySpace(spaceId.value, { page: 1, page_size: 100 })
       runs.value = (runsRes.data.items || []).filter(r => r.plan_id === planId.value)
@@ -61,6 +72,31 @@ export function useTestPlanDetail() {
     } finally {
       loader.value = false
     }
+  }
+
+  async function loadSuites() {
+    try {
+      const res = await testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 1000 })
+      allSuites.value = res.data.items || []
+    } catch (e) {
+      log.error('loadSuites failed', e)
+    }
+  }
+
+  async function saveSuites() {
+    savingSuites.value = true
+    try {
+      await testPlanService.update(planId.value, { suite_ids: editSuiteIds.value })
+      await loadPlan()
+    } catch (e) {
+      log.error('saveSuites failed', e)
+    } finally {
+      savingSuites.value = false
+    }
+  }
+
+  function resetSuiteIds() {
+    editSuiteIds.value = [...(plan.value.suite_ids || [])]
   }
 
   async function doLoadCases(page, search) {
@@ -194,6 +230,7 @@ export function useTestPlanDetail() {
 
   function init() {
     loadPlan()
+    loadSuites()
     loadMoreCases()
   }
 
@@ -204,6 +241,10 @@ export function useTestPlanDetail() {
     cases,
     runs,
     loader,
+    allSuites,
+    editSuiteIds,
+    savingSuites,
+    suiteIdsChanged,
     availableCases,
     casesPage,
     casesHasMore,
@@ -216,6 +257,9 @@ export function useTestPlanDetail() {
     caseDialogOpen,
     selectedCase,
     loadPlan,
+    loadSuites,
+    saveSuites,
+    resetSuiteIds,
     loadMoreCases,
     removeCase,
     isCaseInPlan,

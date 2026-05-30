@@ -28,4 +28,12 @@ class MCPAuthMiddleware(BaseHTTPMiddleware):
             logger.error('Unexpected error: %s', e, exc_info=True)
             return JSONResponse({"error": "Invalid or expired API token"}, status_code=401)
 
-        return await call_next(request)
+        response = await call_next(request)
+
+        # Ensure explicit UTF-8 for SSE payloads to prevent mojibake
+        # in clients that default to latin-1 when charset is omitted.
+        content_type = response.headers.get("content-type", "")
+        if content_type.startswith("text/event-stream") and "charset=" not in content_type.lower():
+            response.headers["content-type"] = "text/event-stream; charset=utf-8"
+
+        return response

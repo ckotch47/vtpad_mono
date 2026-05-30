@@ -168,6 +168,17 @@
 - `PUT /api/v2/company-user/{user_id}/reset-password`
 - `DELETE /api/v2/company-user/{user_id}`
 
+### `app/src/mcp`
+- `POST /v1/mcp` (MCP JSON-RPC over HTTP/SSE)
+
+MCP tools in `app/src/mcp/tools/*` are not classic REST endpoints, but they are part of public integration surface.
+
+Current behavior constraints (synced with code):
+- `get_space_suites` transforms items returned by `TestSuiteService.get_by_space(...)` as dictionaries.
+- `create_test_plan` uses Bearer token from `Authorization` header when calling `TestPlanService.create(...)`.
+- `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
+- `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
+
 ## Источники в коде
 
 - `vtpad_backend/app/main.py`

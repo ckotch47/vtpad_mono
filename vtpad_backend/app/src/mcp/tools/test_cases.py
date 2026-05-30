@@ -223,7 +223,7 @@ async def duplicate_test_case(case_id: str) -> dict:
     Returns:
         Duplicated test case
     """
-    token = _get_user_id()
+    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.duplicate(case_id, token)
     return _case_to_dict(case)
 

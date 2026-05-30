@@ -87,7 +87,7 @@ async def create_test_plan(
         Created plan details
     """
     from ...test_plan.dto import TestPlanCreateDto
-    token = _get_user_id()
+    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     dto = TestPlanCreateDto(
         name=name,
         space_id=space_id,

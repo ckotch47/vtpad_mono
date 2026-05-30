@@ -99,13 +99,13 @@ async def get_space_suites(space_id: str, limit: int = 25) -> list[dict]:
     items = []
     for s in result.get("items", []):
         items.append({
-            "id": str(s.id),
-            "name": s.name,
-            "description": s.description,
-            "status": s.status.value if hasattr(s.status, "value") else s.status,
-            "cases_count": getattr(s, "cases_count", 0),
-            "sections_count": getattr(s, "sections_count", 0),
-            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "id": str(s.get("id")),
+            "name": s.get("name"),
+            "description": s.get("description"),
+            "status": s.get("status"),
+            "cases_count": s.get("cases_count", 0),
+            "sections_count": s.get("sections_count", 0),
+            "created_at": s.get("created_at"),
         })
     return items
 

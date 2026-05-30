@@ -2,26 +2,26 @@ from ..core import mcp
 from ..utils import _get_user_id, _case_to_dict
 from fastmcp.server.dependencies import get_http_request
 
-from ..api_token.service import ApiTokenService
-from ..test_case.model import TestCaseModel, TestCaseStatus, TestCaseType
-from ..test_case.service import TestCaseService
-from ..test_suite.model import TestSuiteModel
-from ..test_suite.service import TestSuiteService
-from ..section.model import SectionModel
-from ..section.service import SectionService
-from ..embedding.service import EmbeddingService
-from ..tech_doc.model import TechDocModel
-from ..tech_doc.service import TechDocService
-from ..test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
-from ..space.model import SpaceModel
-from ..test_run.service import TestRunService, TestResultService
-from ..test_run.dto import TestRunCreateDto, TestResultUpdateDto
-from ..test_case.dto import TestCaseUpdateDto
-from ..test_suite.dto import TestSuiteUpdateDto
-from ..section.dto import SectionUpdateDto
-from ..test_plan.model import TestPlanModel
-from ..test_plan.service import TestPlanService
-from ..analytics.service import AnalyticsService
+from ...api_token.service import ApiTokenService
+from ...test_case.model import TestCaseModel, TestCaseStatus, TestCaseType
+from ...test_case.service import TestCaseService
+from ...test_suite.model import TestSuiteModel
+from ...test_suite.service import TestSuiteService
+from ...section.model import SectionModel
+from ...section.service import SectionService
+from ...embedding.service import EmbeddingService
+from ...tech_doc.model import TechDocModel
+from ...tech_doc.service import TechDocService
+from ...test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from ...space.model import SpaceModel
+from ...test_run.service import TestRunService, TestResultService
+from ...test_run.dto import TestRunCreateDto, TestResultUpdateDto
+from ...test_case.dto import TestCaseUpdateDto
+from ...test_suite.dto import TestSuiteUpdateDto
+from ...section.dto import SectionUpdateDto
+from ...test_plan.model import TestPlanModel
+from ...test_plan.service import TestPlanService
+from ...analytics.service import AnalyticsService
 import logging
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ async def create_test_plan(
     Returns:
         Created plan details
     """
-    from ..test_plan.dto import TestPlanCreateDto
+    from ...test_plan.dto import TestPlanCreateDto
     token = _get_user_id()
     dto = TestPlanCreateDto(
         name=name,
@@ -120,7 +120,7 @@ async def update_test_plan(
     Returns:
         Updated plan details
     """
-    from ..test_plan.dto import TestPlanUpdateDto
+    from ...test_plan.dto import TestPlanUpdateDto
     dto = TestPlanUpdateDto()
     if name is not None:
         dto.name = name

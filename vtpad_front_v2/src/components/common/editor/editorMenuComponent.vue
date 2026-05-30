@@ -578,7 +578,7 @@ function refreshCheckList() {
 
   .v-btn {
     margin: 0;
-    border-radius: 4px;
+    border-radius: 4px !important;
     min-width: 28px;
     width: 28px;
     height: 28px;

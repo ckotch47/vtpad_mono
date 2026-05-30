@@ -192,7 +192,7 @@ input:not(.v-field__input):not(.v-text-field__input) {
 }
 
 /* Keyboard focus indicators */
-*:focus-visible {
+*:focus-visible:not(input):not(textarea):not(select) {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: 2px;
 }

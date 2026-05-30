@@ -16,7 +16,7 @@
     <v-toolbar density="comfortable" color="surface">
       <div class="ml-2">
         <v-breadcrumbs v-if="path.length" :items="path" density="compact" class="pa-0" />
-        <div class="text-h6">{{ doc.title }}</div>
+        <div v-if="!path.length" class="text-h6">{{ doc.title }}</div>
         <div v-if="doc.version" class="text-caption text-grey">v{{ doc.version }}</div>
       </div>
       <v-spacer />
@@ -32,18 +32,20 @@
       </v-alert>
     </v-card-text>
     <v-card-text class="content-body">
-      <editor-component
-        v-if="doc.content"
-        :key="`readonly-${doc.id}`"
-        :text="doc.content"
-        :edit="false"
-        :show-menu-fixed="false"
-        :show-menu-bubble="false"
-        :show-menu-floating="false"
-        max-height="none"
-        min-height="auto"
-      />
-      <div v-else class="text-grey text-center py-10">
+      <div ref="readonlyContentRef">
+        <editor-component
+          v-if="doc.content"
+          :key="`readonly-${doc.id}`"
+          :text="doc.content"
+          :edit="false"
+          :show-menu-fixed="false"
+          :show-menu-bubble="false"
+          :show-menu-floating="false"
+          max-height="none"
+          min-height="auto"
+        />
+      </div>
+      <div v-if="!doc.content" class="text-grey text-center py-10">
         <v-icon size="48">mdi-text-box-outline</v-icon>
         <div class="mt-2">No content yet</div>
         <v-btn variant="text" color="primary" @click="$emit('edit')">Add content</v-btn>
@@ -115,9 +117,10 @@
 </template>
 
 <script setup>
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 
-defineProps({
+const props = defineProps({
   doc: { type: Object, default: null },
   editing: { type: Boolean, default: false },
   isCreating: { type: Boolean, default: false },
@@ -130,6 +133,68 @@ defineProps({
 })
 
 defineEmits(['create', 'edit', 'create-subpage', 'delete', 'cancel', 'save'])
+
+const readonlyContentRef = ref(null)
+let renderSeq = 0
+let mermaidPromise = null
+
+async function getMermaid() {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then((mod) => {
+      const api = mod.default
+      api.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'default',
+      })
+      return api
+    })
+  }
+  return mermaidPromise
+}
+
+async function renderMermaidInReadonly() {
+  if (!props.doc?.content || props.editing) return
+  const root = readonlyContentRef.value
+  if (!root) return
+
+  const mySeq = ++renderSeq
+  await nextTick()
+  await new Promise(resolve => requestAnimationFrame(resolve))
+  if (mySeq !== renderSeq) return
+
+  const codeNodes = root.querySelectorAll('pre code.language-mermaid')
+  if (!codeNodes.length) return
+
+  const mermaid = await getMermaid()
+
+  codeNodes.forEach((codeNode) => {
+    const preNode = codeNode.closest('pre')
+    if (!preNode) return
+    const mermaidNode = document.createElement('pre')
+    mermaidNode.className = 'mermaid'
+    mermaidNode.textContent = codeNode.textContent || ''
+    preNode.replaceWith(mermaidNode)
+  })
+
+  try {
+    await mermaid.run({ nodes: root.querySelectorAll('pre.mermaid') })
+  } catch (error) {
+    console.error('Mermaid render failed', error)
+  }
+}
+
+watch(
+  () => [props.doc?.id, props.doc?.content, props.editing],
+  () => {
+    renderMermaidInReadonly()
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  renderSeq += 1
+})
 </script>
 
 <style scoped>
@@ -142,5 +207,17 @@ defineEmits(['create', 'edit', 'create-subpage', 'delete', 'cancel', 'save'])
   flex: 1;
   overflow: hidden;
   padding: 20px 24px 28px;
+}
+
+:deep(pre.mermaid) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 16px 0;
+}
+
+:deep(pre.mermaid svg) {
+  max-width: 100%;
+  height: auto;
 }
 </style>

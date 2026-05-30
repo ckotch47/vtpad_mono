@@ -34,7 +34,9 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Editor, EditorContent, BubbleMenu } from '@tiptap/vue-3'
+import { Editor, EditorContent } from '@tiptap/vue-3'
+import { BubbleMenu } from '@tiptap/vue-3/menus'
+import { Markdown } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Typography from '@tiptap/extension-typography'
@@ -44,7 +46,7 @@ import TaskItem from '@tiptap/extension-task-item'
 import TaskList from '@tiptap/extension-task-list'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
-import Table from '@tiptap/extension-table'
+import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
@@ -68,6 +70,7 @@ lowlight.register('html', xml)
 
 const props = defineProps({
   text: String,
+  contentFormat: { type: String, default: 'markdown' }, // markdown | html
   edit: Boolean,
   showMenuFixed: Boolean,
   showMenuBubble: Boolean,
@@ -86,14 +89,39 @@ const editor = ref(null)
 const editorCustomRef = ref(null)
 const editorCustomTextRef = ref(null)
 
+function isProbablyHtml(value) {
+  return /<\/?[a-z][\s\S]*>/i.test(value || '')
+}
+
+function getInbound(value) {
+  const content = value || ''
+  if (props.contentFormat === 'html') {
+    return { content, contentType: 'html' }
+  }
+  if (isProbablyHtml(content)) {
+    // Legacy fallback: support already-saved HTML content.
+    return { content, contentType: 'html' }
+  }
+  return { content, contentType: 'markdown' }
+}
+
 watch(() => props.text, (newVal) => {
-  if (editor.value && newVal !== editor.value.getHTML()) {
-    editor.value.commands.setContent(newVal)
+  if (!editor.value) return
+  const inbound = getInbound(newVal)
+  if (inbound.contentType === 'html') {
+    if (inbound.content !== editor.value.getHTML()) {
+      editor.value.commands.setContent(inbound.content, { contentType: 'html' })
+    }
+    return
+  }
+  if (inbound.content !== editor.value.getMarkdown()) {
+    editor.value.commands.setContent(inbound.content, { contentType: 'markdown' })
   }
 })
 
 onMounted(() => {
   const extensions = [
+    Markdown,
     Image.configure({ allowBase64: false, inline: true }),
     Link.configure({ target: '_blank', linkOnPaste: true, openOnClick: !props.edit }),
     Placeholder.configure({
@@ -126,11 +154,19 @@ onMounted(() => {
     extensions.push(SlashCommands)
   }
 
+  const inbound = getInbound(props.text)
   editor.value = new Editor({
-    content: props.text,
+    content: inbound.content,
+    contentType: inbound.contentType,
     editable: props.edit,
+    onCreate: ({ editor: ed }) => {
+      // Normalize legacy HTML input to markdown for parent form state.
+      if (props.contentFormat !== 'html' && inbound.contentType === 'html') {
+        emit('editor-update', ed.getMarkdown())
+      }
+    },
     onUpdate: ({ editor: ed }) => {
-      emit('editor-update', ed.getHTML())
+      emit('editor-update', props.contentFormat === 'html' ? ed.getHTML() : ed.getMarkdown())
     },
     extensions
   })

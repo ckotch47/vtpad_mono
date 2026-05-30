@@ -27,12 +27,13 @@
   />
 
   <div class="select-custom">
-    <v-date-input
-      v-model="dateVModel"
+    <v-text-field
+      :model-value="dateVModel"
+      type="date"
       class="select-custom"
       label="Estimate date"
       variant="outlined"
-      @update:modelValue="updateBug('estimate_date', $event)"
+      @update:modelValue="onEstimateDateUpdate"
     />
   </div>
 
@@ -51,7 +52,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { VDateInput } from 'vuetify/labs/VDateInput'
 import { bugService } from '@/services'
 
 const props = defineProps({
@@ -64,8 +64,13 @@ const emit = defineEmits(['updateBug'])
 const dateVModel = ref(undefined)
 
 onMounted(() => {
-  dateVModel.value = props.bug.estimate_date ? new Date(props.bug.estimate_date) : undefined
+  dateVModel.value = props.bug.estimate_date ? String(props.bug.estimate_date).slice(0, 10) : undefined
 })
+
+function onEstimateDateUpdate(value) {
+  dateVModel.value = value
+  updateBug('estimate_date', value ? new Date(value).toISOString() : null)
+}
 
 function updateBug(name, event) {
   let value = undefined

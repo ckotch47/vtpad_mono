@@ -75,11 +75,14 @@ sequenceDiagram
 - Для `tech-docs` просмотр контента выполняется через `editor-component` в режиме `readonly` (единый рендер с edit-режимом, без отдельного HTML/prose-рендера).
 - TipTap preset (`ProseMirror`) вынесен в общий `src/components/common/editor/editorComponent.vue` и используется на всех страницах редактора: типографика заголовков/списков, стили code/pre/table/blockquote/task-list, ограничение ширины чтения.
 - Композиция редактора: `editorComponent.vue` (контейнер + extensions), `editorMenuComponent.vue` (группированная тулбар-панель с tooltips, диалогом ссылки, загрузкой изображений, управлением таблицами), `editorSlashExtension.js` + `editorSlashMenu.vue` (slash-команды `/` для вставки блоков).
+- В `editorMenuComponent.vue` для `code block` доступен выбор языка (language attr), чтобы корректно сохранять fenced code blocks в Markdown с языком подсветки.
+- `editorComponent.vue` в режиме `contentFormat=markdown` автоматически нормализует legacy HTML-вход в Markdown уже при инициализации, чтобы при сохранении без ручных правок контент не возвращался в HTML.
 - `ProseMirror` привязан к глобальным токенам типографики (`--vt-font-size-body-1`, `--vt-line-height-base`, `--vt-font-size-h*`), чтобы rich-text блоки не выбивались по размеру относительно остального UI.
 - Правило консистентности: визуальные изменения редактора (border/shadow/typography/spacing) вносятся только в `src/components/common/editor/editorComponent.vue`, без page-specific override в отдельных страницах.
 - Базовая типографика всего приложения централизована в `src/styles/typography.scss` (подключается в `src/main.js`): единая шкала размеров для заголовков/body/caption и ключевых Vuetify-элементов (`v-btn`, `v-field`, `v-list`, `v-table`).
 - Локальные `font-size` в страницах/фичах должны заменяться на глобальные utility-классы (`text-h*`, `text-body-*`, `text-caption`) или inherited-типографику без ручных числовых значений.
 - Типографика применена в “мягком” режиме: utility-классы и базовый body-scale управляются глобально, а внутренние размеры `v-card-text`/`v-list-item-*`/`v-field` не форсируются фиксированными значениями.
+- Глобальный `focus-visible` применяется ко всем интерактивным элементам, кроме `input`/`textarea`/`select` (вводимые поля используют штатный стиль фокуса Vuetify без дополнительной внешней outline-обводки).
 - Дополнительно глобально нормализованы Vuetify-заголовки/навигация: `v-card-title`, `v-toolbar-title`, `v-tab`, `v-list-item-title`, `v-list-item-subtitle`.
 - Калибровка: `v-card-title` приведён к более компактному уровню (`h6` scale), а заголовки `ProseMirror` снижены на один шаг относительно базовой heading-шкалы для визуального баланса с UI-карточками.
 - Для повторяемой UI-регрессии фронта добавлен сценарный smoke-скрипт `vtpad_front_v2/scripts/ui-regression.mjs` (login + ключевые разделы + detail-переходы + sanity-check типографики + отчёт/скриншоты в `playwright-ui-regression/`).

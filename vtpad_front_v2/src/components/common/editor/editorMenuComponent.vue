@@ -241,6 +241,30 @@
           </v-btn>
         </template>
       </v-tooltip>
+      <v-menu location="bottom">
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="menuProps"
+            icon
+            size="small"
+            variant="text"
+            density="compact"
+            :class="{ 'is-active': editor.isActive('codeBlock') }"
+          >
+            <v-icon icon="mdi-chevron-down" size="small" />
+          </v-btn>
+        </template>
+        <v-list density="compact" min-width="180">
+          <v-list-subheader>Code language</v-list-subheader>
+          <v-list-item
+            v-for="lang in codeLanguages"
+            :key="lang.value"
+            :title="lang.title"
+            :active="currentCodeLanguage === lang.value"
+            @click="setCodeLanguage(lang.value)"
+          />
+        </v-list>
+      </v-menu>
       <v-tooltip text="Quote" location="top">
         <template #activator="{ props: tp }">
           <v-btn
@@ -484,7 +508,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({
@@ -500,6 +524,20 @@ const fileInput = ref(null)
 const linkDialog = ref(false)
 const linkUrl = ref('')
 const linkText = ref('')
+const codeLanguages = [
+  { title: 'Plain text', value: 'plaintext' },
+  { title: 'Mermaid', value: 'mermaid' },
+  { title: 'JavaScript', value: 'javascript' },
+  { title: 'TypeScript', value: 'typescript' },
+  { title: 'Python', value: 'python' },
+  { title: 'Bash', value: 'bash' },
+  { title: 'HTML', value: 'html' },
+  { title: 'JSON', value: 'json' },
+  { title: 'SQL', value: 'sql' },
+  { title: 'YAML', value: 'yaml' },
+  { title: 'Markdown', value: 'markdown' },
+]
+const currentCodeLanguage = computed(() => props.editor?.getAttributes('codeBlock')?.language || 'plaintext')
 
 function openFileUpload() {
   fileInput.value?.click()
@@ -560,6 +598,10 @@ function refreshCheckList() {
     .replaceAll('checked="checked"', '')
   props.editor.commands.setContent(html)
 }
+
+function setCodeLanguage(language) {
+  props.editor.chain().focus().setCodeBlock({ language }).run()
+}
 </script>
 
 <style lang="scss">
@@ -584,8 +626,8 @@ function refreshCheckList() {
     height: 28px;
 
     &.is-active {
-      background-color: rgb(var(--v-theme-on-surface-variant));
-      color: rgb(var(--v-theme-surface));
+      background-color: rgb(var(--v-theme-primary));
+      color: rgb(var(--v-theme-on-primary));
     }
   }
 }

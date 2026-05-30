@@ -30,13 +30,15 @@
 | Библиотека | Назначение |
 |---|---|
 | Vue 3.4 | UI-фреймворк |
-| Vuetify 3.5 | Компонентная библиотека |
+| Vuetify 3.x (latest) | Компонентная библиотека |
 | Vite 5.1 | Сборка |
 | Pinia 2.1 | State management |
 | vue-router 4 | Роутинг |
 | Axios | HTTP-клиент |
-| TipTap v2 | Rich-text редактор |
+| TipTap v3 | Rich-text редактор |
 | TipTap extensions | Table, CharacterCount, CodeBlockLowlight, Dropcursor, Underline, TextAlign, TaskList, Suggestion |
+| @tiptap/markdown | Markdown-парсер/сериализатор для TipTap |
+| mermaid | Рендер диаграмм в Tech Docs из блоков `mermaid` |
 | lowlight v3 + highlight.js | Подсветка синтаксиса в code blocks |
 | tippy.js | Поповеры для slash-меню редактора |
 | vue-chartjs / Chart.js 4 | Графики |

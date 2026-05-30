@@ -11,7 +11,6 @@ import 'vuetify/styles'
 // Composables
 import {createVuetify } from 'vuetify'
 import {md3} from "vuetify/blueprints";
-import { VTreeview } from 'vuetify/labs/VTreeview'
 
 let theme = 'light'
 const userTheme = localStorage.getItem('useTheme')
@@ -26,7 +25,6 @@ if(userTheme && userTheme !== 'system')
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
   blueprint: md3,
-  components: { VTreeview },
   styles: {
     configFile: 'src/styles/settings.scss',
   },
@@ -49,4 +47,3 @@ export default createVuetify({
     defaultTheme: theme,
   },
 })
-

@@ -97,22 +97,6 @@
     </v-card-title>
     <v-divider />
     <v-card-text>
-      <div v-if="(plan.case_ids || []).length" class="mb-3">
-        <div class="text-caption text-medium-emphasis mb-1">Current individual cases</div>
-        <div class="d-flex flex-wrap ga-1">
-          <v-chip
-            v-for="cid in plan.case_ids"
-            :key="cid"
-            size="small"
-            closable
-            @click:close="$emit('remove-case', cid)"
-          >
-            {{ caseMap[cid]?.title || cid }}
-          </v-chip>
-        </div>
-      </div>
-      <v-divider v-if="(plan.case_ids || []).length" class="mb-3" />
-
       <v-select
         v-model="localCaseSourceSuites"
         :items="allSuites"

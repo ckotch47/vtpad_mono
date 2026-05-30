@@ -31,7 +31,12 @@
     <v-container fluid>
       <v-row>
         <v-col cols="12" md="8">
-          <plan-cases-list :cases="cases" @view-case="openCaseDialog" />
+          <plan-cases-list
+            :cases="cases"
+            :removable-ids="plan.case_ids || []"
+            @view-case="openCaseDialog"
+            @remove-case="removeCase"
+          />
         </v-col>
         <v-col cols="12" md="4">
           <plan-sources-panel

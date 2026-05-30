@@ -24,6 +24,17 @@
               {{ tc.suite.name }}
             </span>
           </v-list-item-subtitle>
+          <template #append>
+            <v-btn
+              v-if="removableIds.includes(tc.id)"
+              icon="mdi-close"
+              size="x-small"
+              variant="text"
+              color="error"
+              density="compact"
+              @click.stop="$emit('remove-case', tc.id)"
+            />
+          </template>
         </v-list-item>
       </v-list>
       <v-empty-state
@@ -37,10 +48,11 @@
 
 <script setup>
 defineProps({
-  cases: { type: Array, default: () => [] }
+  cases: { type: Array, default: () => [] },
+  removableIds: { type: Array, default: () => [] }
 })
 
-defineEmits(['view-case'])
+defineEmits(['view-case', 'remove-case'])
 
 function typeIcon(type) {
   const map = { manual: 'mdi-hand-back-right-outline', checklist: 'mdi-check-box-outline', automated: 'mdi-robot' }

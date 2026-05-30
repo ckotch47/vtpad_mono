@@ -26,18 +26,14 @@ export function useTestPlanDetail() {
   const selectedCases = ref([])
   const caseSearch = ref('')
   const savingCases = ref(false)
+  const searchDebounce = ref(null)
 
   const caseDialogOpen = ref(false)
   const selectedCase = ref(null)
 
   const filteredAvailableCases = computed(() => {
-    const q = caseSearch.value.toLowerCase().trim()
     const plannedIds = new Set((plan.value.case_ids || []))
-    let list = availableCases.value.filter(tc => !plannedIds.has(tc.id))
-    if (q) {
-      list = list.filter(tc => tc.title?.toLowerCase().includes(q))
-    }
-    return list
+    return availableCases.value.filter(tc => !plannedIds.has(tc.id))
   })
 
   const caseMap = computed(() => {
@@ -67,15 +63,20 @@ export function useTestPlanDetail() {
     }
   }
 
+  async function doLoadCases(page, search) {
+    const res = await testCaseService.listBySpace(spaceId.value, {
+      page,
+      page_size: CASES_PAGE_SIZE,
+      search: search || undefined,
+    })
+    return res.data.items || []
+  }
+
   async function loadMoreCases() {
     if (loadingCases.value || !casesHasMore.value) return
     loadingCases.value = true
     try {
-      const res = await testCaseService.listBySpace(spaceId.value, {
-        page: casesPage.value,
-        page_size: CASES_PAGE_SIZE,
-      })
-      const items = res.data.items || []
+      const items = await doLoadCases(casesPage.value, caseSearch.value)
       availableCases.value.push(...items)
       casesPage.value += 1
       if (items.length < CASES_PAGE_SIZE) {
@@ -87,6 +88,30 @@ export function useTestPlanDetail() {
       loadingCases.value = false
     }
   }
+
+  async function reloadCasesWithSearch() {
+    clearTimeout(searchDebounce.value)
+    searchDebounce.value = setTimeout(async () => {
+      availableCases.value = []
+      casesPage.value = 1
+      casesHasMore.value = true
+      loadingCases.value = true
+      try {
+        const items = await doLoadCases(1, caseSearch.value)
+        availableCases.value = items
+        casesPage.value = 2
+        if (items.length < CASES_PAGE_SIZE) {
+          casesHasMore.value = false
+        }
+      } catch (e) {
+        log.error('reloadCasesWithSearch failed', e)
+      } finally {
+        loadingCases.value = false
+      }
+    }, 300)
+  }
+
+  watch(caseSearch, reloadCasesWithSearch)
 
   async function removeCase(caseId) {
     const current = (plan.value.case_ids || []).filter(id => id !== caseId)

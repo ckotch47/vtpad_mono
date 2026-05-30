@@ -1,0 +1,7 @@
+{
+  "data": [
+    "ALTER TABLE test_plan ADD COLUMN IF NOT EXISTS suite_ids JSONB DEFAULT '[]'::jsonb",
+    "ALTER TABLE test_plan ADD COLUMN IF NOT EXISTS section_ids JSONB DEFAULT '[]'::jsonb",
+    "ALTER TABLE test_plan ADD COLUMN IF NOT EXISTS case_ids JSONB DEFAULT '[]'::jsonb"
+  ]
+}

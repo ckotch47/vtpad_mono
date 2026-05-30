@@ -137,11 +137,11 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     # server start
 
-    # from .migration import migration
-    # from .migration import init as migration_init
-    # await migration_init()
+    from .migration import migration
+    from .migration import init as migration_init
+    await migration_init()
 
-    # await migration.run_migration()
+    await migration.run_migration()
     yield
     # server stop
 

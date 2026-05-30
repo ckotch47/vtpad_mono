@@ -31,7 +31,7 @@
         <span class="text-caption text-medium-emphasis">{{ localSelectedCases.length }} selected</span>
       </div>
 
-      <v-list density="compact" style="max-height: 280px; overflow-y: auto;">
+      <v-list density="compact" style="max-height: 320px; overflow-y: auto;">
         <v-list-item
           v-for="tc in filteredAvailableCases"
           :key="tc.id"
@@ -50,6 +50,22 @@
             <span v-if="tc.suite" class="text-caption text-medium-emphasis ml-1">{{ tc.suite.name }}</span>
             <span v-else class="text-caption text-medium-emphasis ml-1">No suite</span>
           </v-list-item-subtitle>
+        </v-list-item>
+
+        <v-list-item v-if="loadingCases" class="justify-center">
+          <v-progress-circular indeterminate size="24" color="primary" />
+        </v-list-item>
+
+        <v-list-item v-else-if="casesHasMore" class="justify-center pa-0">
+          <v-btn
+            v-element-visibility="loadMoreCases"
+            variant="text"
+            size="small"
+            block
+            @click="loadMoreCases"
+          >
+            Load more
+          </v-btn>
         </v-list-item>
       </v-list>
     </v-card-text>
@@ -84,10 +100,12 @@
 
 <script setup>
 import { computed } from 'vue'
+import { vElementVisibility } from '@vueuse/components'
 
 const props = defineProps({
   plan: { type: Object, required: true },
-  allCases: { type: Array, default: () => [] },
+  loadingCases: { type: Boolean, default: false },
+  casesHasMore: { type: Boolean, default: false },
   selectedCases: { type: Array, default: () => [] },
   caseSearch: { type: String, default: '' },
   savingCases: { type: Boolean, default: false },
@@ -102,6 +120,7 @@ const emit = defineEmits([
   'add-cases',
   'select-all-available',
   'deselect-all',
+  'load-more-cases',
 ])
 
 const localCaseSearch = computed({
@@ -113,6 +132,10 @@ const localSelectedCases = computed({
   get: () => props.selectedCases,
   set: (v) => emit('update:selectedCases', v),
 })
+
+function loadMoreCases() {
+  emit('load-more-cases')
+}
 
 function typeColor(type) {
   const map = { manual: 'info', checklist: 'success', automated: 'warning' }

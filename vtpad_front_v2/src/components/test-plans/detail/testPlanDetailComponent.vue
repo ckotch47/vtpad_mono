@@ -41,7 +41,8 @@
         <v-col cols="12" md="4">
           <plan-sources-panel
             :plan="plan"
-            :all-cases="allCases"
+            :loading-cases="loadingCases"
+            :cases-has-more="casesHasMore"
             v-model:selected-cases="selectedCases"
             v-model:case-search="caseSearch"
             :saving-cases="savingCases"
@@ -51,6 +52,7 @@
             @add-cases="addIndividualCases"
             @select-all-available="selectAllAvailable"
             @deselect-all="deselectAll"
+            @load-more-cases="loadMoreCases"
           />
         </v-col>
       </v-row>
@@ -73,7 +75,8 @@ const {
   cases,
   runs,
   loader,
-  allCases,
+  loadingCases,
+  casesHasMore,
   selectedCases,
   caseSearch,
   savingCases,
@@ -81,6 +84,8 @@ const {
   caseMap,
   caseDialogOpen,
   selectedCase,
+  loadPlan,
+  loadMoreCases,
   removeCase,
   isCaseInPlan,
   addIndividualCases,

@@ -3,6 +3,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { testPlanService, testCaseService, testRunService } from '@/services'
 import { useLogger } from './useLogger'
 
+const CASES_PAGE_SIZE = 50
+
 export function useTestPlanDetail() {
   const log = useLogger('useTestPlanDetail')
   const route = useRoute()
@@ -16,7 +18,11 @@ export function useTestPlanDetail() {
   const runs = ref([])
   const loader = ref(true)
 
-  const allCases = ref([])
+  const availableCases = ref([])
+  const casesPage = ref(1)
+  const casesHasMore = ref(true)
+  const loadingCases = ref(false)
+
   const selectedCases = ref([])
   const caseSearch = ref('')
   const savingCases = ref(false)
@@ -27,7 +33,7 @@ export function useTestPlanDetail() {
   const filteredAvailableCases = computed(() => {
     const q = caseSearch.value.toLowerCase().trim()
     const plannedIds = new Set((plan.value.case_ids || []))
-    let list = allCases.value.filter(tc => !plannedIds.has(tc.id))
+    let list = availableCases.value.filter(tc => !plannedIds.has(tc.id))
     if (q) {
       list = list.filter(tc => tc.title?.toLowerCase().includes(q))
     }
@@ -61,12 +67,24 @@ export function useTestPlanDetail() {
     }
   }
 
-  async function loadAllCases() {
+  async function loadMoreCases() {
+    if (loadingCases.value || !casesHasMore.value) return
+    loadingCases.value = true
     try {
-      const res = await testCaseService.listBySpace(spaceId.value, { page: 1, page_size: 1000 })
-      allCases.value = res.data.items || []
+      const res = await testCaseService.listBySpace(spaceId.value, {
+        page: casesPage.value,
+        page_size: CASES_PAGE_SIZE,
+      })
+      const items = res.data.items || []
+      availableCases.value.push(...items)
+      casesPage.value += 1
+      if (items.length < CASES_PAGE_SIZE) {
+        casesHasMore.value = false
+      }
     } catch (e) {
-      log.error('loadAllCases failed', e)
+      log.error('loadMoreCases failed', e)
+    } finally {
+      loadingCases.value = false
     }
   }
 
@@ -151,7 +169,7 @@ export function useTestPlanDetail() {
 
   function init() {
     loadPlan()
-    loadAllCases()
+    loadMoreCases()
   }
 
   return {
@@ -161,7 +179,10 @@ export function useTestPlanDetail() {
     cases,
     runs,
     loader,
-    allCases,
+    availableCases,
+    casesPage,
+    casesHasMore,
+    loadingCases,
     selectedCases,
     caseSearch,
     savingCases,
@@ -170,6 +191,7 @@ export function useTestPlanDetail() {
     caseDialogOpen,
     selectedCase,
     loadPlan,
+    loadMoreCases,
     removeCase,
     isCaseInPlan,
     addIndividualCases,

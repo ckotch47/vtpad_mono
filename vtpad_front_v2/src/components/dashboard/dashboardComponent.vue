@@ -4,12 +4,12 @@
   </div>
 
   <div v-else>
-    <v-container fluid class="pb-0">
-      <h1 class="text-h4 font-weight-bold">Dashboard</h1>
+    <v-container class="mx-auto custom-container max-width-1500 pb-0">
+      <page-header-component title="Dashboard" />
     </v-container>
 
     <!-- Stats Cards -->
-    <v-container fluid>
+    <v-container class="mx-auto custom-container max-width-1500">
       <v-row>
         <v-col cols="6" md="3">
           <v-card variant="outlined">
@@ -220,6 +220,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { analyticsService } from '@/services'
+import PageHeaderComponent from '@/components/common/pageHeaderComponent.vue'
 
 const log = useLogger('app')
 const route = useRoute()

@@ -3,24 +3,37 @@
     <v-progress-linear color="primary" indeterminate />
   </div>
 
-  <div class="fab_btn">
-    <v-fab color="info" icon="mdi-plus" @click="createBug" />
-  </div>
+  <page-header-component title="Bugs" />
 
-  <div class="d-flex justify-end">
-    <v-btn class="my-2" variant="outlined" text="Filter" @click="isModalFilter = true" />
-
-    <bugs-modal-filter-component
-      v-if="isModalFilter"
-      :is-active="isModalFilter"
-      :filter="filter"
-      :filter-param="filterParam"
-      :settings="settings"
-      @closeModalEmit="isModalFilter = false"
-      @changeFilterFromModalEmit="changeFilter"
-      @changeSettingsFromModalEmit="changeSettings"
+  <v-toolbar density="compact" class="list-toolbar ">
+    <v-text-field
+      v-model="search"
+      prepend-inner-icon="mdi-magnify"
+      label="Search bugs"
+      density="compact"
+      hide-details
+      variant="solo"
+      class="mx-2 list-filter-search"
+      clearable
+      @update:model-value="onSearch"
     />
-  </div>
+    <v-spacer />
+    <v-btn variant="outlined" text="Filter" @click="isModalFilter = true" />
+    <v-btn color="primary" prepend-icon="mdi-plus" class="ml-2" @click="createBug">
+      New Bug
+    </v-btn>
+  </v-toolbar>
+
+  <bugs-modal-filter-component
+    v-if="isModalFilter"
+    :is-active="isModalFilter"
+    :filter="filter"
+    :filter-param="filterParam"
+    :settings="settings"
+    @closeModalEmit="isModalFilter = false"
+    @changeFilterFromModalEmit="changeFilter"
+    @changeSettingsFromModalEmit="changeSettings"
+  />
 
   <bugs-data-table
     v-if="!loader"
@@ -63,6 +76,7 @@ import { useAppStore } from '@/stores/app'
 import { bugService } from '@/services'
 import BugsModalComponent from '@/components/bugs/modal/bugsModalComponent.vue'
 import BugsDataTable from './BugsDataTable.vue'
+import PageHeaderComponent from '@/components/common/pageHeaderComponent.vue'
 
 const route = useRoute()
 const store = useAppStore()
@@ -76,6 +90,8 @@ const props = defineProps({
 const dialog = ref(false)
 const isModalFilter = ref(false)
 const desserts = ref([])
+const search = ref('')
+const searchDebounce = ref(null)
 
 const loader = ref(true)
 const isInfiniteScroll = ref(true)
@@ -158,6 +174,7 @@ function openPage() {
     order_arrow: 'DESC',
     show_closed: false,
     tag: [],
+    title: undefined,
     skip: 0,
     limit: itemPerPage.value
   }
@@ -222,6 +239,13 @@ function changeSettings(event, name) {
   localStorage.setItem('bugsTableSettings', JSON.stringify(settings.value))
 }
 
+function onSearch() {
+  clearTimeout(searchDebounce.value)
+  searchDebounce.value = setTimeout(() => {
+    changeFilter(search.value || undefined, 'title')
+  }, 400)
+}
+
 function clickTag(tagId) {
   const tmp = filterParam.value.tag.findIndex(value => value === tagId)
   if (tmp !== -1) {
@@ -256,17 +280,15 @@ function updateBugInList(bug) {
 }
 </script>
 
-<style lang="scss">
-.fab_btn {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  position: fixed;
-  bottom: 5px;
-  right: 60px;
-  height: 120px;
-  .v-fab__container {
-    bottom: 0;
-  }
+<style scoped>
+.list-toolbar {
+  gap: 8px;
 }
+
+.list-filter-search {
+  max-width: 320px;
+}
+</style>
+
+<style scoped lang="scss">
 </style>

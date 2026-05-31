@@ -129,6 +129,11 @@ class BugsService:
             params.append(patterns)
             sql += f"AND external_link ~~ ANY(${next_param()}::text[]) "
 
+        if b_filter.q:
+            params.append(f"%{b_filter.q}%")
+            p = next_param()
+            sql += f"AND (bugsmodel.title ILIKE ${p} OR bugsmodel.short_name ILIKE ${p}) "
+
         return sql
 
     @staticmethod

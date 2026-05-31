@@ -112,7 +112,9 @@ function newComment() {
 }
 
 async function getHistory() {
-  history.value = (await commentService.list(props.bugItem.id)).data.reverse()
+  const bugId = openBugElem.value?.id || props.bugItem?.id
+  if (!bugId) return
+  history.value = (await commentService.list(bugId)).data.reverse()
 }
 
 function updateBug(bug) {

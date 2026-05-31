@@ -174,7 +174,7 @@ function openPage() {
     order_arrow: 'DESC',
     show_closed: false,
     tag: [],
-    title: undefined,
+    q: undefined,
     skip: 0,
     limit: itemPerPage.value
   }
@@ -242,7 +242,7 @@ function changeSettings(event, name) {
 function onSearch() {
   clearTimeout(searchDebounce.value)
   searchDebounce.value = setTimeout(() => {
-    changeFilter(search.value || undefined, 'title')
+    changeFilter(search.value || undefined, 'q')
   }, 400)
 }
 

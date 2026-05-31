@@ -89,6 +89,26 @@ const editor = ref(null)
 const editorCustomRef = ref(null)
 const editorCustomTextRef = ref(null)
 
+function getEditorHTML() {
+  return editor.value?.getHTML() || ''
+}
+
+function getEditorMarkdown() {
+  return editor.value?.getMarkdown?.() || ''
+}
+
+function setEditorContent(content, contentType = 'html') {
+  if (!editor.value) return
+  editor.value.commands.setContent(content || '', { contentType })
+}
+
+defineExpose({
+  editor,
+  getEditorHTML,
+  getEditorMarkdown,
+  setEditorContent
+})
+
 function isProbablyHtml(value) {
   return /<\/?[a-z][\s\S]*>/i.test(value || '')
 }

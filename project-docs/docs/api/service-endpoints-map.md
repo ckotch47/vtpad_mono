@@ -121,6 +121,8 @@
 | DELETE | `/api/v1/bugs/{bug_id}/tag/{tag_id}` | JWT | удаление tag из bug |
 | GET | `/api/v1/bugs/state-enum` | JWT | enum статусов |
 
+Параметры фильтра для `GET /api/v1/bugs` включают `q` (поиск по `title` и `short_name`), а также существующие фильтры (`state`, `assigner_id`, `create_user`, `tag`, `external_link`, `create_date*`, `estimate_date*`, `order_*`, `skip`, `limit`).
+
 ### Bug Comments
 
 | Method | Path | Auth/Access | Примечания |

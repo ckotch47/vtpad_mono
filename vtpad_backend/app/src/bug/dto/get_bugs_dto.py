@@ -31,6 +31,7 @@ class GetBugsDto:
             order_arrow: Union[str, None] = 'ASC',
             show_closed: Union[bool, None] = None,
             tag: Union[list[str], None] = Query(default=None),
+            q: Union[str, None] = None,
             skip: int = 0,
             limit: int = 100
     ):
@@ -59,3 +60,4 @@ class GetBugsDto:
         self.order_arrow = order_arrow
         self.show_closed = show_closed
         self.tag = tag
+        self.q = q

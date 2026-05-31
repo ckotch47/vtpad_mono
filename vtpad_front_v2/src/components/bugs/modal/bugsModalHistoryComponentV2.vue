@@ -10,14 +10,14 @@
     </v-tabs>
 
     <v-tabs-window v-model="historyTabValue">
-      <v-tabs-window-item value="0">
+      <v-tabs-window-item :value="0">
         <bugs-modal-history-list-component
           :events="history.filter(value => value.view === 'comment')"
           @editComment="editComment"
         />
       </v-tabs-window-item>
 
-      <v-tabs-window-item value="1">
+      <v-tabs-window-item :value="1">
         <bugs-modal-history-list-component
           :events="history"
           @editComment="editComment"
@@ -38,7 +38,7 @@ defineProps({
 
 const emit = defineEmits(['editComment'])
 
-const historyTabValue = ref(null)
+const historyTabValue = ref(0)
 
 function editComment(comment) {
   emit('editComment', comment)

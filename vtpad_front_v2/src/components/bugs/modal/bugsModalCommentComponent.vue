@@ -39,14 +39,20 @@ watch(() => props.edit, (val) => {
 }, { immediate: true })
 
 async function updateComment() {
+  if (!props.comment?.id) return
+
+  const text = newCommentRef.value?.getEditorHTML?.()
+  if (!text) return
+
   await commentService.update(props.comment.id, {
-    text: newCommentRef.value?.$data?.editor?.getHTML()
+    text
   })
   isEdit.value = false
   emit('newComment')
 }
 
 async function deleteComment() {
+  if (!props.comment?.id) return
   await commentService.delete(props.comment.id)
   isEdit.value = false
   emit('newComment')
@@ -57,12 +63,16 @@ async function newComment() {
     await updateComment()
     return
   }
-  if (newCommentRef.value?.$data?.editor?.getHTML() === '<p></p>') return
+  if (!props.bug?.id) return
+
+  const text = newCommentRef.value?.getEditorHTML?.()
+  if (!text || text === '<p></p>') return
+
   await commentService.create(props.bug.id, {
-    text: newCommentRef.value?.$data?.editor?.getHTML()
+    text
   })
   emit('newComment')
-  newCommentRef.value?.$data?.editor?.commands.setContent('<p></p>')
+  newCommentRef.value?.setEditorContent?.('<p></p>', 'html')
 }
 </script>
 

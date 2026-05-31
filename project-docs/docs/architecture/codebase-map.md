@@ -67,6 +67,8 @@ sequenceDiagram
 ## UI базовый стандарт (таблицы)
 
 - Для новых списков используем визуальный паттерн `test-suites`: `v-toolbar` + `v-data-table-server` без дополнительных глобальных оберток.
+- Для core QA-списков (`test-suites`, `test-runs`, `test-cases`) зафиксирован единый toolbar-паттерн: search-поле (`max-width: 320px`), компактные селекты фильтров (`max-width: 160px`), CTA справа.
+- Для всех верхних tab-layout (`spaces`, `spacesSettings`, `spacesReport`, `company`, `profile`) active-tab синхронизируется через watch по `route.meta.tabValue`, чтобы визуальный state не рассинхронизировался при программной навигации.
 - Кастомные table-обертки добавлять только при явной UX-задаче, чтобы сохранить единый вид страниц.
 - Для index-страниц space-разделов используем единый контейнер: `v-container.mx-auto.custom-container.max-width-1500`.
 - Для `tech-docs` используется тот же контейнер ширины; внутри отдельный split-layout (sidebar/content) с поиском по дереву и breadcrumbs текущей страницы.

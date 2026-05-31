@@ -8,9 +8,9 @@
     />
 
     <div class="color-picker w-25">
-      <div style="position:relative; display:inline-block; cursor: pointer">
+      <div class="overlay-picker-wrap">
         <custom-chip-component :color="tag.color" :text="tag.title ?? 'Color'" />
-        <input v-model="tag.color" type="color" style="opacity:0; position:absolute; left:0;top:0;width:100%">
+        <input v-model="tag.color" type="color" class="overlay-picker-input">
       </div>
 
       <v-btn text="Save" variant="outlined" color="primary" @click="updateTag" />
@@ -46,4 +46,16 @@ function updateTag() {
 </script>
 
 <style scoped>
+.overlay-picker-wrap {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.overlay-picker-input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
 </style>

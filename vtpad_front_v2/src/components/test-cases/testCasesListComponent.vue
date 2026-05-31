@@ -1,6 +1,6 @@
 <template>
   <div>
-    <v-toolbar density="compact">
+    <v-toolbar density="compact" class="list-toolbar">
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
@@ -8,9 +8,8 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
+        class="mx-2 list-filter-search"
         clearable
-        style="max-width: 260px"
         @update:model-value="onSearch"
       />
       <v-select
@@ -22,8 +21,7 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
-        style="max-width: 140px"
+        class="mx-2 list-filter-sm"
         @update:model-value="onFilterChange"
       />
       <v-select
@@ -35,8 +33,7 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
-        style="max-width: 140px"
+        class="mx-2 list-filter-sm"
         @update:model-value="onFilterChange"
       />
       <v-select
@@ -48,8 +45,7 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
-        style="max-width: 140px"
+        class="mx-2 list-filter-sm"
         @update:model-value="onFilterChange"
       />
       <v-spacer />
@@ -154,7 +150,7 @@ const firstLoad = ref(true)
 const search = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
-  const filterSuite = ref('')
+const filterSuite = ref('')
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
@@ -167,7 +163,6 @@ const headers = [
   { title: 'Title', key: 'title', sortable: true },
   { title: 'Type', key: 'type', width: '120px', sortable: true },
   { title: 'Status', key: 'status', width: '120px', sortable: true },
-  { title: 'Suite', key: 'suite_name', sortable: false },
   { title: 'Suite', key: 'suite', sortable: false },
   { title: 'Short Name', key: 'short_name', sortable: true },
   { title: 'Updated', key: 'updated_at', width: '150px', sortable: true },
@@ -205,7 +200,7 @@ function doLoadCases(options) {
   if (search.value) query.search = search.value
   if (filterType.value) query.type = filterType.value
   if (filterStatus.value) query.status = filterStatus.value
-      if (filterSuite.value) query.suite_id = filterSuite.value
+  if (filterSuite.value) query.suite_id = filterSuite.value
   if (sortKey !== 'created_at' || sortOrder !== 'desc') {
     query.sort_by = sortKey
     query.sort_order = sortOrder
@@ -220,7 +215,6 @@ function doLoadCases(options) {
     search: search.value || undefined,
     type: filterType.value || undefined,
     status: filterStatus.value || undefined,
-    suite_id: filterSuite.value || undefined,
     suite_id: filterSuite.value || undefined
   }).then(res => {
     cases.value = res.data.items || res.data
@@ -298,3 +292,17 @@ function formatDate(date) {
   return date ? new Date(date).toLocaleDateString() : ''
 }
 </script>
+
+<style scoped>
+.list-toolbar {
+  gap: 8px;
+}
+
+.list-filter-search {
+  max-width: 320px;
+}
+
+.list-filter-sm {
+  max-width: 160px;
+}
+</style>

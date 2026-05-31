@@ -16,13 +16,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const spaceId = ref(route.params?.spaceId)
 const tab = ref(route.meta?.tabValue)
+
+watch(() => route.params?.spaceId, (val) => {
+  spaceId.value = val
+})
+watch(() => route.meta?.tabValue, (val) => {
+  tab.value = val
+})
 </script>
 
 <style scoped>
+.rounded-0_custom :deep(.v-tab) {
+  text-transform: none;
+}
 </style>

@@ -7,9 +7,9 @@
       class="text-field my-4 w-75"
     />
     <div class="color-picker w-25">
-      <div style="position:relative; display:inline-block; cursor: pointer">
+      <div class="overlay-picker-wrap">
         <custom-chip-component :color="colorValue" :text="titleValue ?? 'Color'" />
-        <input v-model="colorValue" type="color" style="opacity:0; position:absolute; left:0;top:0;width:100%">
+        <input v-model="colorValue" type="color" class="overlay-picker-input">
       </div>
 
       <v-btn text="Save" variant="outlined" color="primary" @click="createTag" />
@@ -41,6 +41,17 @@ function createTag() {
 }
 </script>
 
-<style lang="scss">
-.btn-tag--color {}
+<style scoped lang="scss">
+.overlay-picker-wrap {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.overlay-picker-input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <v-toolbar density="compact">
+    <v-toolbar density="compact" class="list-toolbar">
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
@@ -8,9 +8,8 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
+        class="mx-2 list-filter-search"
         clearable
-        style="max-width: 260px"
         @update:model-value="onSearch"
       />
       <v-select
@@ -22,8 +21,7 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
-        style="max-width: 140px"
+        class="mx-2 list-filter-sm"
         @update:model-value="onFilterChange"
       />
       <v-spacer />
@@ -246,3 +244,17 @@ function formatDate(date) {
   return date ? new Date(date).toLocaleDateString() : ''
 }
 </script>
+
+<style scoped>
+.list-toolbar {
+  gap: 8px;
+}
+
+.list-filter-search {
+  max-width: 320px;
+}
+
+.list-filter-sm {
+  max-width: 160px;
+}
+</style>

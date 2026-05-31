@@ -1,15 +1,14 @@
 <template>
-  <div style="position:relative; display:inline-block; cursor: pointer">
+  <div class="overlay-picker-wrap">
     <v-btn class="user-right--btn" text="Right" color="amber" />
     <v-select
       v-model="selectRight"
-      class="show-one"
+      class="show-one overlay-picker-input"
       :items="right"
       item-value="name"
       item-title="title"
       variant="underlined"
       multiple
-      style="opacity:0; position:absolute; left:0;top:0;width:100%"
       @update:modelValue="updateRight"
     />
   </div>
@@ -73,4 +72,16 @@ function updateRight() {
 </script>
 
 <style scoped>
+.overlay-picker-wrap {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.overlay-picker-input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
 </style>

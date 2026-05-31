@@ -1,6 +1,6 @@
 <template>
   <div>
-    <v-toolbar density="compact">
+    <v-toolbar density="compact" class="list-toolbar">
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
@@ -8,7 +8,7 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2"
+        class="mx-2 list-filter-search"
         clearable
         @update:model-value="onSearch"
       />
@@ -30,8 +30,10 @@
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-runs/${item.id}`)"
     >
       <template v-slot:item.status="{ item }">
-        <v-icon :color="statusColor(item.status)">{{ statusIcon(item.status) }}</v-icon>
-        <span class="ml-1 text-capitalize">{{ item.status }}</span>
+        <v-chip size="small" :color="statusColor(item.status)">
+          <v-icon start size="x-small">{{ statusIcon(item.status) }}</v-icon>
+          <span class="text-capitalize">{{ item.status }}</span>
+        </v-chip>
       </template>
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
@@ -180,3 +182,13 @@ function deleteRun(item) {
   })
 }
 </script>
+
+<style scoped>
+.list-toolbar {
+  gap: 8px;
+}
+
+.list-filter-search {
+  max-width: 320px;
+}
+</style>

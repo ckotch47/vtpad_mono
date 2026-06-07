@@ -19,13 +19,14 @@
 
 | Библиотека | Назначение |
 |---|---|
-| FastAPI 0.115.5 | Веб-фреймворк |
+| FastAPI 0.136.1 | Веб-фреймворк |
 | Tortoise ORM 0.21.7 | Async ORM для PostgreSQL |
-| Pydantic v2 | Валидация данных |
+| Pydantic 2.11.7 | Валидация данных |
 | python-jose + passlib | JWT и хеширование паролей |
 | redis (asyncio) | Клиент Redis |
 | fastapi-mail | SMTP-уведомления (опционально) |
 | prometheus-fastapi-instrumentator | Метрики |
+| Starlette 0.49.3 | ASGI-основа FastAPI, совместимая с `fastapi-mail` 1.4.1 |
 
 ## Frontend зависимости (Node)
 

@@ -95,7 +95,18 @@ class TestCaseService:
         elif suite_id:
             q = q.filter(suite_id=suite_id)
         if search:
-            q = q.filter(Q(title__icontains=search) | Q(short_name__icontains=search))
+            search_q = (
+                Q(title__icontains=search)
+                | Q(short_name__icontains=search)
+                | Q(text__icontains=search)
+                | Q(steps__icontains=search)
+                | Q(expected_results__icontains=search)
+                | Q(preconditions__icontains=search)
+                | Q(postconditions__icontains=search)
+                | Q(external_id__icontains=search)
+                | Q(link__icontains=search)
+            )
+            q = q.filter(search_q)
 
         return await paginate(q, page, page_size, sort_by, sort_order)
 

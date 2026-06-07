@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testSuiteService, sectionService, testCaseService, testRunService } from '@/services'
 
@@ -22,6 +22,7 @@ export function useTestSuiteDetail() {
   const existingCases = ref([])
   const selectedExistingCases = ref([])
   const existingCaseSearch = ref('')
+  const existingSearchDebounce = ref(null)
   const newCase = ref({ title: '', type: 'manual', steps: '' })
   const creatingCase = ref(false)
   const sectionDialog = ref({
@@ -48,7 +49,22 @@ export function useTestSuiteDetail() {
   const filteredExistingCases = computed(() => {
     const q = existingCaseSearch.value.toLowerCase().trim()
     if (!q) return existingCases.value
-    return existingCases.value.filter(tc => tc.title?.toLowerCase().includes(q))
+    return existingCases.value.filter(tc => {
+      const haystack = [
+        tc.title,
+        tc.short_name,
+        tc.text,
+        tc.steps,
+        tc.expected_results,
+        tc.preconditions,
+        tc.postconditions,
+        tc.external_id,
+        tc.link,
+        tc.type,
+        tc.status,
+      ].filter(Boolean).join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
   })
 
   function loadSuite() {
@@ -93,6 +109,9 @@ export function useTestSuiteDetail() {
   function loadTestCases(sectionId) {
     testCaseService.listBySection(sectionId).then(res => {
       testCases.value = res.data
+      if (openAddExistingCase.value) {
+        loadExistingCases(existingCaseSearch.value)
+      }
     })
   }
 
@@ -179,12 +198,26 @@ export function useTestSuiteDetail() {
     })
   }
 
-  function loadExistingCases() {
-    testCaseService.listBySpace(spaceId.value).then(res => {
+  function loadExistingCases(search = '') {
+    testCaseService.listBySpace(spaceId.value, {
+      search: search || undefined,
+      page: 1,
+      page_size: 500,
+    }).then(res => {
       const currentIds = new Set(testCases.value.map(tc => tc.id))
-      existingCases.value = res.data.filter(tc => !currentIds.has(tc.id))
+      existingCases.value = (res.data.items || []).filter(tc => !currentIds.has(tc.id))
       selectedExistingCases.value = []
+    }).catch(() => {
+      existingCases.value = []
     })
+  }
+
+  function scheduleExistingCasesLoad() {
+    if (!openAddExistingCase.value) return
+    clearTimeout(existingSearchDebounce.value)
+    existingSearchDebounce.value = setTimeout(() => {
+      loadExistingCases(existingCaseSearch.value)
+    }, 250)
   }
 
   function addExistingCases() {
@@ -242,6 +275,16 @@ export function useTestSuiteDetail() {
     loadSections()
     loadAllCases()
   }
+
+  watch(openAddExistingCase, (open) => {
+    if (open) {
+      loadExistingCases(existingCaseSearch.value)
+    } else {
+      clearTimeout(existingSearchDebounce.value)
+    }
+  })
+
+  watch(existingCaseSearch, scheduleExistingCasesLoad)
 
   return {
     spaceId,

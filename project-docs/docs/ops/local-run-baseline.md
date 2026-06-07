@@ -78,3 +78,5 @@ docker compose up --build docs
 - `vtpad_front_v2/package.json`
 - `vtpad_front_v2/Dockerfile`
 - `vtpad_front_v2/vite.config.mjs`
+
+- Frontend Dockerfile uses `npm ci` with retries and offline preference to reduce transient registry timeouts during build.

@@ -21,7 +21,13 @@ ENV npm_config_fetch_retry_maxtimeout=120000
 # install and cache app dependencies
 COPY package.json /src/package.json
 COPY package-lock.json /src/package-lock.json
-RUN npm ci
+RUN set -eux; \
+    for attempt in 1 2 3; do \
+      npm ci --prefer-offline --no-audit --no-fund --no-progress && break; \
+      if [ "$attempt" = "3" ]; then exit 1; fi; \
+      echo "npm ci failed, retrying in 10s (attempt $attempt/3)"; \
+      sleep 10; \
+    done
 
 COPY ./.env /src/.env
 COPY ./ /src

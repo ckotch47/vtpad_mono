@@ -38,6 +38,7 @@ docker compose -f docker-compose.app-only.yml up -d --build
 Для этого варианта `vtpad_backend/.env` должен указывать на доступные внешние `db_host` и `redis_host`, потому что сами PostgreSQL и Redis в compose не стартуют.
 Корневой `.env` нужен для подстановки `DOMAIN_EXT` в traefik labels.
 Backend в compose читает `vtpad_backend/.env`, смонтированный в контейнер как `/app/.env`.
+Образ backend кладет код в `/app/app`, чтобы `uvicorn app.main:app` находил пакет `app` внутри контейнера.
 
 ### Локально (Python)
 

@@ -22,6 +22,8 @@
 | FastAPI 0.136.1 | Веб-фреймворк |
 | Tortoise ORM 0.21.7 | Async ORM для PostgreSQL |
 | Pydantic 2.11.7 | Валидация данных |
+| python-dotenv 1.1.1 | `.env`-конфигурация для `pydantic-settings` и `fastmcp` |
+| python-multipart 0.0.32 | Multipart/form-data для upload/form endpoints и совместимость с `fastmcp-slim` |
 | python-jose + passlib | JWT и хеширование паролей |
 | redis (asyncio) | Клиент Redis |
 | fastapi-mail | SMTP-уведомления (опционально) |

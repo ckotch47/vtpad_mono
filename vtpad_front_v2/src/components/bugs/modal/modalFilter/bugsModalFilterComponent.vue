@@ -31,6 +31,7 @@
           </div>
 
           <v-checkbox label="Not assigner" :model-value="filterParam.not_assigner" @update:modelValue="changeFilter($event, 'not_assigner')" />
+          <v-checkbox label="Show closed" :model-value="filterParam.show_closed" @update:modelValue="changeFilter($event, 'show_closed')" />
         </div>
         <v-divider />
         <div class="my-4">

@@ -37,13 +37,16 @@ class CommentBugService:
 
     @staticmethod
     async def create_comment(bug_id: str, data: CreateCommentDto, user: dict, background_tasks: BackgroundTasks):
+        bug = await BugsModel.filter(id=bug_id).get_or_none()
+        if not bug:
+            raise HTTPException(status_code=404, detail="not found")
+
         temp = await CommentModel.create(
             create_date=datetime.datetime.now(),
             user_id=user.get('id'),
             bug_id=uuid.UUID(bug_id),
             text=data.text
         )
-        bug = await BugsModel.filter(id=bug_id).get()
 
         try:
             if bug.create_user_id and str(bug.create_user_id) != str(user.get('id')):

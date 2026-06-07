@@ -30,10 +30,11 @@
 ## Исправленные дефекты
 
 1. `PUT /api/v1/comment/{comment_id}` теперь возвращает `404`, если комментарий не найден, вместо `500`.
-2. `PATCH /api/v2/bugs/{bug_id}` и `PUT /api/v1/bugs/{bug_id}` теперь сначала проверяют существование бага и возвращают `404`, если id не найден.
-3. Обновление бага теперь допускает пустые строковые значения для редактируемых полей и корректно обрабатывает `tags=[]` как очистку тегов.
-4. Background tasks для уведомлений теперь пропускают пустой `assigner_id`/`create_user_id` и не падают на UUID conversion.
-5. Bugs list filtering now respects `show_closed`; when enabled, `HOLD` and `CLOSED` are no longer excluded by default.
+2. `POST /api/v1/comment/{bug_id}` теперь возвращает `404`, если bug не существует, до создания комментария.
+3. `PATCH /api/v2/bugs/{bug_id}` и `PUT /api/v1/bugs/{bug_id}` теперь сначала проверяют существование бага и возвращают `404`, если id не найден.
+4. Обновление бага теперь допускает пустые строковые значения для редактируемых полей и корректно обрабатывает `tags=[]` как очистку тегов.
+5. Background tasks для уведомлений теперь пропускают пустой `assigner_id`/`create_user_id` и не падают на UUID conversion.
+6. Bugs list filtering now respects `show_closed`; when enabled, `HOLD` and `CLOSED` are no longer excluded by default.
 
 ## Источники в коде
 

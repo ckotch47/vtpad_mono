@@ -62,6 +62,8 @@ class NotificationService:
 
     @staticmethod
     async def update_state_bug(dto: CreateNotificationDto):
+        if not dto.user:
+            return None
         try:
             return await NotificationModel.create(
                 user_id=dto.user,

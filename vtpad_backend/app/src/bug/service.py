@@ -119,11 +119,12 @@ class BugsService:
             params.append([s.upper() for s in b_filter.state])
             sql += f"AND state = ANY(${next_param()}::text[]) "
 
-        state_list = b_filter.state or []
-        if 'HOLD' not in state_list:
-            sql += "AND state != 'HOLD' "
-        if 'CLOSED' not in state_list:
-            sql += "AND state != 'CLOSED' "
+        if not b_filter.show_closed:
+            state_list = b_filter.state or []
+            if 'HOLD' not in state_list:
+                sql += "AND state != 'HOLD' "
+            if 'CLOSED' not in state_list:
+                sql += "AND state != 'CLOSED' "
 
         if b_filter.estimate_date:
             params.append(b_filter.estimate_date)

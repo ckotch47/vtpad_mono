@@ -11,14 +11,20 @@ WORKDIR /src
 
 # add `/app/node_modules/.bin` to $PATH
 ENV PATH /src/node_modules/.bin:$PATH
+ENV npm_config_audit=false
+ENV npm_config_fund=false
+ENV npm_config_fetch_timeout=600000
+ENV npm_config_fetch_retries=5
+ENV npm_config_fetch_retry_mintimeout=20000
+ENV npm_config_fetch_retry_maxtimeout=120000
 
-COPY ./ /src
-COPY ./.env /src/.env
 # install and cache app dependencies
 COPY package.json /src/package.json
 COPY package-lock.json /src/package-lock.json
-
 RUN npm ci
+
+COPY ./.env /src/.env
+COPY ./ /src
+
 RUN npm i -g serve
 RUN npm run build
-

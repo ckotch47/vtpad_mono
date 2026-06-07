@@ -76,4 +76,5 @@ docker compose up --build docs
 - `vtpad_backend/docker-compose.dev.yml`
 - `docker-compose.app-only.yml`
 - `vtpad_front_v2/package.json`
+- `vtpad_front_v2/Dockerfile`
 - `vtpad_front_v2/vite.config.mjs`

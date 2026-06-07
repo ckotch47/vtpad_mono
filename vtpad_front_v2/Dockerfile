@@ -1,5 +1,5 @@
 # base image
-FROM node:20.10.0
+FROM node:20.20.0
 
 RUN mkdir /src && chown node:node /src
 RUN mkdir /src/node_modules/ && chmod -R 777 /src/node_modules/

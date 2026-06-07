@@ -79,4 +79,4 @@ docker compose up --build docs
 - `vtpad_front_v2/Dockerfile`
 - `vtpad_front_v2/vite.config.mjs`
 
-- Frontend Dockerfile uses `npm ci` with retries and offline preference to reduce transient registry timeouts during build.
+- Frontend Dockerfile uses `node:20.20.0-slim` plus `npm ci` retries, offline preference, and reduced network concurrency to reduce transient registry timeouts and build footprint.

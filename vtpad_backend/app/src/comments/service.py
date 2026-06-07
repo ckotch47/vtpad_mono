@@ -46,11 +46,11 @@ class CommentBugService:
         bug = await BugsModel.filter(id=bug_id).get()
 
         try:
-            if str(bug.create_user_id) != str(user.get('id')):
+            if bug.create_user_id and str(bug.create_user_id) != str(user.get('id')):
                 background_tasks.add_task(NotificationService.update_state_bug,
                                           CommentBugService.create_notification(bug, bug.__getattribute__('create_user_id'), data.text))
 
-            if str(bug.assigner_id) != str(user.get('id')):
+            if bug.assigner_id and str(bug.assigner_id) != str(user.get('id')):
                 background_tasks.add_task(NotificationService.update_state_bug,
                                           CommentBugService.create_notification(bug, bug.__getattribute__('assigner_id'), data.text))
         except Exception as e:
@@ -94,7 +94,9 @@ class CommentBugService:
 
     @staticmethod
     async def update_comment(comment_id: str, data: UpdateCommentDto, user: dict):
-        temp = (await CommentModel.filter(id=comment_id))[0]
+        temp = await CommentModel.filter(id=comment_id).get_or_none()
+        if not temp:
+            raise HTTPException(status_code=404, detail="not found")
 
         if str(temp.__getattribute__('user_id')) != str(user.get('id')):
             raise HTTPException(status_code=403, detail="not have right")
@@ -105,7 +107,9 @@ class CommentBugService:
 
     @staticmethod
     async def delete_comment(comment_id: str, user: dict):
-        temp = await CommentModel.filter(id=comment_id).get()
+        temp = await CommentModel.filter(id=comment_id).get_or_none()
+        if not temp:
+            raise HTTPException(status_code=404, detail="not found")
         if str(temp.user_id) != str(user.get('id')):
             raise HTTPException(status_code=403, detail="not have right")
         await temp.delete()

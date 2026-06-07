@@ -245,7 +245,7 @@ app_utils.register_router(
 app.mount('/uploads', StaticFiles(directory="uploads"), name="uploads")
 
 # Mount MCP server
-app.mount('/v1', mcp_app)
+app.mount('/api/v1', mcp_app)
 
 
 

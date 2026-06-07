@@ -43,6 +43,19 @@ def parse_external_link(link: str):
 
 class BugsService:
     tag_service = TagService()
+
+    @staticmethod
+    async def _get_bug_or_404(bug_id: str):
+        try:
+            bug_uuid = uuid.UUID(bug_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=404, detail="not found")
+
+        bug = await BugsModel.filter(id=bug_uuid).get_or_none()
+        if not bug:
+            raise HTTPException(status_code=404, detail="not found")
+        return bug
+
     @staticmethod
     def _get_bug_select_sql():
         return (
@@ -291,14 +304,14 @@ class BugsService:
         payload = BugsService._build_bug_change_payload(tmp, field_name, new_value)
         event = EventNotificationEnum.assign if is_assigner_change else EventNotificationEnum.update
 
-        if str(tmp.assigner_id) != str(user.get('id')):
+        if tmp.assigner_id and str(tmp.assigner_id) != str(user.get('id')):
             background_tasks.add_task(
                 NotificationService.update_state_bug,
                 CreateNotificationDto(
                     user=str(tmp.assigner_id),
                     data=payload,
                     event=event))
-        if str(tmp.create_user_id) != str(user.get('id')):
+        if tmp.create_user_id and str(tmp.create_user_id) != str(user.get('id')):
             background_tasks.add_task(
                 NotificationService.update_state_bug,
                 CreateNotificationDto(
@@ -309,7 +322,7 @@ class BugsService:
     @staticmethod
     async def _apply_field_updates(bug, bug_id, user, tmp, dto, background_tasks):
         for field_name, new_value in dto:
-            if field_name != 'tags' and new_value and new_value != getattr(bug, field_name, None):
+            if field_name != 'tags' and new_value is not None and new_value != getattr(bug, field_name, None):
                 try:
                     await CommentBugService.create_history(
                         bug_id, user,
@@ -327,16 +340,13 @@ class BugsService:
 
     @staticmethod
     async def update_bug_v2(dto: UpdateBugDtoV2, bug_id: str, user: dict, background_tasks: BackgroundTasks):
+        bug = await BugsService._get_bug_or_404(bug_id)
         await BugsService.check_user_update_bug_v2(bug_id, user, dto.state)
-
-        bug = await BugsModel.filter(id=uuid.UUID(bug_id)).get()
-        if not bug:
-            raise HTTPException(status_code=404, detail="not found")
 
         tmp = bug
         await BugsService._apply_field_updates(bug, bug_id, user, tmp, dto, background_tasks)
 
-        if dto.tags:
+        if dto.tags is not None:
             await BugsService.update_tag_bug_list(dto.tags, bug_id)
 
         await bug.save()
@@ -386,7 +396,7 @@ class BugsService:
 
     @staticmethod
     def _send_assign_notification(temp, user, bug, background_tasks):
-        if str(bug.assigner_id) != str(temp.assigner) and str(bug.assigner_id) != str(user.get('id')):
+        if bug.assigner_id and str(bug.assigner_id) != str(temp.assigner) and str(bug.assigner_id) != str(user.get('id')):
             try:
                 background_tasks.add_task(
                     NotificationService.add_notification_assign,
@@ -401,7 +411,7 @@ class BugsService:
     def _send_state_change_notifications(temp, user, bug, background_tasks):
         if bug.state != temp.state:
             try:
-                if str(bug.assigner_id) != str(user.get('id')):
+                if bug.assigner_id and str(bug.assigner_id) != str(user.get('id')):
                     background_tasks.add_task(
                         NotificationService.update_state_bug,
                         CreateNotificationDto(
@@ -420,13 +430,14 @@ class BugsService:
 
     @staticmethod
     async def update_bug(bug: UpdateBugDto, bug_id: str, user: dict, background_tasks: BackgroundTasks):
+        temp = await BugsService._get_bug_or_404(bug_id)
+
         if bug.state == StateBugEnum.closed or bug.state == StateBugEnum.hold:
             await BugsService.check_user_for_update_bug_state_open_bug(bug_id, user)
 
         estimate_date = BugsService._prepare_estimate_date(bug.estimate_date)
-        temp = await BugsModel.filter(id=uuid.UUID(bug_id)).get()
 
-        await BugsModel.filter(id=uuid.UUID(bug_id)).update(
+        await BugsModel.filter(id=temp.id).update(
             update_date=datetime.now(),
             title=bug.title,
             steps=bug.steps,

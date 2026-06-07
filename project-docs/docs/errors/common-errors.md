@@ -24,10 +24,15 @@
 | `500` на фильтрации bugs | Raw SQL с hardcoded column name | `app/src/bug/service.py` |
 | В модалке бага не переключается вкладка History | Разный тип `value` у `v-tab` и `v-tabs-window-item` (`number` vs `string`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalHistoryComponentV2.vue` |
 | Комментарий в модалке бага не сохраняется | Отсутствует `bug.id` или отправляется пустой HTML (`<p></p>`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalCommentComponent.vue` |
+| `403` или лог-ошибка в уведомлениях при отсутствии assigner | Background task пытался создать notification с пустым `assigner_id` | `vtpad_backend/app/src/bug/service.py`, `vtpad_backend/app/src/comments/service.py` |
 | `401` после долгого простоя | Access token expired, refresh failed | `app/src/auth/service.py`, Redis |
-| `403` на space endpoints | Пользователь не добавлен в space | `app/src/common/right_guard.py` |
-| `404` на uploads | Файл отсутствует в `./uploads` | `vtpad_backend/uploads/` |
-| Frontend не подключается к API | Неверный `VITE_API_BASE_URL` | `vtpad_front_v2/.env` |
+
+## Исправленные дефекты
+
+1. `PUT /api/v1/comment/{comment_id}` теперь возвращает `404`, если комментарий не найден, вместо `500`.
+2. `PATCH /api/v2/bugs/{bug_id}` и `PUT /api/v1/bugs/{bug_id}` теперь сначала проверяют существование бага и возвращают `404`, если id не найден.
+3. Обновление бага теперь допускает пустые строковые значения для редактируемых полей и корректно обрабатывает `tags=[]` как очистку тегов.
+4. Background tasks для уведомлений теперь пропускают пустой `assigner_id`/`create_user_id` и не падают на UUID conversion.
 
 ## Источники в коде
 

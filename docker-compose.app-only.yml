@@ -1,0 +1,50 @@
+services:
+  backend:
+    container_name: vtpad_backend_app
+    build:
+      context: ./vtpad_backend
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: uvicorn app.main:app --host 0.0.0.0 --workers 2 --proxy-headers
+    #ports:
+    #  - "127.0.0.1:8000:8000"
+    volumes:
+      - ./vtpad_backend/uploads:/uploads
+      - ./vtpad_backend/.env:/app/.env:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.backend.rule=Host(`${DOMAIN_EXT}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend.priority=100"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    networks:
+      - proxy
+    restart: always
+
+  frontend:
+    container_name: vtpad_frontend_app
+    build:
+      context: ./vtpad_front_v2
+      dockerfile: Dockerfile
+    command: npm run prod
+    #depends_on:
+    #  - backend
+    #ports:
+    #  - "127.0.0.1:3000:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vtpad.rule=Host(`${DOMAIN_EXT}`) && !PathPrefix(`/api`)"
+      - "traefik.http.routers.vtpad.entrypoints=websecure"
+      - "traefik.http.routers.vtpad.tls.certresolver=myresolver"
+      - "traefik.http.services.vtpad.loadbalancer.server.port=3000"
+    networks:
+      - proxy
+    restart: always
+
+networks:
+  proxy:
+    external: true
+

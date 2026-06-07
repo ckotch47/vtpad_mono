@@ -13,6 +13,8 @@
 | Prometheus | — | Метрики backend | `app/main.py` (Instrumentator) |
 | LiteLLM Proxy | `ghcr.io/berriai/litellm:main-latest` | Единый OpenAI-совместимый прокси для локальных LLM через Ollama | `docker-compose.litellm.yaml`, `litellm/config.yaml` |
 
+- `docker-compose.app-only.yml` поднимает только backend/frontend и ожидает внешние PostgreSQL/Redis через `vtpad_backend/.env`; для traefik labels используется корневой `.env`.
+
 ## Backend зависимости (Python)
 
 | Библиотека | Назначение |

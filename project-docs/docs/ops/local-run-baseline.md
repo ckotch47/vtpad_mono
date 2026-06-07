@@ -22,6 +22,23 @@ docker-compose -f docker-compose.dev.yml up -d --build
 
 Backend доступен на `http://localhost:8000`.
 
+### App-only deployment
+
+Если PostgreSQL и Redis уже подняты отдельно, можно использовать compose только для приложений:
+
+```bash
+cd /Users/blant/PycharmProjects/vtpad
+docker compose -f docker-compose.app-only.yml up -d --build
+```
+
+Поднимет только:
+- backend на `http://localhost:8000`
+- frontend на `http://localhost:3000`
+
+Для этого варианта `vtpad_backend/.env` должен указывать на доступные внешние `db_host` и `redis_host`, потому что сами PostgreSQL и Redis в compose не стартуют.
+Корневой `.env` нужен для подстановки `DOMAIN_EXT` в traefik labels.
+Backend в compose читает `vtpad_backend/.env`, смонтированный в контейнер как `/app/.env`.
+
 ### Локально (Python)
 
 ```bash
@@ -56,5 +73,6 @@ docker compose up --build docs
 
 - `vtpad_backend/docker-compose.yml`
 - `vtpad_backend/docker-compose.dev.yml`
+- `docker-compose.app-only.yml`
 - `vtpad_front_v2/package.json`
 - `vtpad_front_v2/vite.config.mjs`

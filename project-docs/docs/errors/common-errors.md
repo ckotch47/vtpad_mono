@@ -35,6 +35,7 @@
 4. Обновление бага теперь допускает пустые строковые значения для редактируемых полей и корректно обрабатывает `tags=[]` как очистку тегов.
 5. Background tasks для уведомлений теперь пропускают пустой `assigner_id`/`create_user_id` и не падают на UUID conversion.
 6. Bugs list filtering now respects `show_closed`; when enabled, `HOLD` and `CLOSED` are no longer excluded by default.
+7. MCP `hard_delete_suite` now imports cascade helpers correctly and no longer fails with `name '_delete_case_cascade' is not defined`.
 
 ## Источники в коде
 

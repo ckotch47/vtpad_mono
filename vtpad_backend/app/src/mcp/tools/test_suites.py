@@ -5,6 +5,7 @@ from fastmcp.server.dependencies import get_http_request
 from ...api_token.service import ApiTokenService
 from ...test_case.model import TestCaseModel, TestCaseStatus, TestCaseType
 from ...test_case.service import TestCaseService
+from .test_cases import _delete_case_cascade, _delete_run_cascade
 from ...test_suite.model import TestSuiteModel
 from ...test_suite.service import TestSuiteService
 from ...section.model import SectionModel

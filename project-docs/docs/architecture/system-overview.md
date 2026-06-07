@@ -43,6 +43,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | `vtpad_backend` | `uvicorn` inside Docker | `:8000` | `docker-compose.yml` и `docker-compose.dev.yml`; CORS `allow_origins=['*']` |
 | `vtpad_front_v2` | `serve` (static) inside Docker | `:3000` | Dockerfile: build -> `serve -s dist` |
+| `vtpad_backend` + `vtpad_front_v2` | app-only Docker Compose | `:8000`, `:3000` | `docker-compose.app-only.yml`; только приложения, без PostgreSQL и Redis; traefik labels берут `DOMAIN_EXT` из корневого `.env` |
 | `PostgreSQL` | Docker service (compose) | `:5432` | Версия 14 (prod) / 13.3 (dev) |
 | `Redis` | Docker service (compose) | `:6379` | Версия 6 |
 
@@ -69,4 +70,5 @@ flowchart LR
 - `vtpad_backend/docker-compose.dev.yml`
 - `vtpad_front_v2/Dockerfile`
 - `vtpad_front_v2/docker-compose.yml`
+- `docker-compose.app-only.yml`
 - `vtpad_backend/app/src/common/config.py`

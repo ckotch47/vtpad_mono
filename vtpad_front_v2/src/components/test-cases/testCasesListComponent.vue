@@ -81,9 +81,13 @@
       <template v-slot:item.status="{ item }">
         <v-chip size="small" :color="statusColor(item.status)">{{ item.status }}</v-chip>
       </template>
-      <template v-slot:item.suite="{ item }">
-        <span v-if="item.suite" class="text-caption">{{ item.suite.name }}</span>
-        <span v-else class="text-caption text-medium-emphasis">—</span>
+      <template v-slot:item.short_name="{ item }">
+        <v-tooltip v-if="item.short_name" :text="item.short_name" location="top">
+          <template #activator="{ props }">
+            <span v-bind="props" class="short-name-cell">{{ item.short_name }}</span>
+          </template>
+        </v-tooltip>
+        <span v-else class="text-medium-emphasis">—</span>
       </template>
       <template v-slot:item.created_by="{ item }">
         <div v-if="item.created_by?.username" class="creator-cell">
@@ -172,10 +176,9 @@ const headers = [
   { title: 'Title', key: 'title', sortable: true },
   { title: 'Type', key: 'type', width: '120px', sortable: true },
   { title: 'Status', key: 'status', width: '120px', sortable: true },
-  { title: 'Suite', key: 'suite', sortable: false },
-  { title: 'Short Name', key: 'short_name', sortable: true },
+  { title: 'Short Name', key: 'short_name', width: '150px', sortable: true },
   { title: 'Create', key: 'created_by', width: '180px', sortable: false },
-  { title: 'Updated', key: 'updated_at', width: '150px', sortable: true },
+  { title: 'Updated', key: 'updated_at', width: '105px', sortable: true },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
 ]
 
@@ -324,6 +327,13 @@ function formatDate(date) {
 }
 
 .creator-cell span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.short-name-cell {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

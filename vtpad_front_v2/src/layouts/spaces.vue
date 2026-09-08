@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app class="space-layout">
     <v-tabs
       fixed-tabs
       align-tabs="start"
@@ -35,5 +35,10 @@ watch(() => route.meta?.tabValue, (val) => { tab.value = val })
 <style scoped>
 .rounded-0_custom :deep(.v-tab) {
   text-transform: none;
+}
+
+/* Keep standard space tabs centred despite the legacy .custom-container reset. */
+.space-layout :deep(.v-container.custom-container.max-width-1500) {
+  margin-inline: auto !important;
 }
 </style>

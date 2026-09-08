@@ -68,10 +68,12 @@ sequenceDiagram
 
 - Для новых списков используем визуальный паттерн `test-suites`: `v-toolbar` + `v-data-table-server` без дополнительных глобальных оберток.
 - Для core QA-списков (`test-suites`, `test-runs`, `test-cases`) зафиксирован единый toolbar-паттерн: search-поле (`max-width: 320px`), компактные селекты фильтров (`max-width: 160px`), CTA справа.
+- В списке `test-cases` приоритет у Title: Suite остаётся фильтром, Short Name обрезается в одну строку с подсказкой полного значения, а Updated занимает компактную колонку.
 - Для остальных рабочих списков (`bugs`, `test-plans`) используем тот же верхний action-bar паттерн: title слева, filter/actions справа, без плавающих FAB-кнопок.
 - Для всех верхних tab-layout (`spaces`, `spacesSettings`, `spacesReport`, `company`, `profile`) active-tab синхронизируется через watch по `route.meta.tabValue`, чтобы визуальный state не рассинхронизировался при программной навигации.
 - Кастомные table-обертки добавлять только при явной UX-задаче, чтобы сохранить единый вид страниц.
 - Для index-страниц space-разделов используем единый контейнер: `v-container.mx-auto.custom-container.max-width-1500`.
+- Layout `spaces` централизованно восстанавливает горизонтальное центрирование этого контейнера: глобальный legacy-сброс `.custom-container` не должен отменять ограничение ширины на обычных вкладках space.
 - Для `tech-docs` используется тот же контейнер ширины; внутри отдельный split-layout (sidebar/content) с поиском по дереву и breadcrumbs текущей страницы.
 - Для `tech-docs` sidebar-tree при открытии без `doc` в query сбрасывает внутренний скролл к началу списка.
 - Для `tech-docs` sidebar-дерево рендерится как управляемый `v-list` (иерархия с отступами), чтобы список гарантированно начинался сразу под поиском без layout-сдвигов `v-treeview`.

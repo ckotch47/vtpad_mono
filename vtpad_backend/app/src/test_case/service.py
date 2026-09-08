@@ -128,7 +128,9 @@ class TestCaseService:
 
     @staticmethod
     async def get_with_versions(testcase_id: str) -> dict:
-        testcase = await TestCaseService.get_by_id(testcase_id)
+        testcase = await TestCaseModel.get_or_none(id=testcase_id).prefetch_related('created_by')
+        if not testcase:
+            raise HTTPException(status_code=404, detail="Test case not found")
         return {
             'id': str(testcase.id),
             'title': testcase.title,
@@ -147,6 +149,10 @@ class TestCaseService:
             'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
             'section_id': str(testcase.section_id) if testcase.section_id else None,
             'created_by_id': str(testcase.created_by_id) if testcase.created_by_id else None,
+            'created_by': {
+                'id': str(testcase.created_by.id),
+                'username': testcase.created_by.username,
+            } if testcase.created_by else None,
             'created_at': testcase.created_at.isoformat() if testcase.created_at else None,
             'updated_at': testcase.updated_at.isoformat() if testcase.updated_at else None,
             'versions': await TestCaseService.get_versions(testcase_id),

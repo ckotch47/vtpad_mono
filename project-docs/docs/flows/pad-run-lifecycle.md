@@ -92,7 +92,7 @@ V2 test run — отдельный, современный поток для в�
 1. Создатель выбирает ровно один источник: test suite, test plan или хотя бы один testcase.
 2. `POST /api/v2/test-run/preview` возвращает точный состав и `source_hash`.
 3. `POST /api/v2/test-run` с этим hash повторно валидирует состав и атомарно создаёт run вместе с результатами и snapshots cases.
-4. Для active run исполнитель может менять только `not_run` в один из terminal-статусов: `passed`, `failed`, `blocked`, `skipped`. Круглый индикатор в UI — быстрый переход в `passed`; bulk-action работает по тому же правилу.
+4. В active run исполнитель может исправлять результат: круглый индикатор циклично переключает `not_run → passed → failed → blocked → skipped → not_run`, а диалог редактирования доступен для любого результата. Возврат в `not_run` очищает исполнителя и время выполнения; bulk-action допускает тот же статусный набор.
 5. У run есть атрибуты milestone и environment. Фильтрация списка поддерживается API.
 6. После завершения run его результаты неизменяемы. Устаревшие записи без snapshot показываются как legacy, без заявления об исторической точности.
 
@@ -103,9 +103,10 @@ stateDiagram-v2
     active --> completed
     state active {
         not_run --> passed
-        not_run --> failed
-        not_run --> blocked
-        not_run --> skipped
+        passed --> failed
+        failed --> blocked
+        blocked --> skipped
+        skipped --> not_run
     }
     completed --> [*]
 ```

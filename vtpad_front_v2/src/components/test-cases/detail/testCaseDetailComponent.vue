@@ -116,6 +116,10 @@
                       <v-list-item-subtitle>{{ formatDate(testcase.created_at) }}</v-list-item-subtitle>
                     </v-list-item>
                     <v-list-item>
+                      <v-list-item-title>Created by</v-list-item-title>
+                      <v-list-item-subtitle>{{ testcase.created_by?.username || '—' }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
                       <v-list-item-title>Updated</v-list-item-title>
                       <v-list-item-subtitle>{{ formatDate(testcase.updated_at) }}</v-list-item-subtitle>
                     </v-list-item>

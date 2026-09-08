@@ -402,16 +402,11 @@ class TestRunService:
 
 class TestResultService:
     @staticmethod
-    def _require_transition_from_not_run(result: TestResultModel, target_status: str):
+    def _parse_result_status(target_status: str) -> TestResultStatus:
         try:
-            target = TestResultStatus(target_status)
+            return TestResultStatus(target_status)
         except ValueError:
             raise HTTPException(status_code=422, detail="Unsupported test result status")
-        if target == TestResultStatus.not_run:
-            raise HTTPException(status_code=422, detail="Quick result updates must set a terminal status")
-        if result.status != TestResultStatus.not_run:
-            raise HTTPException(status_code=409, detail="Only not_run results may be updated through quick actions")
-        return target
 
     @staticmethod
     async def update_result(result_id: str, dto: TestResultUpdateDto, token: str, request: Request) -> TestResultModel:
@@ -426,12 +421,21 @@ class TestResultService:
             await check_user_into_space(str(run.space_id), request)
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
-            target_status = TestResultService._require_transition_from_not_run(result, dto.status)
             data = dto.model_dump(exclude_unset=True)
-            data = {key: value for key, value in data.items() if value is not None}
-            data['status'] = target_status
-            data['executed_by_id'] = user_id
-            data['executed_at'] = datetime.now(timezone.utc)
+            if data.get('status') is None:
+                data.pop('status', None)
+            if 'status' in data:
+                target_status = TestResultService._parse_result_status(data['status'])
+                data['status'] = target_status
+                if target_status != result.status:
+                    if target_status == TestResultStatus.not_run:
+                        data['executed_by_id'] = None
+                        data['executed_at'] = None
+                    else:
+                        data['executed_by_id'] = user_id
+                        data['executed_at'] = datetime.now(timezone.utc)
+            if not data:
+                return result
             await TestResultModel.filter(id=result_id).using_db(connection).update(**data)
         return await TestResultModel.get(id=result_id)
 
@@ -455,10 +459,14 @@ class TestResultService:
             await check_user_into_space(str(run.space_id), request)
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
-            for result in results:
-                TestResultService._require_transition_from_not_run(result, dto.status)
-            return await TestResultModel.filter(id__in=result_ids).using_db(connection).update(
-                status=TestResultStatus(dto.status),
-                executed_by_id=user_id,
-                executed_at=datetime.now(timezone.utc),
-            )
+            target_status = TestResultService._parse_result_status(dto.status)
+            update_data = {'status': target_status}
+            await TestResultModel.filter(id__in=result_ids).using_db(connection).update(**update_data)
+            changed_ids = [result.id for result in results if result.status != target_status]
+            if changed_ids:
+                if target_status == TestResultStatus.not_run:
+                    attribution_data = {'executed_by_id': None, 'executed_at': None}
+                else:
+                    attribution_data = {'executed_by_id': user_id, 'executed_at': datetime.now(timezone.utc)}
+                await TestResultModel.filter(id__in=changed_ids).using_db(connection).update(**attribution_data)
+            return len(result_ids)

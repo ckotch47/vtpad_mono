@@ -189,7 +189,7 @@ Current behavior constraints (synced with code):
 - `PATCH /api/v2/test-run/result/{result_id}`
 - `PATCH /api/v2/test-run/result/bulk`
 
-Run creation snapshots the selected test cases in the same transaction as the new results. A result can only leave `not_run` while its run is active.
+Run creation snapshots the selected test cases in the same transaction as the new results. Results can be corrected while their run is active; returning a result to `not_run` clears execution attribution and timestamp. The detail response for a testcase includes its nullable creator `{id, username}` without email.
 
 ### `app/src/test_case`
 - `GET /api/v2/test-case/{testcase_id}/versions`

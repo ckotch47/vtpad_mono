@@ -25,7 +25,7 @@ class TestRunUpdateDto(BaseModel):
 
 
 class TestResultUpdateDto(BaseModel):
-    status: str
+    status: Optional[str] = None
     duration_seconds: Optional[int] = None
     comment: Optional[str] = None
     linked_bug_ids: Optional[List[str]] = None
@@ -34,5 +34,4 @@ class TestResultUpdateDto(BaseModel):
 class TestResultBulkUpdateDto(BaseModel):
     result_ids: List[str]
     status: str
-
 

@@ -75,7 +75,7 @@
                       :value="result.id"
                       :aria-label="`Select ${result.testcase?.title || 'test case'}`"
                     />
-                    <v-tooltip :text="result.status === 'not_run' ? 'Mark test case as passed' : 'Only not-run test cases can be marked quickly'" location="top">
+                    <v-tooltip :text="`Change status to ${statusLabel(nextStatus(result.status))}`" location="top">
                       <template #activator="{ props: tooltipProps }">
                         <v-btn
                           v-bind="tooltipProps"
@@ -83,12 +83,10 @@
                           size="small"
                           variant="text"
                           :color="statusColor(result.status)"
-                          :loading="passingResultId === result.id"
-                          :disabled="run.status !== 'active' || result.status !== 'not_run' || passingResultId === result.id"
-                          :aria-label="result.status === 'not_run'
-                            ? `Mark ${result.testcase?.title || 'test case'} as passed`
-                            : `${result.testcase?.title || 'Test case'} is already executed`"
-                          @click.stop="markResultPassed(result)"
+                          :loading="updatingResultId === result.id"
+                          :disabled="run.status !== 'active' || updatingResultId === result.id"
+                          :aria-label="`Change ${result.testcase?.title || 'test case'} status to ${statusLabel(nextStatus(result.status))}`"
+                          @click.stop="cycleResultStatus(result)"
                         >
                           <v-icon>{{ statusIcon(result.status) }}</v-icon>
                         </v-btn>
@@ -143,8 +141,8 @@
                       icon
                       size="x-small"
                       variant="text"
-                      :disabled="run.status !== 'active' || result.status !== 'not_run'"
-                      :aria-label="result.status === 'not_run' ? `Update ${result.testcase?.title || 'test case'} result` : 'Executed result is immutable'"
+                      :disabled="run.status !== 'active'"
+                      :aria-label="`Update ${result.testcase?.title || 'test case'} result`"
                       @click="openResultModal(result)"
                     >
                       <v-icon>mdi-pencil</v-icon>
@@ -210,12 +208,13 @@ const bugModal = ref(false)
 const newBug = ref({ title: '', steps: '', expected: '', actual: '' })
 const caseDialogOpen = ref(false)
 const selectedCase = ref(null)
-const passingResultId = ref(null)
+const updatingResultId = ref(null)
 const resultFilter = ref('all')
 const selectedResultIds = ref([])
 const bulkStatus = ref('passed')
 const bulkUpdating = ref(false)
 const bulkStatuses = ['passed', 'failed', 'blocked', 'skipped']
+const resultStatusCycle = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
 
 const groupedResults = computed(() => {
   const map = {}
@@ -269,6 +268,7 @@ function completeRun() {
 function openResultModal(result) {
   editingResult.value = {
     ...result,
+    originalStatus: result.status,
     linked_bug_ids: result.linked_bug_ids || []
   }
   editModal.value = true
@@ -285,18 +285,49 @@ function testCaseHref(id) {
   return `/space/${spaceId.value}/test-cases/${id}`
 }
 
-async function markResultPassed(result) {
-  if (run.value.status !== 'active' || result.status !== 'not_run' || passingResultId.value === result.id) return
+function nextStatus(status) {
+  const currentIndex = resultStatusCycle.indexOf(status)
+  return resultStatusCycle[(currentIndex + 1) % resultStatusCycle.length]
+}
 
-  passingResultId.value = result.id
+function statusLabel(status) {
+  return {
+    not_run: 'not run',
+    passed: 'passed',
+    failed: 'failed',
+    blocked: 'blocked',
+    skipped: 'skipped'
+  }[status] || status
+}
+
+function applyResultUpdate(updatedResult) {
+  const { originalStatus, ...resultChanges } = updatedResult
+  const result = results.value.find((item) => item.id === resultChanges.id)
+  if (!result) return
+  const previousStatus = result.status
+  Object.assign(result, resultChanges)
+  if (previousStatus !== result.status) {
+    stats.value = {
+      ...stats.value,
+      [previousStatus]: Math.max(0, (stats.value[previousStatus] || 0) - 1),
+      [result.status]: (stats.value[result.status] || 0) + 1
+    }
+  }
+  selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((item) => item.id === id && item.status === 'not_run'))
+}
+
+async function cycleResultStatus(result) {
+  if (run.value.status !== 'active' || updatingResultId.value === result.id) return
+
+  const status = nextStatus(result.status)
+  updatingResultId.value = result.id
   try {
-    await testRunService.updateResult(result.id, { status: 'passed' })
-    result.status = 'passed'
-    await loadRun()
+    await testRunService.updateResult(result.id, { status })
+    applyResultUpdate({ id: result.id, status })
   } catch (error) {
-    log.error('failed to mark test result as passed', error)
+    log.error('failed to cycle test result status', error)
   } finally {
-    passingResultId.value = null
+    updatingResultId.value = null
   }
 }
 
@@ -316,16 +347,26 @@ async function bulkUpdateResults() {
   } catch (error) { log.error('failed to bulk update test results', error) } finally { bulkUpdating.value = false }
 }
 
-function saveResult() {
-  testRunService.updateResult(editingResult.value.id, {
-    status: editingResult.value.status,
-    duration_seconds: parseInt(editingResult.value.duration_seconds) || null,
+async function saveResult() {
+  const duration = editingResult.value.duration_seconds
+  const parsedDuration = duration === '' || duration === null || duration === undefined
+    ? null
+    : Number(duration)
+  const payload = {
+    duration_seconds: Number.isNaN(parsedDuration) ? null : parsedDuration,
     comment: editingResult.value.comment,
     linked_bug_ids: editingResult.value.linked_bug_ids
-  }).then(() => {
+  }
+  if (editingResult.value.status !== editingResult.value.originalStatus) {
+    payload.status = editingResult.value.status
+  }
+  try {
+    await testRunService.updateResult(editingResult.value.id, payload)
+    applyResultUpdate(editingResult.value)
     editModal.value = false
-    loadRun()
-  })
+  } catch (error) {
+    log.error('failed to update test result', error)
+  }
 }
 
 function openBugModal() {
@@ -339,6 +380,7 @@ function openBugModal() {
 }
 
 function createBug() {
+  let linkedBugIds = []
   bugService.create({
     title: newBug.value.title,
     text: newBug.value.actual,
@@ -347,14 +389,15 @@ function createBug() {
     state: 'OPEN'
   }).then(res => {
     const bugShortName = res.data.short_name
-    const bugs = [...(editingResult.value.linked_bug_ids || []), bugShortName]
+    linkedBugIds = [...(editingResult.value.linked_bug_ids || []), bugShortName]
     return testRunService.updateResult(editingResult.value.id, {
-      linked_bug_ids: bugs
+      linked_bug_ids: linkedBugIds
     })
   }).then(() => {
     bugModal.value = false
     editModal.value = false
-    loadRun()
+    editingResult.value.linked_bug_ids = linkedBugIds
+    applyResultUpdate(editingResult.value)
   }).catch(err => {
     console.error(err)
   })

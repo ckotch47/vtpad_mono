@@ -46,7 +46,9 @@ class TestSuiteService:
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
 
-        result = await paginate(q, page, page_size, sort_by, sort_order)
+        result = await paginate(
+            q.prefetch_related('created_by'), page, page_size, sort_by, sort_order
+        )
         items = result['items']
         suite_ids = [str(s.id) for s in items]
 
@@ -75,6 +77,10 @@ class TestSuiteService:
                     'sort': s.sort,
                     'space_id': str(s.space_id) if s.space_id else None,
                     'created_by_id': str(s.created_by_id) if s.created_by_id else None,
+                    'created_by': {
+                        'id': str(s.created_by.id),
+                        'username': s.created_by.username,
+                    } if s.created_by else None,
                     'created_at': s.created_at.isoformat() if s.created_at else None,
                     'updated_at': s.updated_at.isoformat() if s.updated_at else None,
                     'cases_count': case_counts.get(str(s.id), 0),

@@ -109,7 +109,44 @@ class TestCaseService:
             )
             q = q.filter(search_q)
 
-        return await paginate(q, page, page_size, sort_by, sort_order)
+        result = await paginate(
+            q.prefetch_related('suite', 'created_by'), page, page_size, sort_by, sort_order
+        )
+        return {
+            **result,
+            'items': [
+                {
+                    'id': str(testcase.id),
+                    'title': testcase.title,
+                    'text': testcase.text,
+                    'steps': testcase.steps,
+                    'expected_results': testcase.expected_results,
+                    'preconditions': testcase.preconditions,
+                    'postconditions': testcase.postconditions,
+                    'sort': testcase.sort,
+                    'short_name': testcase.short_name,
+                    'link': testcase.link,
+                    'type': testcase.type,
+                    'status': testcase.status,
+                    'external_id': testcase.external_id,
+                    'space_id': str(testcase.space_id),
+                    'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
+                    'suite': {
+                        'id': str(testcase.suite.id),
+                        'name': testcase.suite.name,
+                    } if testcase.suite else None,
+                    'section_id': str(testcase.section_id) if testcase.section_id else None,
+                    'created_by_id': str(testcase.created_by_id) if testcase.created_by_id else None,
+                    'created_by': {
+                        'id': str(testcase.created_by.id),
+                        'username': testcase.created_by.username,
+                    } if testcase.created_by else None,
+                    'created_at': testcase.created_at.isoformat() if testcase.created_at else None,
+                    'updated_at': testcase.updated_at.isoformat() if testcase.updated_at else None,
+                }
+                for testcase in result['items']
+            ],
+        }
 
     @staticmethod
     async def get_by_suite(suite_id: str) -> list[TestCaseModel]:

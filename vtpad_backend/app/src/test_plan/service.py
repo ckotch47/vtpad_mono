@@ -37,7 +37,30 @@ class TestPlanService:
         if search:
             q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
 
-        return await paginate(q, page, page_size, sort_by, sort_order)
+        result = await paginate(
+            q.prefetch_related('created_by'), page, page_size, sort_by, sort_order
+        )
+        return {
+            **result,
+            'items': [
+                {
+                    'id': str(plan.id),
+                    'name': plan.name,
+                    'description': plan.description,
+                    'suite_ids': plan.suite_ids or [],
+                    'case_ids': plan.case_ids or [],
+                    'space_id': str(plan.space_id),
+                    'created_by_id': str(plan.created_by_id) if plan.created_by_id else None,
+                    'created_by': {
+                        'id': str(plan.created_by.id),
+                        'username': plan.created_by.username,
+                    } if plan.created_by else None,
+                    'created_at': plan.created_at.isoformat() if plan.created_at else None,
+                    'updated_at': plan.updated_at.isoformat() if plan.updated_at else None,
+                }
+                for plan in result['items']
+            ],
+        }
 
     @staticmethod
     async def get_by_id(plan_id: str) -> TestPlanModel:

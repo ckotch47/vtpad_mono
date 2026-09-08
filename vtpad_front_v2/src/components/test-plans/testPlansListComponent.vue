@@ -38,6 +38,15 @@
       <template v-slot:item.description="{ item }">
         <span class="text-medium-emphasis">{{ item.description || '—' }}</span>
       </template>
+      <template v-slot:item.created_by="{ item }">
+        <div v-if="item.created_by?.username" class="creator-cell">
+          <v-avatar color="grey" size="24">
+            <span class="text-body-2">{{ item.created_by.username[0]?.toUpperCase() }}</span>
+          </v-avatar>
+          <span>{{ item.created_by.username }}</span>
+        </div>
+        <span v-else class="text-medium-emphasis">—</span>
+      </template>
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
@@ -91,6 +100,7 @@ const headers = computed(() => [
   { title: 'Name', key: 'name', sortable: false },
   { title: 'Cases', key: 'case_count', sortable: false, width: '120px' },
   { title: 'Description', key: 'description', sortable: false },
+  { title: 'Create', key: 'created_by', sortable: false, width: '180px' },
   { title: 'Created', key: 'created_at', sortable: false, width: '160px' },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
 ])
@@ -159,5 +169,18 @@ function formatDate(date) {
 
 .list-filter-search {
   max-width: 320px;
+}
+
+.creator-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.creator-cell span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

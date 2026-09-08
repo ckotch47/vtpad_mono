@@ -238,7 +238,7 @@ class TestRunService:
         if environment_id:
             q = q.filter(environment_id=environment_id)
 
-        q = q.prefetch_related('milestone', 'environment')
+        q = q.prefetch_related('milestone', 'environment', 'created_by')
         result = await paginate(q, page, page_size, sort_by, sort_order)
         items = result['items']
 
@@ -263,6 +263,11 @@ class TestRunService:
                         'id': str(r.environment.id),
                         'name': r.environment.name,
                     } if r.environment else None,
+                    'created_by_id': str(r.created_by_id) if r.created_by_id else None,
+                    'created_by': {
+                        'id': str(r.created_by.id),
+                        'username': r.created_by.username,
+                    } if r.created_by else None,
                     'created_at': r.created_at.isoformat() if r.created_at else None,
                 }
                 for r in items

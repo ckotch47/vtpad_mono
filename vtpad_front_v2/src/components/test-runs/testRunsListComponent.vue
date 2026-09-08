@@ -35,6 +35,15 @@
           <span class="text-capitalize">{{ item.status }}</span>
         </v-chip>
       </template>
+      <template v-slot:item.created_by="{ item }">
+        <div v-if="item.created_by?.username" class="creator-cell">
+          <v-avatar color="grey" size="24">
+            <span class="text-body-2">{{ item.created_by.username[0]?.toUpperCase() }}</span>
+          </v-avatar>
+          <span>{{ item.created_by.username }}</span>
+        </div>
+        <span v-else class="text-medium-emphasis">—</span>
+      </template>
       <template v-slot:item.created_at="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
@@ -153,6 +162,7 @@ function emptyRun() {
 const headers = [
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Status', key: 'status', width: '140px', sortable: true },
+  { title: 'Create', key: 'created_by', width: '180px', sortable: false },
   { title: 'Created', key: 'created_at', width: '150px', sortable: true },
   { title: 'Actions', key: 'actions', width: '100px', sortable: false }
 ]
@@ -275,5 +285,18 @@ function deleteRun(item) {
 
 .list-filter-search {
   max-width: 320px;
+}
+
+.creator-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.creator-cell span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

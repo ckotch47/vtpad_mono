@@ -37,7 +37,7 @@
 6. Bugs list filtering now respects `show_closed`; when enabled, `HOLD` and `CLOSED` are no longer excluded by default.
 7. MCP `hard_delete_suite` now imports cascade helpers correctly and no longer fails with `name '_delete_case_cascade' is not defined`.
 8. В деталях test run круглый индикатор результата циклично меняет статус без повторной загрузки страницы; чекбоксы видны у всех результатов и в active run позволяют массово назначить любой статус, включая `not_run`. Любой результат active run можно исправить через диалог. Изменение комментария или длительности не меняет исполнителя и время выполнения; отдельная ссылка открывает полный testcase в новой вкладке, не меняя текущий просмотр run.
-9. Tech Docs безопасно отображает длинный `Source URL`, не давая ему обрезать описание; редактор создаёт rich-text ссылки через структурированный TipTap content, а не через интерполяцию HTML.
+9. Tech Docs безопасно отображает длинный `Source URL` в одну строку с подсказкой полного значения, не давая ему обрезать описание; редактор создаёт rich-text ссылки через структурированный TipTap content, а не через интерполяцию HTML.
 10. V2 test run больше не создаётся по неявному "всем кейсам space": preview и create требуют ровно один явный непустой источник.
 11. Удаление testcase с историей выполнения переводит его в `deprecated`, сохраняя результаты и snapshots уже созданных runs.
 12. Списки test cases, test suites, test plans и test runs показывают имя создателя; у исторических записей без автора отображается `—`.

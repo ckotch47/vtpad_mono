@@ -27,17 +27,22 @@
     </v-toolbar>
     <v-divider />
     <v-card-text v-if="doc.source_url" class="pb-0">
-      <v-alert type="info" variant="tonal" density="compact" class="mb-2">
-        <a
-          v-if="safeSourceUrl"
-          :href="safeSourceUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="source-url text-decoration-none"
-        >
-          {{ doc.source_url }}
-        </a>
-        <span v-else class="source-url text-medium-emphasis">{{ doc.source_url }}</span>
+      <v-alert type="info" variant="tonal" density="compact" class="mb-2 source-url-alert">
+        <v-tooltip :text="doc.source_url" location="top">
+          <template #activator="{ props }">
+            <a
+              v-if="safeSourceUrl"
+              v-bind="props"
+              :href="safeSourceUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="source-url text-decoration-none"
+            >
+              {{ doc.source_url }}
+            </a>
+            <span v-else v-bind="props" class="source-url text-medium-emphasis">{{ doc.source_url }}</span>
+          </template>
+        </v-tooltip>
       </v-alert>
     </v-card-text>
     <v-card-text class="content-body">
@@ -304,10 +309,15 @@ onBeforeUnmount(() => {
   height: auto;
 }
 
+.source-url-alert :deep(.v-alert__content) {
+  min-width: 0;
+}
+
 .source-url {
-  display: inline;
+  display: block;
   max-width: 100%;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

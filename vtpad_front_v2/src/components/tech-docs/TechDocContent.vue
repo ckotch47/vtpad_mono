@@ -26,7 +26,7 @@
       <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="$emit('delete')" />
     </v-toolbar>
     <v-divider />
-    <v-card-text v-if="doc.source_url" class="pb-0">
+    <v-card-text v-if="doc.source_url" class="pb-0 source-url-section">
       <v-alert type="info" variant="tonal" density="compact" class="mb-2 source-url-alert">
         <v-tooltip :text="doc.source_url" location="top">
           <template #activator="{ props }">
@@ -291,9 +291,16 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
 }
+
+.source-url-section {
+  flex: 0 0 auto;
+}
+
 .content-body {
-  flex: 1;
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 20px 24px 28px;
 }
 

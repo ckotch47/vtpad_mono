@@ -70,9 +70,9 @@
                 <v-list-item :id="`result-${result.id}`" v-for="result in group.results" :key="result.id" class="result-item">
                   <template #prepend>
                     <v-checkbox-btn
-                      v-if="run.status === 'active' && result.status === 'not_run'"
                       v-model="selectedResultIds"
                       :value="result.id"
+                      :disabled="run.status !== 'active'"
                       :aria-label="`Select ${result.testcase?.title || 'test case'}`"
                     />
                     <v-tooltip :text="`Change status to ${statusLabel(nextStatus(result.status))}`" location="top">
@@ -213,7 +213,7 @@ const resultFilter = ref('all')
 const selectedResultIds = ref([])
 const bulkStatus = ref('passed')
 const bulkUpdating = ref(false)
-const bulkStatuses = ['passed', 'failed', 'blocked', 'skipped']
+const bulkStatuses = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
 const resultStatusCycle = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
 
 const groupedResults = computed(() => {
@@ -241,7 +241,7 @@ async function loadRun() {
     run.value = res.data.run
     stats.value = res.data.stats
     results.value = res.data.results
-    selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((result) => result.id === id && result.status === 'not_run'))
+    selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((result) => result.id === id))
   } finally { loader.value = false }
 }
 
@@ -313,7 +313,7 @@ function applyResultUpdate(updatedResult) {
       [result.status]: (stats.value[result.status] || 0) + 1
     }
   }
-  selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((item) => item.id === id && item.status === 'not_run'))
+  selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((item) => item.id === id))
 }
 
 async function cycleResultStatus(result) {
@@ -342,8 +342,10 @@ async function bulkUpdateResults() {
   bulkUpdating.value = true
   try {
     await testRunService.bulkUpdateResults({ result_ids: selectedResultIds.value, status: bulkStatus.value })
+    for (const resultId of selectedResultIds.value) {
+      applyResultUpdate({ id: resultId, status: bulkStatus.value })
+    }
     selectedResultIds.value = []
-    await loadRun()
   } catch (error) { log.error('failed to bulk update test results', error) } finally { bulkUpdating.value = false }
 }
 

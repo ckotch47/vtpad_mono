@@ -1,0 +1,15 @@
+{
+  "transactional": false,
+  "cleanup_invalid_indexes": [
+    "idx_test_result_run_status",
+    "idx_test_case_version_testcase_number",
+    "idx_tech_doc_test_case_link_space",
+    "idx_tech_doc_test_case_link_testcase"
+  ],
+  "data": [
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_test_result_run_status ON test_result (run_id, status)",
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_test_case_version_testcase_number ON test_case_version (testcase_id, version_number)",
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tech_doc_test_case_link_space ON tech_doc_test_case_link (space_id)",
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tech_doc_test_case_link_testcase ON tech_doc_test_case_link (testcase_id)"
+  ]
+}

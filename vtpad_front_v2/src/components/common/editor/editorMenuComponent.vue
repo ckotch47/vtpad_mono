@@ -484,6 +484,8 @@
             variant="outlined"
             hide-details="auto"
             class="mb-2"
+            :error-messages="linkError"
+            @update:model-value="linkError = ''"
             @keyup.enter="applyLink"
           />
           <v-text-field
@@ -524,6 +526,7 @@ const fileInput = ref(null)
 const linkDialog = ref(false)
 const linkUrl = ref('')
 const linkText = ref('')
+const linkError = ref('')
 const codeLanguages = [
   { title: 'Plain text', value: 'plaintext' },
   { title: 'Mermaid', value: 'mermaid' },
@@ -567,20 +570,39 @@ function openLinkDialog() {
   const previousUrl = props.editor.getAttributes('link').href
   linkUrl.value = previousUrl || ''
   linkText.value = ''
+  linkError.value = ''
   linkDialog.value = true
 }
 
 function applyLink() {
-  if (!linkUrl.value) {
+  const url = getSafeLinkUrl(linkUrl.value)
+  if (!linkUrl.value.trim()) {
     removeLink()
     return
   }
+  if (!url) {
+    linkError.value = 'Enter a valid http:// or https:// URL'
+    return
+  }
   if (linkText.value) {
-    props.editor.chain().focus().insertContent(`<a href="${linkUrl.value}">${linkText.value}</a>`).run()
+    props.editor.chain().focus().insertContent({
+      type: 'text',
+      text: linkText.value,
+      marks: [{ type: 'link', attrs: { href: url } }]
+    }).run()
   } else {
-    props.editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl.value }).run()
+    props.editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
   linkDialog.value = false
+}
+
+function getSafeLinkUrl(value) {
+  try {
+    const url = new URL(value.trim())
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null
+  } catch {
+    return null
+  }
 }
 
 function removeLink() {

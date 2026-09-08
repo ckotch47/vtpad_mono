@@ -127,11 +127,21 @@
                 <v-card-title>Versions</v-card-title>
                 <v-card-text>
                   <v-list density="compact">
-                    <v-list-item v-for="ver in versions" :key="ver.id">
+                    <v-list-item v-for="ver in versions" :key="ver.id" :active="selectedVersion?.id === ver.id" @click="selectVersion(ver)">
                       <v-list-item-title>v{{ ver.version_number }}</v-list-item-title>
                       <v-list-item-subtitle>{{ formatDate(ver.created_at) }}</v-list-item-subtitle>
+                      <template #append><v-btn icon="mdi-compare" size="x-small" variant="text" @click.stop="selectVersion(ver)" /></template>
                     </v-list-item>
+                    <v-list-item v-if="!versions.length" title="No saved versions" />
                   </v-list>
+                </v-card-text>
+              </v-card>
+
+              <v-card class="mt-4">
+                <v-card-title>Linked Tech Docs</v-card-title>
+                <v-card-text>
+                  <v-chip v-for="doc in techDocs" :key="doc.id" class="mr-1 mb-1" :to="`/space/${spaceId}/tech-docs?doc=${doc.id}`">{{ doc.title }}</v-chip>
+                  <span v-if="!techDocs.length" class="text-medium-emphasis">No linked documentation</span>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -168,6 +178,19 @@
         </v-window-item>
       </v-window>
     </v-container>
+
+    <v-dialog v-model="versionDialog" max-width="900">
+      <v-card v-if="selectedVersion">
+        <v-card-title class="d-flex align-center">Version {{ selectedVersion.version_number }}<v-spacer /><v-btn color="primary" :loading="restoringVersion" @click="restoreSelectedVersion">Restore as new version</v-btn></v-card-title>
+        <v-card-text>
+          <v-alert v-if="selectedVersion.legacy" type="info" variant="tonal" density="compact" class="mb-3">This historical record does not contain a complete snapshot.</v-alert>
+          <v-row>
+            <v-col cols="12" md="6"><div class="text-subtitle-2 mb-2">Current</div><pre class="version-diff">{{ comparableCase(testcase) }}</pre></v-col>
+            <v-col cols="12" md="6"><div class="text-subtitle-2 mb-2">Selected version</div><pre class="version-diff">{{ comparableCase(selectedVersion) }}</pre></v-col>
+          </v-row>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -178,6 +201,7 @@ import { useRoute } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
+import { testCaseService } from '@/services'
 
 const log = useLogger('app')
 const route = useRoute()
@@ -195,6 +219,10 @@ const historyTotal = ref(0)
 const historyPageSize = ref(25)
 const historyLoading = ref(false)
 const breadcrumbItems = ref([])
+const techDocs = ref([])
+const selectedVersion = ref(null)
+const versionDialog = ref(false)
+const restoringVersion = ref(false)
 
 const historyHeaders = computed(() => [
   { title: 'Run', key: 'run_name', sortable: false },
@@ -214,6 +242,27 @@ function loadCase() {
     ]
     loader.value = false
   }).catch(() => { loader.value = false })
+  testCaseService.getTechDocs(caseId).then((res) => { techDocs.value = res.data.items || res.data || [] }).catch(() => { techDocs.value = [] })
+}
+
+async function selectVersion(version) {
+  selectedVersion.value = version
+  versionDialog.value = true
+  try {
+    const response = await testCaseService.getVersion(caseId, version.id)
+    selectedVersion.value = { ...version, ...(response.data || {}) }
+  } catch (_) { /* list response is still useful on older deployments */ }
+}
+
+function comparableCase(value) {
+  const fields = ['title', 'preconditions', 'steps', 'expected_results', 'text']
+  return fields.map((field) => `${field}: ${value?.[field] || '—'}`).join('\n\n')
+}
+
+async function restoreSelectedVersion() {
+  if (!selectedVersion.value || !confirm(`Restore version ${selectedVersion.value.version_number} as a new version?`)) return
+  restoringVersion.value = true
+  try { await testCaseService.restoreVersion(caseId, selectedVersion.value.id); versionDialog.value = false; loadCase() } catch (error) { log.error('failed to restore test case version', error) } finally { restoringVersion.value = false }
 }
 
 async function loadRunHistory({ page, itemsPerPage }) {
@@ -254,3 +303,7 @@ onMounted(() => {
   loadCase()
 })
 </script>
+
+<style scoped>
+.version-diff { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: .8rem; }
+</style>

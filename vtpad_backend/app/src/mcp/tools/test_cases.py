@@ -22,8 +22,19 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
+
+
+async def _require_case_access(case_id: str):
+    testcase = await TestCaseService.get_by_id(case_id)
+    await check_user_into_space(str(testcase.space_id), get_http_request())
+    return testcase
+
+
+async def _require_space_access(space_id: str):
+    await check_user_into_space(space_id, get_http_request())
 
 
 @mcp.tool()
@@ -46,6 +57,7 @@ async def search_test_cases(
     Returns:
         List of test cases matching the query
     """
+    await _require_space_access(space_id)
     result = await TestCaseService.get_by_space(
         space_id=space_id,
         type_filter=type_filter,
@@ -69,7 +81,7 @@ async def get_test_case(case_id: str) -> dict | None:
         Test case details or None if not found
     """
     try:
-        case = await TestCaseService.get_by_id(case_id)
+        case = await _require_case_access(case_id)
         return _case_to_dict(case)
     except Exception as e:
         logger.error('Unexpected error: %s', e, exc_info=True)
@@ -111,6 +123,7 @@ async def create_test_case(
     """
     from ...test_case.dto import TestCaseCreateDto
 
+    await _require_space_access(space_id)
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
 
     dto = TestCaseCreateDto(
@@ -166,6 +179,7 @@ async def update_test_case(
     Returns:
         Updated test case details
     """
+    await _require_case_access(case_id)
     dto = TestCaseUpdateDto(
         title=title,
         text=description,
@@ -180,12 +194,13 @@ async def update_test_case(
         short_name=short_name,
         external_id=external_id,
     )
-    case = await TestCaseService.update(case_id, dto)
+    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    case = await TestCaseService.update(case_id, dto, token)
     return _case_to_dict(case)
 
 @mcp.tool()
 async def delete_test_case(case_id: str) -> dict:
-    """Delete a test case permanently.
+    """Delete a testcase, preserving execution history when it exists.
 
     Args:
         case_id: UUID of the test case
@@ -193,14 +208,15 @@ async def delete_test_case(case_id: str) -> dict:
     Returns:
         Success status
     """
+    await _require_case_access(case_id)
     await TestCaseService.delete(case_id)
     return {"deleted": True, "id": case_id}
 
 @mcp.tool()
 async def hard_delete_test_case(case_id: str) -> dict:
-    """Permanently delete a test case and all related results/step-results/embeddings.
+    """Apply canonical testcase deletion without destroying run history.
 
-    WARNING: This cannot be undone.
+    Cases referenced by runs become deprecated instead of being physically removed.
 
     Args:
         case_id: UUID of the test case
@@ -208,6 +224,7 @@ async def hard_delete_test_case(case_id: str) -> dict:
     Returns:
         Success status
     """
+    await _require_case_access(case_id)
     await _delete_case_cascade(case_id)
     return {"hard_deleted": True, "id": case_id}
 
@@ -223,6 +240,7 @@ async def duplicate_test_case(case_id: str) -> dict:
     Returns:
         Duplicated test case
     """
+    await _require_case_access(case_id)
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.duplicate(case_id, token)
     return _case_to_dict(case)
@@ -243,19 +261,16 @@ async def move_test_case(
     Returns:
         Updated test case
     """
+    await _require_case_access(case_id)
     dto = TestCaseUpdateDto(suite_id=suite_id, section_id=section_id)
-    case = await TestCaseService.update(case_id, dto)
+    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    case = await TestCaseService.update(case_id, dto, token)
     return _case_to_dict(case)
 
 
 async def _delete_case_cascade(case_id: str) -> None:
-    """Delete a test case and all related results, step results, and embeddings."""
-    await EmbeddingService.delete_embeddings('test_case', case_id)
-    results = await TestResultModel.filter(testcase_id=case_id).all()
-    result_ids = [str(r.id) for r in results]
-    if result_ids:
-        await TestResultModel.filter(id__in=result_ids).delete()
-    await TestCaseModel.filter(id=case_id).delete()
+    """Apply the canonical testcase deletion lifecycle without destroying run history."""
+    await TestCaseService.delete(case_id)
 
 
 async def _delete_run_cascade(run_id: str) -> None:
@@ -277,6 +292,7 @@ async def get_case_history(case_id: str, limit: int = 20) -> list[dict]:
     Returns:
         List of test results for this case
     """
+    await _require_case_access(case_id)
     results = await TestResultModel.filter(testcase_id=case_id).prefetch_related("run").order_by("-created_at").limit(limit)
     items = []
     for r in results:
@@ -307,7 +323,7 @@ async def find_similar_cases(
     Returns:
         List of similar cases with similarity scores
     """
-    case = await TestCaseService.get_by_id(case_id)
+    case = await _require_case_access(case_id)
     space_id = str(case.space_id)
 
     # Build query from case content
@@ -343,6 +359,7 @@ async def semantic_search_cases(
     Returns:
         List of matching cases with similarity scores
     """
+    await _require_space_access(space_id)
     results = await EmbeddingService.semantic_search(
         space_id=space_id,
         query=query,

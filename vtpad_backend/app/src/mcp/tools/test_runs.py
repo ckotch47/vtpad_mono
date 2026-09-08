@@ -22,6 +22,7 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,9 @@ async def create_test_run(
     Returns:
         Created test run details
     """
-    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    request = get_http_request()
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    await check_user_into_space(space_id, request)
     dto = TestRunCreateDto(
         space_id=space_id,
         suite_id=suite_id,
@@ -77,6 +80,9 @@ async def get_run_results(run_id: str) -> dict | None:
         Run details, stats, and results
     """
     try:
+        request = get_http_request()
+        run = await TestRunService.get_by_id(run_id)
+        await check_user_into_space(str(run.space_id), request)
         data = await TestRunService.get_with_results(run_id)
         return data
     except Exception as e:
@@ -107,7 +113,9 @@ async def update_test_result(
         comment=comment,
         duration_seconds=duration_seconds,
     )
-    result = await TestResultService.update_result(result_id, dto, token)
+    result = await TestResultService.update_result(
+        result_id, dto, token, get_http_request()
+    )
     return {
         "id": str(result.id),
         "status": result.status.value if hasattr(result.status, "value") else result.status,

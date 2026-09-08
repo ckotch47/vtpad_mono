@@ -1,0 +1,7 @@
+{
+  "data": [
+    "ALTER TABLE test_run ADD COLUMN IF NOT EXISTS source_snapshot JSONB",
+    "ALTER TABLE test_result ADD COLUMN IF NOT EXISTS testcase_snapshot JSONB",
+    "CREATE TABLE IF NOT EXISTS tech_doc_test_case_link (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), space_id UUID NOT NULL, tech_doc_id UUID NOT NULL REFERENCES tech_doc(id) ON DELETE CASCADE, testcase_id UUID NOT NULL REFERENCES test_case(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), CONSTRAINT uq_tech_doc_test_case_link UNIQUE (tech_doc_id, testcase_id))"
+  ]
+}

@@ -10,7 +10,10 @@ class TestRunCreateDto(BaseModel):
     plan_id: Optional[str] = None
     milestone_id: Optional[str] = None
     environment_id: Optional[str] = None
-    testcase_ids: Optional[List[str]] = None  # if None - all testcases from suite or plan
+    # Exactly one source is required: a suite, a plan, or an explicit non-empty
+    # list.  The service validates this rather than falling back to all cases.
+    testcase_ids: Optional[List[str]] = None
+    source_hash: Optional[str] = None
 
 
 class TestRunUpdateDto(BaseModel):
@@ -31,6 +34,5 @@ class TestResultUpdateDto(BaseModel):
 class TestResultBulkUpdateDto(BaseModel):
     result_ids: List[str]
     status: str
-
 
 

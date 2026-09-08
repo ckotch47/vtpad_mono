@@ -96,6 +96,27 @@
 | --- | --- | --- | --- |
 | PATCH | `/api/v1/runitems/{item_id}` | JWT | обновление статуса item |
 
+### V2 Test Management
+
+| Method | Path | Auth/Access | Примечания |
+| --- | --- | --- | --- |
+| POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с `source_hash` |
+| POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов; устаревший preview возвращает `409` |
+| GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id` |
+| GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
+| GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты и snapshot/legacy-признак |
+| PATCH | `/api/v2/test-run/{run_id}` | JWT + space check | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
+| POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | перевод run из `draft` в `active` |
+| POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | завершает active run |
+| PATCH | `/api/v2/test-run/result/{result_id}` | JWT + space check | единственный переход `not_run` в terminal status для active run |
+| PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массовый аналог перехода результата |
+| GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |
+| GET | `/api/v2/test-case/{testcase_id}/versions/{version_id}` | JWT + space check | конкретная версия testcase |
+| GET | `/api/v2/test-case/{testcase_id}/versions/diff` | JWT + space check | сравнение двух версий |
+| POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной |
+| GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
+| GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |
+
 ### Items (Pad Items)
 
 | Method | Path | Auth/Access | Примечания |

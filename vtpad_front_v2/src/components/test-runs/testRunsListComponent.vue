@@ -43,13 +43,19 @@
       </template>
     </v-data-table-server>
 
-    <v-dialog v-model="openCreate" max-width="500">
+    <v-dialog v-model="openCreate" max-width="760">
       <v-card>
         <v-card-title>Create Test Run</v-card-title>
         <v-card-text>
           <v-text-field v-model="newRun.name" label="Name" required autofocus />
           <v-textarea v-model="newRun.description" label="Description" rows="2" />
+          <v-btn-toggle v-model="newRun.sourceType" mandatory divided color="primary" class="mb-4">
+            <v-btn value="suite">Suite</v-btn>
+            <v-btn value="plan">Plan</v-btn>
+            <v-btn value="cases">Selected cases</v-btn>
+          </v-btn-toggle>
           <v-select
+            v-if="newRun.sourceType === 'suite'"
             v-model="newRun.suite_id"
             :items="suites"
             item-title="name"
@@ -57,11 +63,47 @@
             label="Test Suite"
             required
           />
+          <v-select
+            v-if="newRun.sourceType === 'plan'"
+            v-model="newRun.plan_id"
+            :items="plans"
+            item-title="name"
+            item-value="id"
+            label="Test Plan"
+            required
+          />
+          <v-autocomplete
+            v-if="newRun.sourceType === 'cases'"
+            v-model="newRun.testcase_ids"
+            :items="cases"
+            item-title="title"
+            item-value="id"
+            label="Test cases"
+            multiple
+            chips
+            closable-chips
+          />
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-select v-model="newRun.milestone_id" :items="milestones" item-title="title" item-value="id" label="Milestone" clearable />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-select v-model="newRun.environment_id" :items="environments" item-title="name" item-value="id" label="Environment" clearable />
+            </v-col>
+          </v-row>
+          <v-alert v-if="previewError" type="info" variant="tonal" density="compact" class="mb-2">
+            Preview is unavailable on this server. The selected source will be validated when the draft run is created.
+          </v-alert>
+          <v-alert v-else-if="preview" type="info" variant="tonal" density="compact" class="mb-2">
+            This run will include <strong>{{ preview.case_count ?? preview.total ?? preview.testcases?.length ?? 0 }}</strong> test cases.
+          </v-alert>
+          <v-alert v-if="createError" type="error" variant="tonal" density="compact" class="mb-2">{{ createError }}</v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openCreate = false">Cancel</v-btn>
-          <v-btn color="primary" @click="createRun">Create</v-btn>
+          <v-btn variant="text" :loading="previewLoading" @click="loadPreview">Preview</v-btn>
+          <v-btn color="primary" :disabled="!hasSource" :loading="creating" @click="createRun">Create draft</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -71,7 +113,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { testRunService, testSuiteService } from '@/services'
+import { testRunService, testSuiteService, testPlanService, testCaseService, milestoneService, environmentService } from '@/services'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
@@ -87,7 +129,26 @@ const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
 const suites = ref([])
-const newRun = ref({ name: '', description: '', suite_id: null })
+const plans = ref([])
+const cases = ref([])
+const milestones = ref([])
+const environments = ref([])
+const preview = ref(null)
+const previewError = ref(false)
+const previewLoading = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const newRun = ref(emptyRun())
+
+const hasSource = computed(() => {
+  if (newRun.value.sourceType === 'suite') return Boolean(newRun.value.suite_id)
+  if (newRun.value.sourceType === 'plan') return Boolean(newRun.value.plan_id)
+  return newRun.value.testcase_ids.length > 0
+})
+
+function emptyRun() {
+  return { name: '', description: '', sourceType: 'suite', suite_id: null, plan_id: null, testcase_ids: [], milestone_id: null, environment_id: null }
+}
 
 const headers = [
   { title: 'Name', key: 'name', sortable: true },
@@ -152,27 +213,51 @@ function formatDate(date) {
 }
 
 function openCreateDialog() {
-  newRun.value = { name: '', description: '', suite_id: null }
-  loadSuites()
+  newRun.value = emptyRun()
+  preview.value = null
+  previewError.value = false
+  createError.value = ''
+  loadCreateSources()
   openCreate.value = true
 }
 
-function loadSuites() {
-  testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 100, status: 'active' }).then(res => {
-    suites.value = res.data.items || []
-  })
+function loadCreateSources() {
+  testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 100, status: 'active' }).then(res => { suites.value = res.data.items || [] })
+  testPlanService.listBySpace(spaceId.value, { page: 1, page_size: 100 }).then(res => { plans.value = res.data.items || [] })
+  testCaseService.listBySpace(spaceId.value, { page: 1, page_size: 500, status: 'active' }).then(res => { cases.value = res.data.items || res.data || [] })
+  milestoneService.list(spaceId.value).then(res => { milestones.value = res.data.items || res.data || [] })
+  environmentService.list(spaceId.value).then(res => { environments.value = res.data.items || res.data || [] })
 }
 
-function createRun() {
-  testRunService.create({
-    name: newRun.value.name,
-    description: newRun.value.description,
-    suite_id: newRun.value.suite_id,
-    space_id: spaceId.value
-  }).then(() => {
+function payload(includeSourceHash = false) {
+  return {
+    name: newRun.value.name.trim() || 'Untitled test run', description: newRun.value.description || null,
+    space_id: spaceId.value,
+    suite_id: newRun.value.sourceType === 'suite' ? newRun.value.suite_id : null,
+    plan_id: newRun.value.sourceType === 'plan' ? newRun.value.plan_id : null,
+    testcase_ids: newRun.value.sourceType === 'cases' ? newRun.value.testcase_ids : null,
+    milestone_id: newRun.value.milestone_id || null, environment_id: newRun.value.environment_id || null,
+    ...(includeSourceHash && preview.value?.source_hash ? { source_hash: preview.value.source_hash } : {}),
+  }
+}
+
+async function loadPreview() {
+  if (!hasSource.value) return
+  previewLoading.value = true
+  previewError.value = false
+  try { preview.value = (await testRunService.preview(payload())).data } catch (_) { preview.value = null; previewError.value = true } finally { previewLoading.value = false }
+}
+
+async function createRun() {
+  creating.value = true
+  createError.value = ''
+  try {
+    await testRunService.create(payload(true))
     openCreate.value = false
     loadRuns({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] })
-  })
+  } catch (error) {
+    createError.value = error?.response?.data?.detail || 'Could not create the test run. Refresh the preview and try again.'
+  } finally { creating.value = false }
 }
 
 function deleteRun(item) {

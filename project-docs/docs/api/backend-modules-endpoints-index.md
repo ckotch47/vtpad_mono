@@ -179,6 +179,31 @@ Current behavior constraints (synced with code):
 - `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
 - `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
 
+### `app/src/test_run`
+- `POST /api/v2/test-run/preview`
+- `POST /api/v2/test-run`
+- `GET /api/v2/test-run/space/{space_id}`
+- `GET/PATCH/DELETE /api/v2/test-run/{run_id}`
+- `POST /api/v2/test-run/{run_id}/start`
+- `POST /api/v2/test-run/{run_id}/complete`
+- `PATCH /api/v2/test-run/result/{result_id}`
+- `PATCH /api/v2/test-run/result/bulk`
+
+Run creation snapshots the selected test cases in the same transaction as the new results. A result can only leave `not_run` while its run is active.
+
+### `app/src/test_case`
+- `GET /api/v2/test-case/{testcase_id}/versions`
+- `GET /api/v2/test-case/{testcase_id}/versions/{version_id}`
+- `GET /api/v2/test-case/{testcase_id}/versions/diff`
+- `POST /api/v2/test-case/{testcase_id}/versions/{version_id}/restore`
+- `GET/PUT /api/v2/test-case/{testcase_id}/tech-docs`
+
+### `app/src/traceability`
+- `GET/PUT /api/v2/tech-doc/{tech_doc_id}/test-cases`
+- `GET/POST/DELETE /api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}`
+
+The service owns the many-to-many Tech Doc/Test Case links and rejects cross-space links.
+
 ## Источники в коде
 
 - `vtpad_backend/app/main.py`

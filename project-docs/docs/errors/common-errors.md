@@ -11,7 +11,7 @@
 3. **CORS `allow_origins=['*']`** — открыт для любого origin.
 4. **Нет rate limiting** — уязвим для brute-force.
 5. **Access token TTL ~30000 мин** — фактически long-lived token.
-6. **Нет миграционной системы** — schema managed externally, нет Aerich/Alembic.
+6. **Нет формального migration framework** — schema изменяется JSON-миграциями при старте. Обычные миграции транзакционны и попадают в ledger после успешного DDL; online-index миграции выполняются вне транзакции, перед retry удаляют только свои invalid indexes и записываются в ledger лишь после полного успеха.
 7. **Два монтирования роутеров** — `/api/v1/...` и `/v1/...` (legacy), что может путать.
 8. **Нет выделенного API-клиента на фронтенде** — Axios дублируется в компонентах.
 
@@ -36,6 +36,10 @@
 5. Background tasks для уведомлений теперь пропускают пустой `assigner_id`/`create_user_id` и не падают на UUID conversion.
 6. Bugs list filtering now respects `show_closed`; when enabled, `HOLD` and `CLOSED` are no longer excluded by default.
 7. MCP `hard_delete_suite` now imports cascade helpers correctly and no longer fails with `name '_delete_case_cascade' is not defined`.
+8. В деталях test run круглый индикатор результата теперь отмечает непройденный кейс как `passed`; отдельная ссылка открывает полный testcase в новой вкладке, не меняя текущий просмотр run.
+9. Tech Docs безопасно отображает длинный `Source URL`, не давая ему обрезать описание; редактор создаёт rich-text ссылки через структурированный TipTap content, а не через интерполяцию HTML.
+10. V2 test run больше не создаётся по неявному "всем кейсам space": preview и create требуют ровно один явный непустой источник.
+11. Удаление testcase с историей выполнения переводит его в `deprecated`, сохраняя результаты и snapshots уже созданных runs.
 
 ## Источники в коде
 

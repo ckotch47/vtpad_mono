@@ -28,7 +28,16 @@
     <v-divider />
     <v-card-text v-if="doc.source_url" class="pb-0">
       <v-alert type="info" variant="tonal" density="compact" class="mb-2">
-        <a :href="doc.source_url" target="_blank" class="text-decoration-none">{{ doc.source_url }}</a>
+        <a
+          v-if="safeSourceUrl"
+          :href="safeSourceUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="source-url text-decoration-none"
+        >
+          {{ doc.source_url }}
+        </a>
+        <span v-else class="source-url text-medium-emphasis">{{ doc.source_url }}</span>
       </v-alert>
     </v-card-text>
     <v-card-text class="content-body">
@@ -50,6 +59,33 @@
         <div class="mt-2">No content yet</div>
         <v-btn variant="text" color="primary" @click="$emit('edit')">Add content</v-btn>
       </div>
+      <v-card variant="tonal" class="mt-5">
+        <v-card-title class="text-subtitle-1 d-flex align-center">
+          Linked test cases
+          <v-spacer />
+          <v-btn v-if="!editingLinks" size="small" variant="text" @click="editingLinks = true">Edit links</v-btn>
+        </v-card-title>
+        <v-card-text>
+          <template v-if="editingLinks">
+            <v-autocomplete
+              v-model="linkedCaseIds"
+              :items="availableCases"
+              item-title="title"
+              item-value="id"
+              label="Test cases"
+              multiple
+              chips
+              closable-chips
+              :loading="linksLoading"
+            />
+            <div class="d-flex justify-end ga-2"><v-btn size="small" variant="text" @click="cancelLinks">Cancel</v-btn><v-btn size="small" color="primary" :loading="linksSaving" @click="saveLinks">Save links</v-btn></div>
+          </template>
+          <template v-else>
+            <v-chip v-for="testcase in linkedCases" :key="testcase.id" class="mr-1 mb-1" :to="`/space/${spaceId}/test-cases/${testcase.id}`">{{ testcase.title }}</v-chip>
+            <span v-if="!linkedCases.length" class="text-medium-emphasis">No test cases linked</span>
+          </template>
+        </v-card-text>
+      </v-card>
     </v-card-text>
   </v-card>
 
@@ -117,8 +153,13 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import { techDocService, testCaseService } from '@/services'
+
+const route = useRoute()
+const spaceId = computed(() => route.params.spaceId)
 
 const props = defineProps({
   doc: { type: Object, default: null },
@@ -132,11 +173,51 @@ const props = defineProps({
   typeColor: { type: Function, default: () => 'grey' },
 })
 
+const linkedCases = ref([])
+const availableCases = ref([])
+const linkedCaseIds = ref([])
+const linksLoading = ref(false)
+const linksSaving = ref(false)
+const editingLinks = ref(false)
+
+async function loadLinks() {
+  if (!props.doc?.id) return
+  linksLoading.value = true
+  try {
+    const [linked, all] = await Promise.all([
+      techDocService.getTestCases(props.doc.id),
+      testCaseService.listBySpace(spaceId.value, { page: 1, page_size: 500, status: 'active' }),
+    ])
+    linkedCases.value = linked.data.items || linked.data || []
+    linkedCaseIds.value = linkedCases.value.map((testcase) => testcase.id)
+    availableCases.value = all.data.items || all.data || []
+  } catch (_) { linkedCases.value = []; availableCases.value = [] } finally { linksLoading.value = false }
+}
+
+function cancelLinks() { linkedCaseIds.value = linkedCases.value.map((testcase) => testcase.id); editingLinks.value = false }
+
+async function saveLinks() {
+  linksSaving.value = true
+  try { await techDocService.updateTestCases(props.doc.id, linkedCaseIds.value); await loadLinks(); editingLinks.value = false } finally { linksSaving.value = false }
+}
+
 defineEmits(['create', 'edit', 'create-subpage', 'delete', 'cancel', 'save'])
 
 const readonlyContentRef = ref(null)
 let renderSeq = 0
 let mermaidPromise = null
+
+const safeSourceUrl = computed(() => {
+  const value = props.doc?.source_url?.trim()
+  if (!value) return null
+
+  try {
+    const url = new URL(value)
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null
+  } catch {
+    return null
+  }
+})
 
 async function getMermaid() {
   if (!mermaidPromise) {
@@ -192,6 +273,8 @@ watch(
   { immediate: true }
 )
 
+watch(() => props.doc?.id, () => { editingLinks.value = false; loadLinks() }, { immediate: true })
+
 onBeforeUnmount(() => {
   renderSeq += 1
 })
@@ -219,5 +302,12 @@ onBeforeUnmount(() => {
 :deep(pre.mermaid svg) {
   max-width: 100%;
   height: auto;
+}
+
+.source-url {
+  display: inline;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 </style>

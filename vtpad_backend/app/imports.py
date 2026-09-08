@@ -40,6 +40,7 @@ import app.src.milestone as milestone
 import app.src.custom_field as custom_field
 import app.src.attachment as attachment
 import app.src.api_token as api_token
+import app.src.traceability as traceability
 # end import
 
 

@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from typing import Optional
 
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
 from .model import TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseStatus
 from .dto import *
@@ -126,30 +127,49 @@ class TestCaseService:
         return testcase
 
     @staticmethod
-    async def update(testcase_id: str, dto: TestCaseUpdateDto) -> TestCaseModel:
+    async def get_with_versions(testcase_id: str) -> dict:
         testcase = await TestCaseService.get_by_id(testcase_id)
+        return {
+            'id': str(testcase.id),
+            'title': testcase.title,
+            'text': testcase.text,
+            'steps': testcase.steps,
+            'expected_results': testcase.expected_results,
+            'preconditions': testcase.preconditions,
+            'postconditions': testcase.postconditions,
+            'sort': testcase.sort,
+            'short_name': testcase.short_name,
+            'link': testcase.link,
+            'type': testcase.type,
+            'status': testcase.status,
+            'external_id': testcase.external_id,
+            'space_id': str(testcase.space_id),
+            'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
+            'section_id': str(testcase.section_id) if testcase.section_id else None,
+            'created_by_id': str(testcase.created_by_id) if testcase.created_by_id else None,
+            'created_at': testcase.created_at.isoformat() if testcase.created_at else None,
+            'updated_at': testcase.updated_at.isoformat() if testcase.updated_at else None,
+            'versions': await TestCaseService.get_versions(testcase_id),
+        }
 
-        # Create version snapshot before update
-        last_version = await TestCaseVersionModel.filter(testcase_id=testcase_id).order_by('-version_number').first()
-        version_number = (last_version.version_number + 1) if last_version else 1
-        await TestCaseVersionModel.create(
-            testcase_id=testcase_id,
-            version_number=version_number,
-            title=testcase.title,
-            text=testcase.text,
-            steps=testcase.steps,
-            expected_results=testcase.expected_results,
-            preconditions=testcase.preconditions,
-            postconditions=testcase.postconditions,
-        )
-
+    @staticmethod
+    async def update(testcase_id: str, dto: TestCaseUpdateDto, token: Optional[str] = None) -> TestCaseModel:
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
-        if data:
-            await TestCaseModel.filter(id=testcase_id).update(**data)
+        user_id = await get_user_id_by_token(token) if token else None
+        async with in_transaction() as connection:
+            testcase = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()
+            if not testcase:
+                raise HTTPException(status_code=404, detail="Test case not found")
+            if not data:
+                return testcase
+            await TestCaseModel.filter(id=testcase_id).using_db(connection).update(**data)
+            updated = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
+            await TestCaseService._create_test_case_version(
+                updated, user_id, next_version=True, connection=connection
+            )
 
         # Re-index for semantic search
-        updated = await TestCaseService.get_by_id(testcase_id)
         await EmbeddingService.index_test_case(
             case_id=testcase_id,
             space_id=str(updated.space_id),
@@ -165,7 +185,11 @@ class TestCaseService:
     async def delete(testcase_id: str) -> bool:
         await TestCaseService.get_by_id(testcase_id)
         from ..test_run.model import TestResultModel
-        await TestResultModel.filter(testcase_id=testcase_id).delete()
+        if await TestResultModel.filter(testcase_id=testcase_id).exists():
+            # Preserve case/version/result snapshots for historical runs.
+            await TestCaseModel.filter(id=testcase_id).update(status=TestCaseStatus.deprecated)
+            await EmbeddingService.delete_embeddings('test_case', testcase_id)
+            return True
         await TestCaseVersionModel.filter(testcase_id=testcase_id).delete()
         await TestCaseModel.filter(id=testcase_id).delete()
         return True
@@ -236,17 +260,27 @@ class TestCaseService:
         return short_name + '_copy'
 
     @staticmethod
-    async def _create_test_case_version(testcase, user_id):
+    async def _create_test_case_version(testcase, user_id, next_version: bool = False, connection=None):
+        query = TestCaseVersionModel.filter(testcase_id=str(testcase.id))
+        if connection is not None:
+            query = query.using_db(connection)
+        last_version = await query.order_by('-version_number').first()
+        version_number = (last_version.version_number + 1) if last_version and next_version else 1
+        create_kwargs = {
+            'testcase_id': str(testcase.id),
+            'version_number': version_number,
+            'title': testcase.title,
+            'text': testcase.text,
+            'steps': testcase.steps,
+            'expected_results': testcase.expected_results,
+            'preconditions': testcase.preconditions,
+            'postconditions': testcase.postconditions,
+            'created_by_id': user_id,
+        }
+        if connection is not None:
+            create_kwargs['using_db'] = connection
         await TestCaseVersionModel.create(
-            testcase_id=str(testcase.id),
-            version_number=1,
-            title=testcase.title,
-            text=testcase.text,
-            steps=testcase.steps,
-            expected_results=testcase.expected_results,
-            preconditions=testcase.preconditions,
-            postconditions=testcase.postconditions,
-            created_by_id=user_id,
+            **create_kwargs,
         )
 
     @staticmethod
@@ -272,6 +306,7 @@ class TestCaseService:
         duplicated = await TestCaseModel.create(
             title=f"{original.title} (Copy)",
             text=original.text,
+            steps=original.steps,
             expected_results=original.expected_results,
             preconditions=original.preconditions,
             postconditions=original.postconditions,
@@ -291,3 +326,76 @@ class TestCaseService:
         await TestCaseService._index_test_case_for_search(duplicated)
 
         return duplicated
+
+    @staticmethod
+    def _serialize_version(version: TestCaseVersionModel) -> dict:
+        return {
+            'id': str(version.id),
+            'testcase_id': str(version.testcase_id),
+            'version_number': version.version_number,
+            'title': version.title,
+            'text': version.text,
+            'steps': version.steps,
+            'expected_results': version.expected_results,
+            'preconditions': version.preconditions,
+            'postconditions': version.postconditions,
+            'created_by_id': str(version.created_by_id) if version.created_by_id else None,
+            'created_at': version.created_at.isoformat() if version.created_at else None,
+        }
+
+    @staticmethod
+    async def get_versions(testcase_id: str) -> list[dict]:
+        await TestCaseService.get_by_id(testcase_id)
+        versions = await TestCaseVersionModel.filter(testcase_id=testcase_id).order_by('-version_number')
+        return [TestCaseService._serialize_version(version) for version in versions]
+
+    @staticmethod
+    async def get_version(testcase_id: str, version_id: str) -> dict:
+        version = await TestCaseVersionModel.get_or_none(id=version_id, testcase_id=testcase_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Test case version not found")
+        return TestCaseService._serialize_version(version)
+
+    @staticmethod
+    async def diff_versions(testcase_id: str, from_version_id: str, to_version_id: str) -> dict:
+        from_version = await TestCaseService.get_version(testcase_id, from_version_id)
+        to_version = await TestCaseService.get_version(testcase_id, to_version_id)
+        fields = ('title', 'text', 'steps', 'expected_results', 'preconditions', 'postconditions')
+        changes = {
+            field: {'from': from_version[field], 'to': to_version[field]}
+            for field in fields
+            if from_version[field] != to_version[field]
+        }
+        return {
+            'testcase_id': testcase_id,
+            'from_version': from_version,
+            'to_version': to_version,
+            'changes': changes,
+        }
+
+    @staticmethod
+    async def restore_version(testcase_id: str, version_id: str, token: str) -> TestCaseModel:
+        user_id = await get_user_id_by_token(token)
+        async with in_transaction() as connection:
+            restored = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()
+            if not restored:
+                raise HTTPException(status_code=404, detail="Test case not found")
+            version = await TestCaseVersionModel.filter(
+                id=version_id, testcase_id=testcase_id
+            ).using_db(connection).first()
+            if not version:
+                raise HTTPException(status_code=404, detail="Test case version not found")
+            await TestCaseModel.filter(id=testcase_id).using_db(connection).update(
+                title=version.title,
+                text=version.text,
+                steps=version.steps,
+                expected_results=version.expected_results,
+                preconditions=version.preconditions,
+                postconditions=version.postconditions,
+            )
+            restored = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
+            await TestCaseService._create_test_case_version(
+                restored, user_id, next_version=True, connection=connection
+            )
+        await TestCaseService._index_test_case_for_search(restored)
+        return restored

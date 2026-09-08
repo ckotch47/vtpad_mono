@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from .service import TestRunService, TestResultService
 from .dto import *
 from ..common.crypto import bearer
+from ..common.right_guard import check_user_into_space
 
 router = APIRouter(
     prefix='/v2/test-run',
@@ -11,9 +12,16 @@ router = APIRouter(
 )
 
 
+async def _require_run_access(run_id: str, request: Request):
+    run = await TestRunService.get_by_id(run_id)
+    await check_user_into_space(str(run.space_id), request)
+    return run
+
+
 @router.get('/space/{space_id}', dependencies=[Depends(bearer)])
 async def get_by_space(
     space_id: str,
+    request: Request,
     page: int = 1,
     page_size: int = 25,
     sort_by: Optional[str] = 'created_at',
@@ -22,12 +30,13 @@ async def get_by_space(
     milestone_id: Optional[str] = None,
     environment_id: Optional[str] = None,
 ):
+    await check_user_into_space(space_id, request)
     return await TestRunService.get_by_space(space_id, page, page_size, sort_by, sort_order, search, milestone_id, environment_id)
 
 
 @router.get('/{run_id}', dependencies=[Depends(bearer)])
-async def get_by_id(run_id: str):
-    run = await TestRunService.get_by_id(run_id)
+async def get_by_id(run_id: str, request: Request):
+    run = await _require_run_access(run_id, request)
     return {
         'id': str(run.id),
         'name': run.name,
@@ -53,44 +62,55 @@ async def get_by_id(run_id: str):
 
 
 @router.get('/{run_id}/detail', dependencies=[Depends(bearer)])
-async def get_with_results(run_id: str):
+async def get_with_results(run_id: str, request: Request):
+    await _require_run_access(run_id, request)
     return await TestRunService.get_with_results(run_id)
 
 
 @router.post('/', dependencies=[Depends(bearer)])
-async def create(dto: TestRunCreateDto, token: str = Depends(bearer)):
+async def create(dto: TestRunCreateDto, request: Request, token: str = Depends(bearer)):
+    await check_user_into_space(dto.space_id, request)
     return await TestRunService.create(dto, token)
 
 
+@router.post('/preview', dependencies=[Depends(bearer)])
+async def preview(dto: TestRunCreateDto, request: Request):
+    """Return the server-resolved active selection before a run is created."""
+    await check_user_into_space(dto.space_id, request)
+    return await TestRunService.preview(dto)
+
+
 @router.patch('/{run_id}', dependencies=[Depends(bearer)])
-async def update(run_id: str, dto: TestRunUpdateDto):
+async def update(run_id: str, dto: TestRunUpdateDto, request: Request):
+    await _require_run_access(run_id, request)
     return await TestRunService.update(run_id, dto)
 
 
 @router.post('/{run_id}/start', dependencies=[Depends(bearer)])
-async def start(run_id: str):
+async def start(run_id: str, request: Request):
+    await _require_run_access(run_id, request)
     return await TestRunService.start(run_id)
 
 
 @router.post('/{run_id}/complete', dependencies=[Depends(bearer)])
-async def complete(run_id: str):
+async def complete(run_id: str, request: Request):
+    await _require_run_access(run_id, request)
     return await TestRunService.complete(run_id)
 
 
 @router.delete('/{run_id}', dependencies=[Depends(bearer)])
-async def delete(run_id: str):
+async def delete(run_id: str, request: Request):
+    await _require_run_access(run_id, request)
     return await TestRunService.delete(run_id)
 
 
 # TestResult endpoints
 @router.patch('/result/bulk', dependencies=[Depends(bearer)])
-async def bulk_update_results(dto: TestResultBulkUpdateDto, token: str = Depends(bearer)):
-    return await TestResultService.bulk_update(dto, token)
+async def bulk_update_results(dto: TestResultBulkUpdateDto, request: Request, token: str = Depends(bearer)):
+    return await TestResultService.bulk_update(dto, token, request)
 
 
 @router.patch('/result/{result_id}', dependencies=[Depends(bearer)])
-async def update_result(result_id: str, dto: TestResultUpdateDto, token: str = Depends(bearer)):
-    return await TestResultService.update_result(result_id, dto, token)
-
-
+async def update_result(result_id: str, dto: TestResultUpdateDto, request: Request, token: str = Depends(bearer)):
+    return await TestResultService.update_result(result_id, dto, token, request)
 

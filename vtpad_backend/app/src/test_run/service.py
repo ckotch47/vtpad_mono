@@ -1,59 +1,221 @@
 from fastapi import HTTPException
+from starlette.requests import Request
+import hashlib
+import json
+
 from typing import Optional, List
 from datetime import datetime, timezone
 
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
 from .model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 from ..common.pagination import paginate
+from ..common.right_guard import check_user_into_space
 
 
 class TestRunService:
     @staticmethod
     async def _resolve_testcases_for_run(dto: TestRunCreateDto):
-        from ..test_case.model import TestCaseModel
-        if dto.testcase_ids:
-            return await TestCaseModel.filter(id__in=dto.testcase_ids).all()
+        """Resolve exactly one source, always scoped to active cases in its space."""
+        from ..test_case.model import TestCaseModel, TestCaseStatus
+
+        has_explicit_cases = bool(dto.testcase_ids)
+        source_count = sum(bool(value) for value in (dto.suite_id, dto.plan_id, has_explicit_cases))
+        if source_count != 1:
+            raise HTTPException(
+                status_code=422,
+                detail="Exactly one test run source is required: suite_id, plan_id, or testcase_ids",
+            )
+
         if dto.suite_id:
-            return await TestCaseModel.filter(suite_id=dto.suite_id).all()
-        if dto.plan_id:
+            from ..test_suite.model import TestSuiteModel
+            suite = await TestSuiteModel.get_or_none(id=dto.suite_id, space_id=dto.space_id)
+            if not suite:
+                raise HTTPException(status_code=404, detail="Test suite not found in space")
+            testcases = await TestCaseModel.filter(
+                suite_id=dto.suite_id,
+                space_id=dto.space_id,
+                status=TestCaseStatus.active,
+            ).prefetch_related('section').order_by('section__sort', 'sort')
+            source = {'type': 'suite', 'id': str(suite.id), 'name': suite.name}
+        elif dto.plan_id:
             from ..test_plan.service import TestPlanService
+            plan = await TestPlanService.get_by_id(dto.plan_id)
+            if str(plan.space_id) != str(dto.space_id):
+                raise HTTPException(status_code=404, detail="Test plan not found in space")
             plan_cases = await TestPlanService.get_cases(dto.plan_id)
-            return plan_cases
-        return await TestCaseModel.filter(space_id=dto.space_id).all()
+            active_cases = [
+                testcase for testcase in plan_cases
+                if str(testcase.space_id) == str(dto.space_id)
+                and testcase.status == TestCaseStatus.active
+            ]
+            testcases = active_cases
+            source = {'type': 'plan', 'id': str(plan.id), 'name': plan.name}
+        else:
+            requested_ids = list(dict.fromkeys(dto.testcase_ids or []))
+            testcases = await TestCaseModel.filter(
+                id__in=requested_ids,
+                space_id=dto.space_id,
+                status=TestCaseStatus.active,
+            ).prefetch_related('section')
+            testcase_by_id = {str(testcase.id): testcase for testcase in testcases}
+            if len(testcase_by_id) != len(requested_ids):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Every selected testcase must exist in the space and be active",
+                )
+            testcases = [testcase_by_id[testcase_id] for testcase_id in requested_ids]
+            source = {'type': 'selected_cases', 'id': None, 'name': None}
+
+        if not testcases:
+            raise HTTPException(status_code=422, detail="The selected source has no active testcases")
+        return source, testcases
 
     @staticmethod
-    async def _create_results_for_run(run_id: str, testcases):
+    def _build_case_snapshot(testcase, version=None):
+        # The run snapshot always reflects the case at selection time.  Some
+        # legacy version rows were written before the corresponding update, so
+        # they are useful as identifiers but must not replace current content.
+        fields_source = testcase
+        return {
+            'testcase_id': str(testcase.id),
+            'testcase_version_id': str(version.id) if version else None,
+            'version_number': version.version_number if version else None,
+            'title': fields_source.title,
+            'text': fields_source.text,
+            'steps': fields_source.steps,
+            'expected_results': fields_source.expected_results,
+            'preconditions': fields_source.preconditions,
+            'postconditions': fields_source.postconditions,
+            'type': testcase.type.value if hasattr(testcase.type, 'value') else testcase.type,
+            'status': testcase.status.value if hasattr(testcase.status, 'value') else testcase.status,
+            'short_name': testcase.short_name,
+            'link': testcase.link,
+            'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
+            'section': {
+                'id': str(testcase.section.id),
+                'name': testcase.section.name,
+            } if getattr(testcase, 'section', None) else None,
+            'captured_at': datetime.now(timezone.utc).isoformat(),
+        }
+
+    @staticmethod
+    def _selection_hash(source: dict, snapshots: list[dict]) -> str:
+        payload = {
+            'source': source,
+            'testcases': [
+                {
+                    'testcase_id': snapshot['testcase_id'],
+                    'testcase_version_id': snapshot['testcase_version_id'],
+                    'version_number': snapshot['version_number'],
+                    'title': snapshot['title'],
+                    'text': snapshot['text'],
+                    'steps': snapshot['steps'],
+                    'expected_results': snapshot['expected_results'],
+                    'preconditions': snapshot['preconditions'],
+                    'postconditions': snapshot['postconditions'],
+                    'type': snapshot['type'],
+                    'status': snapshot['status'],
+                    'suite_id': snapshot['suite_id'],
+                    'section': snapshot['section'],
+                }
+                for snapshot in snapshots
+            ],
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(',', ':')).encode('utf-8')
+        ).hexdigest()
+
+    @staticmethod
+    async def _resolve_selection(dto: TestRunCreateDto):
         from ..test_case.model import TestCaseVersionModel
-        for tc in testcases:
-            last_version = await TestCaseVersionModel.filter(testcase_id=str(tc.id)).order_by('-version_number').first()
+
+        source, testcases = await TestRunService._resolve_testcases_for_run(dto)
+        versions = await TestCaseVersionModel.filter(
+            testcase_id__in=[str(testcase.id) for testcase in testcases]
+        ).order_by('testcase_id', '-version_number')
+        latest_versions = {}
+        for version in versions:
+            latest_versions.setdefault(str(version.testcase_id), version)
+        snapshots = [
+            TestRunService._build_case_snapshot(
+                testcase, latest_versions.get(str(testcase.id))
+            )
+            for testcase in testcases
+        ]
+        return source, testcases, snapshots, TestRunService._selection_hash(source, snapshots)
+
+    @staticmethod
+    async def preview(dto: TestRunCreateDto) -> dict:
+        source, _testcases, snapshots, source_hash = await TestRunService._resolve_selection(dto)
+        return {
+            'source': source,
+            'source_hash': source_hash,
+            'total': len(snapshots),
+            'testcases': [
+                {
+                    'id': snapshot['testcase_id'],
+                    'version_id': snapshot['testcase_version_id'],
+                    'version_number': snapshot['version_number'],
+                    'title': snapshot['title'],
+                    'section': snapshot['section'],
+                }
+                for snapshot in snapshots
+            ],
+        }
+
+    @staticmethod
+    async def _create_results_for_run(run_id: str, testcases, snapshots, connection=None):
+        for tc, snapshot in zip(testcases, snapshots):
+            create_kwargs = {
+                'run_id': run_id,
+                'testcase_id': str(tc.id),
+                'testcase_version_id': snapshot['testcase_version_id'],
+                'testcase_snapshot': snapshot,
+                'status': TestResultStatus.not_run,
+            }
+            if connection is not None:
+                create_kwargs['using_db'] = connection
             await TestResultModel.create(
-                run_id=run_id,
-                testcase_id=str(tc.id),
-                testcase_version_id=str(last_version.id) if last_version else None,
-                status=TestResultStatus.not_run,
+                **create_kwargs,
             )
 
     @staticmethod
     async def create(dto: TestRunCreateDto, token: str) -> TestRunModel:
         user_id = await get_user_id_by_token(token)
 
-        run = await TestRunModel.create(
-            name=dto.name,
-            description=dto.description,
-            space_id=dto.space_id,
-            suite_id=dto.suite_id,
-            plan_id=dto.plan_id,
-            milestone_id=dto.milestone_id,
-            environment_id=dto.environment_id,
-            status=TestRunStatus.draft,
-            created_by_id=user_id,
-        )
+        source, testcases, snapshots, source_hash = await TestRunService._resolve_selection(dto)
+        if dto.source_hash and dto.source_hash != source_hash:
+            raise HTTPException(
+                status_code=409,
+                detail="Test run source changed; refresh the preview before creating the run",
+            )
 
-        testcases = await TestRunService._resolve_testcases_for_run(dto)
-        await TestRunService._create_results_for_run(str(run.id), testcases)
+        async with in_transaction() as connection:
+            run = await TestRunModel.create(
+                name=dto.name,
+                description=dto.description,
+                space_id=dto.space_id,
+                suite_id=dto.suite_id,
+                plan_id=dto.plan_id,
+                milestone_id=dto.milestone_id,
+                environment_id=dto.environment_id,
+                status=TestRunStatus.draft,
+                created_by_id=user_id,
+                source_snapshot={
+                    'source': source,
+                    'source_hash': source_hash,
+                    'total': len(snapshots),
+                    'captured_at': datetime.now(timezone.utc).isoformat(),
+                },
+                using_db=connection,
+            )
+            await TestRunService._create_results_for_run(
+                str(run.id), testcases, snapshots, connection
+            )
 
         return run
 
@@ -128,13 +290,24 @@ class TestRunService:
     @staticmethod
     def _serialize_result(r):
         testcase = r.testcase
-        return {
-            'id': str(r.id),
-            'status': r.status,
-            'duration_seconds': r.duration_seconds,
-            'comment': r.comment,
-            'testcase_id': str(r.testcase_id),
-            'testcase': {
+        snapshot = r.testcase_snapshot
+        if snapshot:
+            testcase_data = {
+                'id': snapshot['testcase_id'],
+                'title': snapshot['title'],
+                'type': snapshot.get('type'),
+                'section': snapshot.get('section'),
+                'version_id': snapshot.get('testcase_version_id'),
+                'version_number': snapshot.get('version_number'),
+                'text': snapshot.get('text'),
+                'steps': snapshot.get('steps'),
+                'expected_results': snapshot.get('expected_results'),
+                'preconditions': snapshot.get('preconditions'),
+                'postconditions': snapshot.get('postconditions'),
+                'is_snapshot': True,
+            }
+        else:
+            testcase_data = {
                 'id': str(testcase.id),
                 'title': testcase.title,
                 'type': testcase.type,
@@ -142,7 +315,16 @@ class TestRunService:
                     'id': str(testcase.section.id),
                     'name': testcase.section.name,
                 } if testcase.section else None,
-            } if testcase else None,
+                'is_snapshot': False,
+            } if testcase else None
+        return {
+            'id': str(r.id),
+            'status': r.status,
+            'duration_seconds': r.duration_seconds,
+            'comment': r.comment,
+            'testcase_id': str(r.testcase_id),
+            'testcase': testcase_data,
+            'testcase_snapshot': snapshot,
             'executed_at': r.executed_at.isoformat() if r.executed_at else None,
         }
 
@@ -174,6 +356,7 @@ class TestRunService:
                 'created_at': run.created_at.isoformat() if run.created_at else None,
                 'started_at': run.started_at.isoformat() if run.started_at else None,
                 'completed_at': run.completed_at.isoformat() if run.completed_at else None,
+                'source_snapshot': run.source_snapshot,
             },
             'stats': stats,
             'results': results_data,
@@ -184,6 +367,11 @@ class TestRunService:
         await TestRunService.get_by_id(run_id)
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
+        if 'status' in data:
+            raise HTTPException(
+                status_code=422,
+                detail="Use the start and complete actions to change test run status",
+            )
         if data:
             await TestRunModel.filter(id=run_id).update(**data)
         return await TestRunService.get_by_id(run_id)
@@ -214,27 +402,63 @@ class TestRunService:
 
 class TestResultService:
     @staticmethod
-    async def update_result(result_id: str, dto: TestResultUpdateDto, token: str) -> TestResultModel:
-        user_id = await get_user_id_by_token(token)
-        result = await TestResultModel.get_or_none(id=result_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Test result not found")
+    def _require_transition_from_not_run(result: TestResultModel, target_status: str):
+        try:
+            target = TestResultStatus(target_status)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Unsupported test result status")
+        if target == TestResultStatus.not_run:
+            raise HTTPException(status_code=422, detail="Quick result updates must set a terminal status")
+        if result.status != TestResultStatus.not_run:
+            raise HTTPException(status_code=409, detail="Only not_run results may be updated through quick actions")
+        return target
 
-        data = dto.model_dump(exclude_unset=True)
-        data = {k: v for k, v in data.items() if v is not None}
-        data['executed_by_id'] = user_id
-        data['executed_at'] = datetime.now(timezone.utc)
-        await TestResultModel.filter(id=result_id).update(**data)
+    @staticmethod
+    async def update_result(result_id: str, dto: TestResultUpdateDto, token: str, request: Request) -> TestResultModel:
+        user_id = await get_user_id_by_token(token)
+        async with in_transaction() as connection:
+            result = await TestResultModel.filter(id=result_id).using_db(connection).select_for_update().first()
+            if not result:
+                raise HTTPException(status_code=404, detail="Test result not found")
+            run = await TestRunModel.filter(id=result.run_id).using_db(connection).select_for_update().first()
+            if not run:
+                raise HTTPException(status_code=404, detail="Test run not found")
+            await check_user_into_space(str(run.space_id), request)
+            if run.status != TestRunStatus.active:
+                raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
+            target_status = TestResultService._require_transition_from_not_run(result, dto.status)
+            data = dto.model_dump(exclude_unset=True)
+            data = {key: value for key, value in data.items() if value is not None}
+            data['status'] = target_status
+            data['executed_by_id'] = user_id
+            data['executed_at'] = datetime.now(timezone.utc)
+            await TestResultModel.filter(id=result_id).using_db(connection).update(**data)
         return await TestResultModel.get(id=result_id)
 
     @staticmethod
-    async def bulk_update(dto: TestResultBulkUpdateDto, token: str) -> int:
+    async def bulk_update(dto: TestResultBulkUpdateDto, token: str, request: Request) -> int:
         user_id = await get_user_id_by_token(token)
-        count = await TestResultModel.filter(id__in=dto.result_ids).update(
-            status=dto.status,
-            executed_by_id=user_id,
-            executed_at=datetime.now(timezone.utc),
-        )
-        return count
+        result_ids = list(dict.fromkeys(dto.result_ids))
+        if not result_ids:
+            raise HTTPException(status_code=422, detail="At least one result is required")
 
-
+        async with in_transaction() as connection:
+            results = await TestResultModel.filter(id__in=result_ids).using_db(connection).select_for_update()
+            if len(results) != len(result_ids):
+                raise HTTPException(status_code=404, detail="One or more test results were not found")
+            run_ids = {str(result.run_id) for result in results}
+            if len(run_ids) != 1:
+                raise HTTPException(status_code=422, detail="Bulk update accepts results from exactly one run")
+            run = await TestRunModel.filter(id=next(iter(run_ids))).using_db(connection).select_for_update().first()
+            if not run:
+                raise HTTPException(status_code=404, detail="Test run not found")
+            await check_user_into_space(str(run.space_id), request)
+            if run.status != TestRunStatus.active:
+                raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
+            for result in results:
+                TestResultService._require_transition_from_not_run(result, dto.status)
+            return await TestResultModel.filter(id__in=result_ids).using_db(connection).update(
+                status=TestResultStatus(dto.status),
+                executed_by_id=user_id,
+                executed_at=datetime.now(timezone.utc),
+            )

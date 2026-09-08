@@ -13,7 +13,7 @@
         <div class="text-subtitle-1 font-weight-medium mb-3">{{ result.testcase?.title }}</div>
         <v-select
           :model-value="result.status"
-          :items="['not_run','passed','failed','blocked','skipped']"
+          :items="['passed','failed','blocked','skipped']"
           label="Status"
           class="mb-2"
           @update:model-value="updateField('status', $event)"

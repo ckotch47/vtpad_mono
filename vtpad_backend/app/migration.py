@@ -1,8 +1,10 @@
 import json
 from os.path import dirname, basename, isfile, join
 import glob
+import re
 
 from tortoise import Tortoise, run_async
+from tortoise.transactions import in_transaction
 
 from .src import common
 
@@ -29,16 +31,16 @@ class RunMigration:
             file.write(data)
         return True
 
-    async def find_migration_in_bd(self, migration_name: str):
-        conn = Tortoise.get_connection('default')
+    async def find_migration_in_bd(self, migration_name: str, connection=None):
+        conn = connection or Tortoise.get_connection('default')
         rows = await conn.execute_query_dict(
             "SELECT id FROM migrationmodel WHERE name = $1",
             [migration_name]
         )
         return rows
 
-    async def save_migration_name_into_bd(self, migration_name: str):
-        conn = Tortoise.get_connection('default')
+    async def save_migration_name_into_bd(self, migration_name: str, connection=None):
+        conn = connection or Tortoise.get_connection('default')
         await conn.execute_query(
             "INSERT INTO migrationmodel (id, create_date, name) "
             "VALUES (gen_random_uuid(), current_timestamp, $1)",
@@ -53,25 +55,61 @@ class RunMigration:
         for i in __all__:
             temp = self.read_file(f'{migration_src}/{i}')
             sql_all = temp['data']
-            existing = await self.find_migration_in_bd(i)
-            if not existing:
-                print(f'Running migration: {i}')
-                await self.save_migration_name_into_bd(i)
-                for sql in sql_all:
-                    try:
-                        result = await self.run_sql(sql)
-                        print(result)
-                    except Exception as e:
-                        print(f'Error running SQL in {i}: {e}')
-                        raise
+            if temp.get('transactional', True):
+                async with in_transaction() as connection:
+                    existing = await self.find_migration_in_bd(i, connection)
+                    if not existing:
+                        print(f'Running migration: {i}')
+                        for sql in sql_all:
+                            try:
+                                result = await self.run_sql(sql, connection=connection)
+                                print(result)
+                            except Exception as e:
+                                print(f'Error running SQL in {i}: {e}')
+                                raise
+                        # Mark it applied only after every DDL statement succeeds.
+                        await self.save_migration_name_into_bd(i, connection)
+            else:
+                existing = await self.find_migration_in_bd(i)
+                if not existing:
+                    print(f'Running non-transactional migration: {i}')
+                    await self.drop_invalid_indexes(temp.get('cleanup_invalid_indexes', []))
+                    for sql in sql_all:
+                        try:
+                            result = await self.run_sql(sql)
+                            print(result)
+                        except Exception as e:
+                            print(f'Error running SQL in {i}: {e}')
+                            raise
+                    # Concurrent DDL cannot be transactional.  Statements must
+                    # be idempotent so a failed startup can safely retry them.
+                    await self.save_migration_name_into_bd(i)
 
         await Tortoise.close_connections()
 
-    async def run_sql(self, sql, params=None):
-        conn = Tortoise.get_connection('default')
+    async def run_sql(self, sql, params=None, connection=None):
+        conn = connection or Tortoise.get_connection('default')
         if params:
             return await conn.execute_query(sql, params)
         return await conn.execute_query(sql)
+
+    async def drop_invalid_indexes(self, index_names: list[str]):
+        """Remove only named invalid concurrent indexes before an idempotent retry."""
+        conn = Tortoise.get_connection('default')
+        for index_name in index_names:
+            if not re.fullmatch(r'[a-z0-9_]+', index_name):
+                raise ValueError(f'Unsafe index name in migration: {index_name}')
+            invalid_indexes = await conn.execute_query_dict(
+                'SELECT c.relname FROM pg_index i '
+                'JOIN pg_class c ON c.oid = i.indexrelid '
+                'JOIN pg_namespace n ON n.oid = c.relnamespace '
+                'WHERE n.nspname = $1 AND c.relname = $2 AND NOT i.indisvalid',
+                ['public', index_name],
+            )
+            if invalid_indexes:
+                await conn.execute_query(
+                    f'DROP INDEX CONCURRENTLY IF EXISTS public.{index_name}'
+                )
 
 
 migration = RunMigration()

@@ -36,6 +36,10 @@ class TestRunModel(Model):
     started_at = fields.DatetimeField(null=True)
     completed_at = fields.DatetimeField(null=True)
 
+    # Immutable description of the source and selected cases at creation time.
+    # Legacy runs have a null snapshot and are serialized from live relations.
+    source_snapshot = fields.JSONField(null=True)
+
     class Meta:
         table = "test_run"
 
@@ -51,6 +55,10 @@ class TestResultModel(Model):
     testcase = fields.ForeignKeyField('models.TestCaseModel', related_name='test_results')
     testcase_version = fields.ForeignKeyField('models.TestCaseVersionModel', related_name='version_results', null=True, on_delete=fields.SET_NULL)
 
+    # A result must remain meaningful even if its testcase is later edited or
+    # deprecated.  Existing results deliberately keep this field null.
+    testcase_snapshot = fields.JSONField(null=True)
+
     executed_by = fields.ForeignKeyField('models.UserModel', related_name='executed_test_results', null=True)
     executed_at = fields.DatetimeField(null=True)
 
@@ -59,6 +67,5 @@ class TestResultModel(Model):
 
     class Meta:
         table = "test_result"
-
 
 

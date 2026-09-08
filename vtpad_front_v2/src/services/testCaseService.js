@@ -11,4 +11,9 @@ export const testCaseService = {
   sort: (id) => api.patch(`/api/v2/test-case/sort/${id}`),
   getRuns: (id, params) => api.get(`/api/v2/test-case/${id}/runs`, { params }),
   duplicate: (id) => api.post(`/api/v2/test-case/${id}/duplicate`),
+  getVersions: (id) => api.get(`/api/v2/test-case/${id}/versions`),
+  getVersion: (id, versionId) => api.get(`/api/v2/test-case/${id}/versions/${versionId}`),
+  restoreVersion: (id, versionId) => api.post(`/api/v2/test-case/${id}/versions/${versionId}/restore`),
+  getTechDocs: (id) => api.get(`/api/v2/test-case/${id}/tech-docs`),
+  updateTechDocs: (id, techDocIds) => api.put(`/api/v2/test-case/${id}/tech-docs`, { tech_doc_ids: techDocIds }),
 }

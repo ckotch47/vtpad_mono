@@ -85,6 +85,31 @@ sequenceDiagram
 - Нет встроенного механизма версионирования pad (snapshot перед изменением).
 - Run копирует items на момент создания; изменения pad после этого не отражаются на run.
 
+## V2 Test Run lifecycle
+
+V2 test run — отдельный, современный поток для выполнения test cases; он не изменяет legacy Pad / Run выше.
+
+1. Создатель выбирает ровно один источник: test suite, test plan или хотя бы один testcase.
+2. `POST /api/v2/test-run/preview` возвращает точный состав и `source_hash`.
+3. `POST /api/v2/test-run` с этим hash повторно валидирует состав и атомарно создаёт run вместе с результатами и snapshots cases.
+4. Для active run исполнитель может менять только `not_run` в один из terminal-статусов: `passed`, `failed`, `blocked`, `skipped`. Круглый индикатор в UI — быстрый переход в `passed`; bulk-action работает по тому же правилу.
+5. У run есть атрибуты milestone и environment. Фильтрация списка поддерживается API.
+6. После завершения run его результаты неизменяемы. Устаревшие записи без snapshot показываются как legacy, без заявления об исторической точности.
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft: create from preview
+    draft --> active
+    active --> completed
+    state active {
+        not_run --> passed
+        not_run --> failed
+        not_run --> blocked
+        not_run --> skipped
+    }
+    completed --> [*]
+```
+
 ## Источники в коде
 
 - `vtpad_backend/app/src/pad/router.py`
@@ -95,3 +120,7 @@ sequenceDiagram
 - `vtpad_backend/app/src/runitems/router.py`
 - `vtpad_front_v2/src/components/pads/padsListComponent.vue`
 - `vtpad_front_v2/src/components/runs/detail/runsDetailComponent.vue`
+- `vtpad_backend/app/src/test_run/router.py`
+- `vtpad_backend/app/src/test_run/service.py`
+- `vtpad_front_v2/src/components/test-runs/testRunsListComponent.vue`
+- `vtpad_front_v2/src/components/test-runs/detail/testRunDetailComponent.vue`

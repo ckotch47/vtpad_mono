@@ -113,6 +113,15 @@ function isProbablyHtml(value) {
   return /<\/?[a-z][\s\S]*>/i.test(value || '')
 }
 
+function isSafeHttpUrl(value) {
+  try {
+    const url = new URL(value)
+    return ['http:', 'https:'].includes(url.protocol)
+  } catch {
+    return false
+  }
+}
+
 function getInbound(value) {
   const content = value || ''
   if (props.contentFormat === 'html') {
@@ -143,7 +152,15 @@ onMounted(() => {
   const extensions = [
     Markdown,
     Image.configure({ allowBase64: false, inline: true }),
-    Link.configure({ target: '_blank', linkOnPaste: true, openOnClick: !props.edit }),
+    Link.configure({
+      linkOnPaste: true,
+      openOnClick: !props.edit,
+      HTMLAttributes: {
+        target: '_blank',
+        rel: 'noopener noreferrer'
+      },
+      isAllowedUri: (url, ctx) => ctx.defaultValidate(url) && isSafeHttpUrl(url)
+    }),
     Placeholder.configure({
       placeholder: ({ node }) => {
         if (node.type.name === 'heading') {

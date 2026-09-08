@@ -37,6 +37,7 @@ import app.src.api_token as api_token
 import app.src.tech_doc as tech_doc
 import app.src.test_plan as test_plan
 import app.src.analytics as analytics
+import app.src.traceability as traceability
 
 # MCP server
 from app.src.mcp.server import get_mcp_app
@@ -237,6 +238,8 @@ app_utils.register_router(
         tech_doc.router,
         test_plan.router,
         analytics.router,
+        traceability.router,
+        traceability.tech_doc_router,
 
     ], app, global_prefix='/api')
 

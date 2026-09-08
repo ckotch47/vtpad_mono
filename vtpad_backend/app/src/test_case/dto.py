@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 
 class TestCaseCreateDto(BaseModel):
@@ -38,3 +38,7 @@ class TestCaseUpdateDto(BaseModel):
 class TestCaseSortDto(BaseModel):
     sort_before_id: Optional[str] = None
     sort_after_id: Optional[str] = None
+
+
+class TestCaseTechDocsReplaceDto(BaseModel):
+    tech_doc_ids: List[str]

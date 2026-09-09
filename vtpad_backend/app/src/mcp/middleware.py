@@ -22,6 +22,7 @@ class MCPAuthMiddleware(BaseHTTPMiddleware):
         try:
             api_token = await ApiTokenService.validate_token(raw_token)
             request.state.user_id = str(api_token.user_id)
+            request.state.mcp_authenticated_user_id = str(api_token.user_id)
             request.state.api_token_id = str(api_token.id)
             request.state.api_token_scopes = api_token.scopes or []
         except Exception as e:

@@ -178,6 +178,7 @@ Current behavior constraints (synced with code):
 - `create_test_plan` uses Bearer token from `Authorization` header when calling `TestPlanService.create(...)`.
 - `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
 - `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
+- Space access checks invoked by MCP tools use `request.state.mcp_authenticated_user_id`, which is populated only by `MCPAuthMiddleware` after API-token validation; REST requests continue to resolve the user from their JWT Bearer token.
 
 ### `app/src/test_run`
 - `POST /api/v2/test-run/preview`

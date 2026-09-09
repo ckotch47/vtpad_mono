@@ -41,6 +41,25 @@
     <v-container fluid>
       <v-row>
         <v-col cols="12" md="3">
+          <v-card v-if="hasDefaultSection" class="mb-3">
+            <v-list density="compact" class="pa-0">
+              <v-list-item
+                :active="selectedSection?.isDefault"
+                rounded="sm"
+                @click="onDefaultSectionSelect"
+              >
+                <template #prepend>
+                  <v-icon size="small" color="primary">mdi-folder-outline</v-icon>
+                </template>
+                <v-list-item-title class="text-body-2">
+                  Default
+                  <v-chip size="x-small" color="primary" variant="outlined" class="ml-2">
+                    {{ defaultSection.test_case_count }}
+                  </v-chip>
+                </v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-card>
           <suite-sections-panel
             :flat-sections="flatSections"
             :selected-section="selectedSection"
@@ -81,7 +100,7 @@
       </v-row>
     </v-container>
 
-    <section-dialog
+    <SectionDialog
       v-model="sectionDialog.open"
       :is-rename="sectionDialog.isRename"
       v-model:name="sectionDialog.name"
@@ -107,6 +126,8 @@ const {
   suite,
   flatSections,
   selectedSection,
+  defaultSection,
+  hasDefaultSection,
   loader,
   caseSearch,
   openAddCase,
@@ -124,6 +145,7 @@ const {
   filteredExistingCases,
   allCases,
   onSectionSelect,
+  onDefaultSectionSelect,
   openSectionDialog,
   openRenameDialog,
   saveSection,

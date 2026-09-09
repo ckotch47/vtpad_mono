@@ -110,6 +110,7 @@
 | POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | завершает active run |
 | PATCH | `/api/v2/test-run/result/{result_id}` | JWT + space check | меняет статус и детали результата только в active run; `not_run` очищает исполнителя и время выполнения |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
+| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля. Явный `section_id: null` снимает кейс с секции и оставляет его в указанном (или текущем) suite — UI показывает его в виртуальной секции `Default`; `null` остальных полей игнорируется. |
 | GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/{version_id}` | JWT + space check | конкретная версия testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/diff` | JWT + space check | сравнение двух версий |

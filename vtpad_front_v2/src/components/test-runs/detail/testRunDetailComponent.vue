@@ -223,7 +223,7 @@ const groupedResults = computed(() => {
     : results.value.filter((result) => result.status === resultFilter.value)
   for (const r of visibleResults) {
     const sectionId = r.testcase?.section?.id || 'no-section'
-    const sectionName = r.testcase?.section?.name || 'No Section'
+    const sectionName = r.testcase?.section?.name || 'Default'
     if (!map[sectionId]) {
       map[sectionId] = { sectionId, sectionName, results: [] }
     }

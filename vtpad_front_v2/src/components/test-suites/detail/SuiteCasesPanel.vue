@@ -42,7 +42,15 @@
             <span v-if="tc.short_name" class="text-caption text-medium-emphasis">{{ tc.short_name }}</span>
           </v-list-item-subtitle>
           <template #append>
-            <v-btn icon="mdi-link-off" size="x-small" variant="text" color="grey" title="Remove from section" @click.prevent="$emit('remove-case', tc.id)" />
+            <v-btn
+              v-if="!selectedSection.isDefault"
+              icon="mdi-link-off"
+              size="x-small"
+              variant="text"
+              color="grey"
+              title="Move to Default"
+              @click.prevent="$emit('remove-case', tc.id)"
+            />
           </template>
         </v-list-item>
       </v-list>

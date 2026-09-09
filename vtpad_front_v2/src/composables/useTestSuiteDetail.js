@@ -37,6 +37,17 @@ export function useTestSuiteDetail() {
   const selectedCase = ref(null)
   const breadcrumbItems = ref([])
 
+  const defaultSection = computed(() => ({
+    id: null,
+    name: 'Default',
+    isDefault: true,
+    test_case_count: allCases.value.filter(tc => tc.section_id == null).length,
+  }))
+
+  const hasDefaultSection = computed(() =>
+    flatSections.value.length === 0 || defaultSection.value.test_case_count > 0
+  )
+
   const filteredTestCases = computed(() => {
     const q = caseSearch.value.toLowerCase().trim()
     if (!q) return testCases.value
@@ -82,12 +93,18 @@ export function useTestSuiteDetail() {
     sectionService.getTree(suiteId.value).then(res => {
       sectionTree.value = res.data
       flatSections.value = flattenTree(res.data)
+      if (flatSections.value.length === 0 && !selectedSection.value) {
+        onDefaultSectionSelect()
+      }
     })
   }
 
   function loadAllCases() {
     testCaseService.listBySuite(suiteId.value).then(res => {
       allCases.value = res.data
+      if (selectedSection.value?.isDefault) {
+        testCases.value = unassignedCases()
+      }
     }).catch(() => {
       allCases.value = []
     })
@@ -106,7 +123,21 @@ export function useTestSuiteDetail() {
     loadTestCases(id)
   }
 
+  function onDefaultSectionSelect() {
+    selectedSection.value = defaultSection.value
+    testCases.value = unassignedCases()
+  }
+
+  function unassignedCases() {
+    return allCases.value.filter(tc => tc.section_id == null)
+  }
+
   function loadTestCases(sectionId) {
+    if (sectionId == null) {
+      testCases.value = unassignedCases()
+      return
+    }
+
     testCaseService.listBySection(sectionId).then(res => {
       testCases.value = res.data
       if (openAddExistingCase.value) {
@@ -191,10 +222,12 @@ export function useTestSuiteDetail() {
   function removeCaseFromSection(id) {
     testCaseService.update(id, {
       section_id: null,
-      suite_id: null
+      suite_id: suiteId.value
     }).then(() => {
-      loadTestCases(selectedSection.value.id)
       loadAllCases()
+      if (!selectedSection.value?.isDefault) {
+        loadTestCases(selectedSection.value.id)
+      }
     })
   }
 
@@ -224,13 +257,15 @@ export function useTestSuiteDetail() {
     const promises = selectedExistingCases.value.map(id =>
       testCaseService.update(id, {
         suite_id: suiteId.value,
-        section_id: selectedSection.value.id
+        section_id: selectedSection.value.isDefault ? null : selectedSection.value.id
       })
     )
     Promise.all(promises).then(() => {
       openAddExistingCase.value = false
-      loadTestCases(selectedSection.value.id)
       loadAllCases()
+      if (!selectedSection.value?.isDefault) {
+        loadTestCases(selectedSection.value.id)
+      }
     })
   }
 
@@ -242,12 +277,14 @@ export function useTestSuiteDetail() {
       steps: newCase.value.steps,
       space_id: spaceId.value,
       suite_id: suiteId.value,
-      section_id: selectedSection.value.id
+      section_id: selectedSection.value.isDefault ? null : selectedSection.value.id
     }).then(() => {
       openAddCase.value = false
       newCase.value = { title: '', type: 'manual', steps: '' }
-      loadTestCases(selectedSection.value.id)
       loadAllCases()
+      if (!selectedSection.value?.isDefault) {
+        loadTestCases(selectedSection.value.id)
+      }
     }).finally(() => {
       creatingCase.value = false
     })
@@ -293,6 +330,8 @@ export function useTestSuiteDetail() {
     sectionTree,
     flatSections,
     selectedSection,
+    defaultSection,
+    hasDefaultSection,
     testCases,
     allCases,
     loader,
@@ -315,6 +354,7 @@ export function useTestSuiteDetail() {
     loadAllCases,
     flattenTree,
     onSectionSelect,
+    onDefaultSectionSelect,
     loadTestCases,
     caseCountByType,
     typeIcon,

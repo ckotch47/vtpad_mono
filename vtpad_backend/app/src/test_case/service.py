@@ -198,7 +198,15 @@ class TestCaseService:
     @staticmethod
     async def update(testcase_id: str, dto: TestCaseUpdateDto, token: Optional[str] = None) -> TestCaseModel:
         data = dto.model_dump(exclude_unset=True)
-        data = {k: v for k, v in data.items() if v is not None}
+        # PATCH omits nullable fields by default.  `section_id: null` is the
+        # one intentional exception: it moves a case to the suite's virtual
+        # Default section without changing its suite.  Keep all other nulls
+        # out of the update so existing callers can still omit fields safely.
+        data = {
+            key: value
+            for key, value in data.items()
+            if value is not None or key == 'section_id'
+        }
         user_id = await get_user_id_by_token(token) if token else None
         async with in_transaction() as connection:
             testcase = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()

@@ -180,20 +180,24 @@ async def update_test_case(
         Updated test case details
     """
     await _require_case_access(case_id)
-    dto = TestCaseUpdateDto(
-        title=title,
-        text=description,
-        preconditions=preconditions,
-        steps=steps,
-        expected_results=expected_results,
-        postconditions=postconditions,
-        type=type,
-        status=status,
-        section_id=section_id,
-        suite_id=suite_id,
-        short_name=short_name,
-        external_id=external_id,
-    )
+    values = {
+        'title': title,
+        'text': description,
+        'preconditions': preconditions,
+        'steps': steps,
+        'expected_results': expected_results,
+        'postconditions': postconditions,
+        'type': type,
+        'status': status,
+        'section_id': section_id,
+        'suite_id': suite_id,
+        'short_name': short_name,
+        'external_id': external_id,
+    }
+    # MCP optional arguments are materialized as None even when absent. Keep
+    # that legacy omit behavior; only the REST PATCH can explicitly detach a
+    # case by sending JSON `section_id: null`.
+    dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.update(case_id, dto, token)
     return _case_to_dict(case)
@@ -262,7 +266,8 @@ async def move_test_case(
         Updated test case
     """
     await _require_case_access(case_id)
-    dto = TestCaseUpdateDto(suite_id=suite_id, section_id=section_id)
+    values = {'suite_id': suite_id, 'section_id': section_id}
+    dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.update(case_id, dto, token)
     return _case_to_dict(case)

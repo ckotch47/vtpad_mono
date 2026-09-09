@@ -234,7 +234,7 @@ function openCreateDialog() {
 function loadCreateSources() {
   testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 100, status: 'active' }).then(res => { suites.value = res.data.items || [] })
   testPlanService.listBySpace(spaceId.value, { page: 1, page_size: 100 }).then(res => { plans.value = res.data.items || [] })
-  testCaseService.listBySpace(spaceId.value, { page: 1, page_size: 500, status: 'active' }).then(res => { cases.value = res.data.items || res.data || [] })
+  testCaseService.listBySpace(spaceId.value, { page: 1, page_size: 500 }).then(res => { cases.value = res.data.items || res.data || [] })
   milestoneService.list(spaceId.value).then(res => { milestones.value = res.data.items || res.data || [] })
   environmentService.list(spaceId.value).then(res => { environments.value = res.data.items || res.data || [] })
 }

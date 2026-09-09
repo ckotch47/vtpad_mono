@@ -75,7 +75,7 @@ async def create(dto: TestRunCreateDto, request: Request, token: str = Depends(b
 
 @router.post('/preview', dependencies=[Depends(bearer)])
 async def preview(dto: TestRunCreateDto, request: Request):
-    """Return the server-resolved active selection before a run is created."""
+    """Return the server-resolved testcase selection before a run is created."""
     await check_user_into_space(dto.space_id, request)
     return await TestRunService.preview(dto)
 
@@ -113,4 +113,3 @@ async def bulk_update_results(dto: TestResultBulkUpdateDto, request: Request, to
 @router.patch('/result/{result_id}', dependencies=[Depends(bearer)])
 async def update_result(result_id: str, dto: TestResultUpdateDto, request: Request, token: str = Depends(bearer)):
     return await TestResultService.update_result(result_id, dto, token, request)
-

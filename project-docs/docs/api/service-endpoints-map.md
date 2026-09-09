@@ -100,8 +100,8 @@
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
-| POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с `source_hash` |
-| POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов; устаревший preview возвращает `409` |
+| POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с `source_hash`; status testcase не ограничивает состав |
+| POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов для cases любого статуса; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`; возвращает nullable `created_by` с `{id, username}` |
 | GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
 | GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты и snapshot/legacy-признак |

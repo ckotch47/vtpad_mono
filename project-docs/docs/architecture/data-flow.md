@@ -37,7 +37,7 @@
 
 ### V2 Test Run -> immutable execution history
 1. Пользователь выбирает ровно один источник: suite, plan или непустой список test cases.
-2. Frontend запрашивает `POST /api/v2/test-run/preview`; backend проверяет принадлежность выбранных сущностей space и то, что все cases активны, затем возвращает состав и `source_hash`.
+2. Frontend запрашивает `POST /api/v2/test-run/preview`; backend проверяет принадлежность выбранных сущностей space, но не ограничивает состав статусом testcase, затем возвращает состав и `source_hash`.
 3. Frontend передаёт этот hash в `POST /api/v2/test-run`. Backend повторно собирает выборку, отклоняет устаревший preview с `409` и в одной транзакции создаёт run и `test_result`.
 4. Каждый `test_result` хранит JSON snapshot testcase. Поэтому переименование или последующее редактирование testcase не меняет зафиксированный в run текст.
 5. Пока run имеет статус `active`, только результат `not_run` допускает один переход в `passed`, `failed`, `blocked` или `skipped`. Завершённый run не редактируется.

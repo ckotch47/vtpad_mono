@@ -19,8 +19,8 @@ from ..common.right_guard import check_user_into_space
 class TestRunService:
     @staticmethod
     async def _resolve_testcases_for_run(dto: TestRunCreateDto):
-        """Resolve exactly one source, always scoped to active cases in its space."""
-        from ..test_case.model import TestCaseModel, TestCaseStatus
+        """Resolve exactly one source, scoped to test cases in its space."""
+        from ..test_case.model import TestCaseModel
 
         has_explicit_cases = bool(dto.testcase_ids)
         source_count = sum(bool(value) for value in (dto.suite_id, dto.plan_id, has_explicit_cases))
@@ -38,7 +38,6 @@ class TestRunService:
             testcases = await TestCaseModel.filter(
                 suite_id=dto.suite_id,
                 space_id=dto.space_id,
-                status=TestCaseStatus.active,
             ).prefetch_related('section').order_by('section__sort', 'sort')
             source = {'type': 'suite', 'id': str(suite.id), 'name': suite.name}
         elif dto.plan_id:
@@ -47,31 +46,28 @@ class TestRunService:
             if str(plan.space_id) != str(dto.space_id):
                 raise HTTPException(status_code=404, detail="Test plan not found in space")
             plan_cases = await TestPlanService.get_cases(dto.plan_id)
-            active_cases = [
+            testcases = [
                 testcase for testcase in plan_cases
                 if str(testcase.space_id) == str(dto.space_id)
-                and testcase.status == TestCaseStatus.active
             ]
-            testcases = active_cases
             source = {'type': 'plan', 'id': str(plan.id), 'name': plan.name}
         else:
             requested_ids = list(dict.fromkeys(dto.testcase_ids or []))
             testcases = await TestCaseModel.filter(
                 id__in=requested_ids,
                 space_id=dto.space_id,
-                status=TestCaseStatus.active,
             ).prefetch_related('section')
             testcase_by_id = {str(testcase.id): testcase for testcase in testcases}
             if len(testcase_by_id) != len(requested_ids):
                 raise HTTPException(
                     status_code=422,
-                    detail="Every selected testcase must exist in the space and be active",
+                    detail="Every selected testcase must exist in the space",
                 )
             testcases = [testcase_by_id[testcase_id] for testcase_id in requested_ids]
             source = {'type': 'selected_cases', 'id': None, 'name': None}
 
         if not testcases:
-            raise HTTPException(status_code=422, detail="The selected source has no active testcases")
+            raise HTTPException(status_code=422, detail="The selected source has no testcases")
         return source, testcases
 
     @staticmethod

@@ -7,6 +7,8 @@ from .utils import translate
 from . import queries, stats
 from ..spacesuser.model import SpacesUserModel, SpacesUserRole
 from ..users.model import UserModel
+from ..admin.company.enum import ActiveEnum
+from ..admin.user_company_settings.model import UserCompanySettingsModel
 import logging
 logger = logging.getLogger(__name__)
 
@@ -108,13 +110,27 @@ class SpaceService:
     @staticmethod
     async def add_user_space(space_id: str, dto: AddUserSpaceDto, user: dict):
         temp_user = await UserModel.filter(mail=dto.mail).first()
+        space = await SpaceModel.filter(id=space_id).first()
 
-        if not temp_user:
+        if not temp_user or not space:
             raise HTTPException(status_code=404, detail="user not found")
 
-        temp = await SpacesUserModel.filter(userId=temp_user.id, spaceId=space_id)
-        if temp:
-            return None
+        is_active_in_space_company = await UserCompanySettingsModel.filter(
+            user_id=temp_user.id,
+            company_id=space.company_id,
+            status=ActiveEnum.ACTIVE,
+        ).exists()
+        if not is_active_in_space_company:
+            raise HTTPException(status_code=404, detail="user not found")
+
+        already_member = await SpacesUserModel.filter(
+            userId=temp_user.id,
+            spaceId=space_id,
+        ).exists()
+        if already_member:
+            # The endpoint always declares a users list.  Returning the current
+            # list keeps duplicate adds idempotent and avoids a None response.
+            return await SpaceService.get_user_for_space(space_id)
 
         await SpacesUserModel.create(
             userId=temp_user.id,
@@ -144,37 +160,31 @@ class SpaceService:
     @staticmethod
     async def check_owner(user_payload: dict, space_id: str):
         conn = Tortoise.get_connection('default')
-        sqlV2 = """
-            SELECT spacesusermodel.role as sp_role, u.role as company_role
-            FROM spacesusermodel
-            LEFT OUTER JOIN usercompanysettingsmodel u on u.user_id = $1
-            WHERE "userId" = $1
-                AND "spaceId" = $2
-                AND u.status = 'active'
-            """
-        sql_check_role_company_admin = """
-            SELECT usercompanysettingsmodel.role FROM usercompanysettingsmodel
-            LEFT JOIN spacemodel s on usercompanysettingsmodel.company_id = s.company_id
-            WHERE user_id = $1
-            AND s.id = $2
+        sql = """
+            SELECT su.role AS space_role,
+                   u.role AS company_role,
+                   u.status AS company_status
+            FROM spacemodel s
+            LEFT JOIN spacesusermodel su
+                ON su."spaceId" = s.id
+                AND su."userId" = $1
+            LEFT JOIN usercompanysettingsmodel u
+                ON u.user_id = $1
+                AND u.company_id = s.company_id
+            WHERE s.id = $2
         """
+        roles = await conn.execute_query_dict(sql, [user_payload.get('id'), space_id])
 
-        temp = (await conn.execute_query_dict(sqlV2, [user_payload.get('id'), space_id]))[0]
-        try:
-            if temp.get('sp_role') != SpacesUserRole.owner:
-                    raise HTTPException(status_code=403, detail="not have rule")
-            else:
+        for role in roles:
+            if role.get('space_role') == SpacesUserRole.owner:
                 return True
-        except Exception as e:
-            logger.error('Unexpected error: %s', e, exc_info=True)
-            try:
-                if temp.get('role') == 'company_admin':
-                    return True
-                else:
-                    raise HTTPException(status_code=403, detail="not have rule")
-            except Exception as e:
-                logger.error('Unexpected error: %s', e, exc_info=True)
-                raise HTTPException(status_code=403, detail="not have rule")
+            if (
+                role.get('company_role') == 'company_admin'
+                and role.get('company_status') == 'active'
+            ):
+                return True
+
+        raise HTTPException(status_code=403, detail="not have rule")
 
     @staticmethod
     async def update_user_rules_in_space(space_id: str, user_id: str, dto: UpdateUserRulesForSpaceDto):

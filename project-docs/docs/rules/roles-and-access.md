@@ -19,8 +19,10 @@
 - Admin routes (`/api/v2/amin/company`, `/api/v2/company-user`) доступны для администраторов company.
 
 ### Space
-- `check_user_into_space` — dependency, проверяющая, что пользователь состоит в space.
+- `check_user_into_space` — dependency, проверяющая активное членство пользователя в company целевого space и его membership либо роль `company_admin` в этой же company.
 - Владелец space (`user-make-owner`) — полный доступ.
+- Изменять участников и настройки space может его владелец или активный `company_admin` той же company. Проверка не зависит от наличия у company admin отдельной записи участника.
+- Добавляемый участник должен быть активным пользователем той же company, что и space; иначе API отвечает тем же `404 user not found`, что и для неизвестного email.
 - Обычные участники space — доступ к pads, runs, bugs в рамках space.
 
 ## Защита endpoint'ов

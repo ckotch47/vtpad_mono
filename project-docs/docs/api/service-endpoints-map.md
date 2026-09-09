@@ -47,7 +47,7 @@
 | GET | `/api/v1/space/{space_id}` | JWT + space check | детали space |
 | GET | `/api/v1/space/{space_id}/users` | JWT + space check | пользователи space |
 | PUT | `/api/v1/space/{space_id}` | JWT + space check | обновление space |
-| PUT | `/api/v1/space/{space_id}/user` | JWT + space check | добавление пользователя |
+| PUT | `/api/v1/space/{space_id}/user` | JWT + space check + owner / active company admin | добавление активного пользователя той же company; повторный запрос возвращает актуальный список участников |
 | DELETE | `/api/v1/space/{space_id}/user/{user_id}` | JWT + space check | удаление пользователя |
 | PATCH | `/api/v1/space/{space_id}/user/{user_id}` | JWT + space check | обновление прав пользователя |
 | PUT | `/api/v1/space/{space_id}/user-make-owner/{user_id}` | JWT + space check | назначение владельца |

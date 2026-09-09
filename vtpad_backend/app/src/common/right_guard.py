@@ -16,21 +16,23 @@ async def check_user_into_space(space_id: uuid.UUID | str = None, request: Reque
     if user_id is None:
         token = request.headers.get('authorization').split(" ")[1]
         user_id = user_payload(token).get('id')
-    sql = 'SELECT * FROM usermodel \
-            LEFT JOIN usercompanysettingsmodel u on usermodel.id = u.user_id \
-            LEFT JOIN spacesusermodel sp on sp."userId" = usermodel.id \
-            WHERE usermodel.id = $1 \
-            AND sp."spaceId" = $2 \
-            AND u.status = \'active\''
-    sql_user_role = """
-        SELECT usercompanysettingsmodel.role FROM usercompanysettingsmodel
-        LEFT JOIN spacemodel s on usercompanysettingsmodel.company_id = s.company_id
-        WHERE user_id = $1
-        AND s.id = $2
+    sql = """
+        SELECT su.role AS space_role, u.role AS company_role
+        FROM spacemodel s
+        LEFT JOIN spacesusermodel su
+            ON su."spaceId" = s.id
+            AND su."userId" = $1
+        LEFT JOIN usercompanysettingsmodel u
+            ON u.user_id = $1
+            AND u.company_id = s.company_id
+            AND u.status = 'active'
+        WHERE s.id = $2
     """
-    tmp = await conn.execute_query(sql, [user_id, space_id])
-    tmp_user_role = await conn.execute_query_dict(sql_user_role, [user_id, space_id])
-    if not tmp_user_role:
-        raise HTTPException(status_code=403, detail=f'not right space')
-    if not bool(tmp[0]) and tmp_user_role[0].get('role') != 'company_admin':
-        raise HTTPException(status_code=403, detail=f'not right space')
+    roles = await conn.execute_query_dict(sql, [user_id, space_id])
+    for role in roles:
+        is_active_member = bool(role.get('space_role')) and bool(role.get('company_role'))
+        is_active_company_admin = role.get('company_role') == 'company_admin'
+        if is_active_member or is_active_company_admin:
+            return
+
+    raise HTTPException(status_code=403, detail='not right space')

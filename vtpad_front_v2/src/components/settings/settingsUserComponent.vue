@@ -90,11 +90,8 @@ function addUserIntoSpace(userMail) {
   if (!userMail) return
   loader.value = true
   spaceService.addUser(spaceId.value, { mail: userMail }).then(res => {
-    if (!res.data) {
-      loader.value = false
-      return
-    }
-    users.value = res.data
+    if (res.data) users.value = res.data
+  }).finally(() => {
     loader.value = false
   })
 }

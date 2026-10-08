@@ -16,6 +16,10 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 - После каждого вертикального пакета: targeted lint/type/static checks, production build, REST+MCP contract check, изолированный runtime smoke, desktop/mobile UI smoke по scope; `git diff --check`; отдельный коммит.
 - В конце пересобрать/перезапустить локальные сервисы VTPad и подтвердить health endpoints, UI, миграционный ledger и ключевые сценарии на disposable DB. Оставить локальный сервис доступным.
 
+### Scope update from user
+
+2026-10-09: пользователь исключил мобильную адаптацию из текущего прохода («мобилку пропусти и не правь под нее»). UX4 и mobile-specific implementation/smoke are deferred; this roadmap pass uses desktop UI acceptance. Do not add mobile-only fixes or run mobile smoke unless the user later reopens this scope. Other desktop-first roadmap items remain in scope.
+
 ## Этап 1 — принятые UX- и case-пункты
 
 ### DD5. Bug linking из failed results
@@ -120,4 +124,4 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 
 ## Статус
 
-Одобрен пользователем 2026-10-09; выполнение продолжается. Архитектурный и security review прошли на `b4d1d58`. RDU2 UI polish реализован в `0a6e798`; desktop/mobile smoke и independent code review прошли. TC1 committed as `ade63d8`; browser create/edit/type-switch/version/mixed-run/snapshot acceptance passed on a disposable clone. DD5 REST/MCP and failed-result dialog browser acceptance passed on a disposable clone, including cancel, validation and successful link/receipt. Residual browser gap: retry after transient network loss was not fault-injected; TC1/DD5 browser smoke was desktop-only. SU5 implemented in `74fad6f`; desktop local read-only smoke passed match, hidden selection, no-match, and clear behavior. Nested-section layout, keyboard focus, and mobile smoke remain in the regression checklist. SU6–SU8 remain in progress. Этот status update не меняет утверждённый scope. Supersedes r1/r2.
+Одобрен пользователем 2026-10-09; выполнение продолжается. Архитектурный и security review прошли на `b4d1d58`. RDU2 UI polish реализован в `0a6e798`; desktop/mobile smoke и independent code review прошли до последующего исключения mobile scope. TC1 committed as `ade63d8`; browser create/edit/type-switch/version/mixed-run/snapshot acceptance passed on a disposable clone. DD5 REST/MCP and failed-result dialog browser acceptance passed on a disposable clone, including cancel, validation and successful link/receipt. Residual browser gap: retry after transient network loss was not fault-injected; TC1/DD5 browser smoke was desktop-only. SU5 implemented in `74fad6f`; desktop local read-only smoke passed match, hidden selection, no-match, and clear behavior. SU6 REST and MCP runtime acceptance passed on disposable DB: legacy MCP signature remains available, explicit moves to sections and Default are idempotent, same-space section mismatch returns 422 over REST and is rejected by MCP, and foreign-space suite is hidden as 404/rejected by MCP. Fixture restored; temporary API tokens removed. Nested-section layout and keyboard focus remain in desktop regression checklist. SU7–SU8 remain in progress. Mobile implementation and smoke were explicitly deferred by the user on 2026-10-09; this is a scope update. Supersedes r1/r2.

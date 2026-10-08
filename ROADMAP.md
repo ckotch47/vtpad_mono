@@ -73,11 +73,13 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [x] Explore a Tech Docs-style tree structure for browsing test suites; use a flat searchable list because suites have no parent hierarchy
 - [x] Reorder sections within the same parent through REST, MCP, drag-and-drop, and keyboard controls
 - [x] Add search/filter for sections in the tree
-- [ ] Move cases between sections by drag-and-drop or from a dialog
+- [x] Move cases between sections by dialog (REST and MCP, including Default)
 - [ ] Compare two test case versions side by side
 - [ ] Add filterable and searchable tags and priority for cases
 
 SU5 section filtering is implemented in `74fad6f`: matching sections retain their ancestors and order, selection survives filtering, and hidden-selection, no-match, and clear states are explicit. ESLint, production build, and `git diff --check` passed. Read-only desktop smoke on the local app verified a matching result, preserved hidden selection, no-match state, and clearing. Nested-section layout, keyboard focus, and mobile smoke remain in the regression checklist.
+
+SU6 move dialog is implemented in `3d277c7`; its REST and MCP contracts were runtime-tested on disposable database `vtpad_su6_runtime_20261009`. REST move and same-location move returned 200. MCP discovery exposed both the legacy `move_test_case` and explicit `move_test_case_to_location`; calls to `Default`, repeated `Default`, and restore-to-source succeeded. Both transports reject a same-space suite/section mismatch and hide a foreign-space suite as missing. The test case was restored to its initial section, and temporary API tokens were removed. Frontend dialog open/select/cancel was separately verified without writing user data. Mobile behavior is excluded from this roadmap pass by the user's instruction dated 2026-10-09.
 
 ### Test Cases and Checklists
 The TC2 Test IT review is complete. TC1 implementation is committed as `ade63d8`; lint/build and browser acceptance on a disposable clone passed. Checklist hidden fields survived type-switch/save, version history, mixed-run preview, and snapshot creation.
@@ -98,7 +100,7 @@ DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separate
 - [ ] Add keyboard shortcuts — Cmd+S to save and Esc to close a modal
 - [ ] Add loading skeletons for tables
 - [ ] Add empty states with illustrations and clear next actions
-- [ ] Improve mobile responsiveness
+- [ ] Improve mobile responsiveness (deferred by user instruction on 2026-10-09; excluded from this roadmap pass)
 
 ### Backend and Data
 - [ ] Add PostgreSQL full-text search with `tsvector`

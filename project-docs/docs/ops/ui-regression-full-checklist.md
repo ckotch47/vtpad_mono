@@ -5,6 +5,8 @@
 Полный регрессионный набор для `vtpad_front_v2` в space-контексте.
 Базовый URL: `http://localhost:5173`.
 
+Для текущего прохода roadmap пользователь исключил мобильную адаптацию и мобильный smoke 2026-10-09. Приёмка новых UI-изменений выполняется на desktop; не добавлять mobile-only правки и не считать mobile проверки выполненными.
+
 Цель:
 - проверить, что ключевые пользовательские сценарии работают end-to-end;
 - поймать визуальные/типографические регрессии;
@@ -65,7 +67,7 @@
 - На длинном desktop detail карта групп остаётся закреплённой слева, прокручивается отдельно, показывает текущую группу и подсвечивает её строку.
 - Переход к группе мышью и клавиатурой переводит фокус к заголовку; полные имена групп доступны, длинные названия не раздвигают страницу.
 - Сводка объединена в одну карточку: прогресс и статусы сверху, замеры времени кейсов/run ниже; `NULL` отображается как отсутствие данных, `0` — как измеренное время.
-- На mobile группы доступны в горизонтальной навигации без горизонтального переполнения всей страницы.
+- Mobile layout не проверяется в текущем roadmap pass по указанию пользователя от 2026-10-09.
 - Status transitions: проверка смены статусов/step results (если поддерживается UI).
 - Delete/archive (если доступно).
 
@@ -80,9 +82,9 @@
 - Sections/cases внутри suite: add/remove/rename.
 - Sections filter: accessible name search finds nested sections and keeps each matching section's ancestors in tree order; keyboard users can focus/select rows.
 - Filtering never changes the selected section. When selection is filtered out, the UI says so and offers “Show selection”; clearing restores the full list.
-- No-match state is explicit and can be cleared; long section names remain readable through wrapping or their full accessible name. Verify at desktop and mobile widths.
-- SU5 read-only desktop smoke passed on 2026-10-09: matching query, hidden selected section with “Show selection”, no-match message, and clear restored all 5 sections. Nested sections, keyboard focus, long-name layout, and mobile viewport still need manual verification.
-- SU6 dialog read-only desktop smoke passed on 2026-10-09: action opens for a case, `Default` and each suite section appear, another destination can be selected, and Cancel closes without changing data. Submit, refresh/counts after success, same-space errors, MCP, keyboard, and mobile behavior remain to verify on a disposable database.
+- No-match state is explicit and can be cleared; long section names remain readable through wrapping or their full accessible name. Verify at desktop width.
+- SU5 read-only desktop smoke passed on 2026-10-09: matching query, hidden selected section with “Show selection”, no-match message, and clear restored all 5 sections. Nested sections, keyboard focus, and long-name layout still need manual verification.
+- SU6 dialog read-only desktop smoke passed on 2026-10-09: action opens for a case, `Default` and each suite section appear, another destination can be selected, and Cancel closes without changing data. REST move and same-location idempotency, MCP discovery and calls to Default/repeat/restore-source passed on disposable database `vtpad_su6_runtime_20261009`; the fixture returned to its original section. Both REST and MCP rejected a section from another suite in the same space; REST returned 422 for that mismatch and 404 for a foreign-space suite. Keyboard behavior remains to verify.
 
 5. Tech Docs
 - Tree загружается.
@@ -138,7 +140,9 @@
 - Стиль TipTap задаётся только в `src/components/common/editor/editorComponent.vue`.
 - Нет page-level style override редактора.
 
-### 6. Responsive
+### 6. Responsive (deferred for current roadmap pass)
+
+Mobile and tablet work and smoke are excluded by the user instruction dated 2026-10-09. The following checks are not part of this roadmap acceptance pass.
 
 1. Desktop (>= 1440)
 - Ключевые экраны без горизонтального скролла.

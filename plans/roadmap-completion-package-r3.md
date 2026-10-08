@@ -1,0 +1,123 @@
+# Пакет завершения ROADMAP — r3
+
+Дата: 2026-10-09. r3 supersedes `plans/roadmap-completion-package-r2.md` после второго архитектурного и security review. Цель — довести все незакрытые пункты `ROADMAP.md`, включая Future Ideas, до реализованного и проверенного поведения. Базовые решения по доменам наследуются из `plans/roadmap-solutions-r1.md` на коммите `d5bbfcd`; r3 устраняет оставшиеся пробелы FI2/UX3/AN2 и уточняет права/egress safeguards BD2/FI3/FI8/FI9. Имплементация начинается только после одобрения этой точной ревизии согласно корневому `AGENTS.md`.
+
+## Уже закрыто и не входит в реализацию повторно
+
+TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/case фильтры остаются в текущей реализации; для пунктов с незакрытой runtime-приёмкой проводится браузерная проверка и исправления только при выявлении дефекта. Пункт ROADMAP о failed-result bug linking проверяется отдельно как DD5; DD4 link_uuid и quick-create не считаются заменой пока это не подтверждено runtime. Визуальная доработка Run detail из этого плана совпадает с точным scope `plans/run-detail-ui-polish-package-r2.md`; мастер-план включает её и supersedes отдельное ожидание одобрения r2.
+
+## Общие требования
+
+- Сохранять tenancy: каждый REST/MCP запрос и каждая связь/lookup ограничены тем же `space`; cross-space объекты не раскрываются.
+- Каждая пользовательская доменная операция имеет функционально эквивалентный REST и MCP интерфейс с одинаковыми проверками, статусами и результатом. Transport-only HTTP callback может иметь HTTP ingress, но тот же `process` use case обязан быть доступен MCP tool с тем же schema. Публичный unauthenticated redemption остаётся HTTP route, а MCP `get_shared_run` принимает share token и возвращает тот же safe representation под обычной MCP-аутентификацией. Все MCP schemas/descriptions и endpoint map обновляются.
+- Учитывать уже существующие данные и snapshots. Не трактовать `NULL` как 0 и не менять исторический состав run.
+- Каждая миграция идемпотентна и проверяется на восстановленной disposable-копии БД. Производственную/основную БД использовать для проверок только read-only; запрещено изменять её данные тестовыми запросами.
+- Изменения backend/frontend сопровождаются релевантными обновлениями `project-docs/docs/`, `ROADMAP.md` и статусом соответствующего плана. Новая зависимость допускается только при необходимости с обновлением dependency docs.
+- После каждого вертикального пакета: targeted lint/type/static checks, production build, REST+MCP contract check, изолированный runtime smoke, desktop/mobile UI smoke по scope; `git diff --check`; отдельный коммит.
+- В конце пересобрать/перезапустить локальные сервисы VTPad и подтвердить health endpoints, UI, миграционный ledger и ключевые сценарии на disposable DB. Оставить локальный сервис доступным.
+
+## Этап 1 — принятые UX- и case-пункты
+
+### DD5. Bug linking из failed results
+
+Уточнить формулировку ROADMAP: это быстрый create-and-link из failed result, а не автосоздание бага при одной смене статуса. В failed-result editor доступно `Create Bug`; после явного submit quick-create атомарно создаёт bug и UUID link, который сразу виден в run detail/dashboard. Существующий баг можно выбрать через linked-bugs поле. Если этот контракт уже полностью закрыт DD4 r4, выполнить runtime повторный submit/cancel/validation/same-space сценарии и поправить только roadmap wording/checkbox; иначе реализовать недостающую часть. REST и MCP create/link используют одну business service и одинаковые checks.
+
+### RDU2. Run detail groups и summary
+
+Выполнить точные scope и acceptance, зафиксированные здесь и ранее в `plans/run-detail-ui-polish-package-r2.md`: визуально выстроить suite/section rail, оставить его sticky слева на desktop с независимой прокруткой, пересобрать сводку вокруг прогресса и сгруппированных time metrics. Сохранить формулы, timer states, клавиатурную навигацию и mobile layout.
+
+### TC1. Разные представления cases/checklists
+
+Выполнить scope `plans/checklist-ux-package-r1.md`: условные type-specific блоки create/edit/detail/run внутри существующих экранов и маршрутов, при сохранении общего API/model. Checklist показывает список проверок без полей case, case показывает предусловия, шаги и ожидаемые результаты. При смене типа не удалять скрытые значения; не вводить отдельный результат на каждую проверку чеклиста. Сохранить versioning, snapshots и преобразование checklist→case по действующим правилам.
+
+### Suite/Case UX: SU5–SU8
+
+Использовать точные решения и критерии SU5–SU8 из `plans/roadmap-solutions-r1.md` §§3:
+
+- **SU5:** фильтр дерева секций по имени, показывать совпадение с предками/полным путём, не терять выбранную секцию; отдельные no-match/clear состояния и клавиатурный доступ.
+- **SU6:** реализовать явный перенос testcase через диалог между секциями и в `Default`; поддержать move через REST и MCP, валидировать suite/space и обновить counts без потери кейса. Сначала dialog; drag-and-drop остаётся необязательным способом поверх того же контракта.
+- **SU7:** два независимых селектора версий только для одного testcase и структурный diff `title`, `type`, `priority`, `tags`, `description`, `preconditions`, упорядоченных `steps` и `expected_results`; для steps сопоставление по позиции, вставки/удаления показываются явно. Rich text diff строится только из sanitized content. Проверять одинаковые версии, старые неполные snapshots, смену типа и длинные поля.
+- **SU8:** фиксированный приоритет `P0 blocker`, `P1 high`, `P2 normal`, `P3 low`; tags создаются внутри space. Поля versioned, доступны в REST/MCP list/detail/edit/duplicate/restore; поиск/фильтры сочетаются, синхронизируются с URL и пагинацией. Дубликаты тегов нормализуются в пределах space.
+
+## Этап 2 — общие UX-улучшения
+
+### UX1. Cmd/Ctrl+S и Esc
+
+Реализовать scoped keyboard shortcuts: Cmd/Ctrl+S вызывает существующее сохранение только в активном редактируемом форме; не перехватывать текстовый ввод/браузерные поля. Esc закрывает верхний modal/dialog только когда форма не находится в состоянии подтверждения/сохранения; unsaved changes используют уже существующий confirm flow или явное предупреждение.
+
+### UX2. Skeleton таблиц
+
+Добавить общий переиспользуемый skeleton для initial load основных таблиц cases, suites, runs, plans, bugs и tech docs; удерживать высоту, не скрывать доступные фильтры и не заменять существующий контент при фоновом обновлении.
+
+### UX3. Empty states
+
+Обязательный перечень: suite list, case list, plan list и case picker, run list, run detail без результатов, bugs list, Tech Docs tree, analytics dashboard. Для каждого оформить отдельные состояния: первоначально пусто, нет результатов фильтра, ошибка загрузки и нет прав. Показать понятный CTA Create/Clear/Retry только при доступных правах; CTA должен работать с клавиатуры.
+
+### UX4. Mobile responsiveness
+
+Провести аудит критических flows по `project-docs/docs/ops/ui-regression-full-checklist.md`: suite/case, test plan, run/result, bugs, analytics, tech docs. Исправить overflow toolbar/table/editor/dialog, проверить touch targets, zoom/reflow, focus и back navigation на малом viewport.
+
+## Этап 3 — backend search
+
+### BD1. PostgreSQL full-text search
+
+Добавить транзакционно обновляемый `tsvector` и GIN index. Для cases индексировать title/short_name (weight A), description/preconditions (B), steps/expected_results (C); для suites — name/description (A/B). Использовать PostgreSQL `simple` config, parameterized `websearch_to_tsquery`, ranking с tie-break `id`, space/permission filters и прежние category/status/suite filters. Пустой query сохраняет прежний список. Backfill и trigger/update paths проверяются после create/edit/restore/import. Эквивалентный поиск доступен REST и MCP.
+
+
+## Этап 4 — custom fields, plans, import/export и analytics
+
+### FI5. Значения пользовательских полей case
+
+Завершить имеющиеся `custom_field`/value CRUD: встроить typed values в case view/edit, валидировать тип, обязательность, принадлежность поля тому же space и права. Сохранять историческое значение в testcase version/run snapshot; удаление или смена типа поля не ломает старые версии. Export/import definitions+values выполняется в BD2 после этого пункта. Поля доступны через REST и MCP.
+
+### FI1. Расширенные фильтры Test Plan
+
+В форму Test Plan добавить пересекающиеся фильтры по SU8 tags/priority и FI5 typed custom fields, серверный preview с counts и тем же query, что используется при создании. Snapshot план/run фиксирует выбранные кейсы; последующие изменения tags/custom fields не меняют старый run. REST/MCP preview и создание используют общую бизнес-логику.
+
+### BD2. CSV/JSON import/export suites и cases
+
+Выполнять после FI5, чтобы schema включала custom-field definitions/values. Экспортировать suites, секции, cases, tags/priority и typed custom fields в JSON/CSV; JSON schema version фиксируется в каждом файле, CSV содержит section path и отдельные колонки для поддерживаемых простых значений. Ограничения: входной файл ≤5 MiB, ≤10,000 rows, ≤5,000 cases, ≤20 section levels; preview отвергает превышение до парсинга/записи. Экспорт не включает версии, run history, пользователей, вложения и секреты. Импорт генерирует новые IDs; экспортные stable keys используются только для remap ссылок внутри одного файла. Custom-field definitions создаются как новые space-scoped definitions, значения перепривязываются по stable key и валидируются по type; существующие определения не перезаписываются. История версий/run не переносится. Preview проверяет все rows/IDs/links и conflicts до записи; конфликт существующего short_name в целевом space делает весь import невалидным. Import атомарный, новые custom fields и cases коммитятся одной транзакцией. Проверять size/MIME/depth/row limits, object-level rights и same-space для каждого suite/section/case/field. CSV экспорт нейтрализует formula-like text cells по первому эффективному символу после whitespace/control prefixes; если после удаления всех Unicode White_Space символов и C0 controls обнаруживается `=`, `+`, `-` или `@`, значение экспортируется с безопасным apostrophe prefix перед исходным содержимым. Numeric typed fields экспортируются как числа только после schema validation. Fixtures включают обычный ввод, leading spaces/tabs/CR/LF, full-width/Unicode spaces и контрольные chars; обычного CSV quoting недостаточно. Preview экранирует rich text. REST и MCP получают одинаковый versioned content schema (никаких host filesystem paths); cross-space foreign IDs не различаются от отсутствующих.
+
+
+### AN1. Дополнительная аналитика
+
+Добавить два конкретных вопроса поверх существующего dashboard: (1) weekly failed rate по suite = `failed / (passed + failed + blocked + skipped)` среди результатов завершённых runs; `not_run` исключён. (2) повторяющиеся падения: case считается recurrent, если failed минимум в двух разных completed runs среди последних 20 runs его suite. Для failed rate использовать UTC calendar weeks (Monday–Sunday) и последние 12 полных недель; recurrent-case список считать по последним 20 completed runs в пределах выбранного suite и выбранного диапазона (без пересечения разных suites). Показывать числитель/знаменатель/coverage, фильтр suite, no-data state и drill-down до исходных run/result. Соблюдать space/object rights до агрегации. Новые API доступны REST/MCP.
+
+### AN2. Аналитика времени
+
+Анализировать только completed runs и относить всю run duration/estimate/result time к UTC bucket по `completed_at`; interval durations не распределять по границам дней/недель. Для диапазона до 31 календарного дня использовать daily buckets, для более длинного — weekly buckets UTC (Monday 00:00–next Monday); default — последние 12 полных недель. По suite показывать три отдельные series: оценку (сумма snapshotted estimates всех выбранных results), actual case time (сумма measured result durations) и active run time (сумма active timer intervals). Среднее actual case time = actual sum / measured case count и всегда сопровождается coverage `measured/total`; paused time не входит в active; `NULL` исключается, 0 учитывается как measured zero. Для истории использовать testcase snapshot. Контрольные примеры сравнивают каждый bucket с run detail/history; REST и MCP возвращают одинаковые агрегаты.
+
+## Этап 5 — остальные Future Ideas
+
+- **FI2 Run comparison:** сравнивать только два `completed` run одного space; draft/active запрос отвечает понятным 422 и не показывает partial comparison. Сопоставлять по snapshot `testcase_id`; удалённый и заново созданный кейс (новый ID) — отдельные removed/added rows независимо от совпадения title. Case content считаются изменёнными при различии `title`, `type`, `suite_id/name`, `section_path`, `description`, `preconditions`, `steps`, `expected_results`, `priority`, `tags` или `estimated_duration_seconds`; rich text сравнивается как normalized safe markup. Result delta отдельно показывает status/comment/duration changes. Не использовать текущий live testcase при diff. REST/MCP read endpoints имеют одинаковые fields, права и errors.
+- **FI3 CI/CD webhooks:** integration create/read/rotate/revoke и `process_webhook` доступны REST и MCP. Создавать, читать metadata, rotate и revoke credential могут только space owner либо active company admin той же company с активным membership в этом space; каждая операция проверяет scope на сервере. `read` никогда не возвращает secret (только metadata/hash prefix и scope). Credential разрешает только записи в explicit allowlist run IDs одного space; не может создавать runs/bugs, редактировать cases или завершать run. Secret — CSPRNG 32 bytes, показывается один раз, хранится encrypted AES-256-GCM с HKDF-SHA-256 subkey, выведенным из app master key с отдельным context и key-version metadata; rotate атомарно отзывает старый secret. HTTP callback и MCP tool вызывают общий use case. Signature — HMAC-SHA-256 по canonical method/path/timestamp/nonce/body hash, constant-time compare; timestamp ±300 seconds; nonce unique минимум 10 минут; idempotency key уникален в integration scope и связывает hash(space,payload), повтор с другим payload даёт conflict. Лимиты: 1 MiB, 1,000 results/event, 60 запросов/минуту/integration. Журнал хранит только integration/request IDs, status/error code, time и counts; не пишет raw payload/secret/token. Успешная запись меняет только status/duration/comment заранее mapped result.
+- **FI4 Traceability matrix:** трактовать выбранные Tech Docs с testcase links как требования; таблица requirement→cases→последний result/coverage, строки без testcase/result видны отдельно. Membership и object-level read permission проверяются для каждого requirement/case/run/result до join/aggregation и drill-down; повреждённые legacy cross-space links игнорируются без раскрытия foreign IDs. Tech Doc rich text возвращается как sanitized/display-safe representation. Read endpoints доступны REST/MCP.
+- **FI6 Case templates:** versioned набор полей/steps для копирования при создании case. Изменение template не меняет ранее созданные cases; создавать/обновлять/использовать через UI, REST и MCP с space checks.
+- **FI7 Run completion notification:** при successful transition в completed один in-app notification создателю run; без `created_by` адресата нет. Atomic unique `(run_id,event,user_id)` предотвращает дубли при concurrent/repeated complete. Payload содержит только opaque run ID и route, без name/status/bug/user data. Notification list/count/SSE проверяют актуальное membership; после отзыва membership событие скрыто, dereference повторно проверяет доступ. Read/create доступны REST/MCP.
+- **FI8 Email reports:** первый этап — ручная отправка через существующую mail-конфигурацию только активным пользователям того же space; адреса берутся с сервера из user membership, произвольные внешние адреса не принимаются. Recipient выбирается из membership list. UI показывает адресата и allowlist отчётных полей и требует явного подтверждения; server повторно проверяет sender permission и recipient membership перед send. Отправлять отдельное письмо каждому выбранному получателю (не общие To/CC); reject duplicates и скрытые адреса. Preview и каждое письмо используют один immutable report snapshot. Ограничить число recipients и размер, безопасно парсить headers и экранировать HTML. REST/MCP preview/send имеют одинаковые checks. Никакого scheduler.
+- **FI9 Public run links:** создание/отзыв разрешены только `created_by` run или active space owner; active company_admin той же company может только при активном membership в этом space. Каждый вызов заново проверяет membership, creator/owner relationship и company. UI показывает disclosure и требует явного подтверждения создания. Token — opaque 256-bit CSPRNG secret, один раз возвращается в URL fragment, в БД хранится только HMAC-SHA-256 keyed digest с выделенным HKDF subkey/version; frontend удаляет fragment через `history.replaceState` и передаёт token как Authorization header. Public snapshot содержит только run name, group names/counts/statuses/durations; без comments, bugs, user names, testcase rich text и attachments. TTL 7 дней; expired/revoked одинаково дают 404. Для run без `created_by` создание доступно только active space owner; любой другой пользователь лишён доступа. Ответы `no-store`, `no-referrer`, `X-Robots-Tag:noindex`, без third-party assets; token редактируется из application/proxy/access logs и analytics. Rate limit: 30 requests/min/token и 120/min/IP. Нет public list/search/mutation. MCP create/revoke/get tools доступны так же, как REST; `get_shared_run` принимает тот же bearer share token и вызывает тот же redemption service/projection без membership bypass сверх самого share token. MCP argument/audit/trace logs редактируют token до persistence. Security review и leakage tests обязательны до включения feature flag.
+
+## Порядок, коммиты и проверки
+
+1. Сначала RDU2 и TC1, затем SU5–SU8; так UI получает утверждённую модель полей/типов до plans и analytics.
+2. UX1–UX4 могут идти вертикальными небольшими коммитами после основных suite flows.
+3. BD1 разрабатывается отдельно. Затем FI5 → FI1 → BD2, чтобы import/export round-trip поддерживал custom-field definitions/values.
+4. AN1/AN2 и затем FI2–FI4/FI6–FI9; публичные ссылки проходят независимые API/security review и leakage tests до feature-flag enable.
+5. После каждой правки — отдельный осмысленный commit с соответствующей документацией; не включать пользовательские файлы/локальные секреты.
+6. Кодовые проверки включают существующий lint/build/compile, REST+MCP parity, миграционный прогон на disposable clone, а для критичных auth/tenant paths — cross-space matrix. Браузерные сценарии проверяются на desktop и mobile; финально перезапустить локальный VTPad stack и повторить health + smoke.
+
+## Обязательная security acceptance matrix
+
+Для import/export, webhook, traceability, notification, email и public link до приёмки выполняются отдельные тесты: actor без permission; foreign-space source/reference и повреждённая legacy cross-space link; revoked membership/credential/share; повтор/перепривязка idempotency key; oversized/malformed input; formula/HTML injection; проверка отсутствия secret/token/raw sensitive payload в application/proxy/access logs и egress; recipient/public response содержит только allowlisted fields; FI3 credential lifecycle actor denied/authorized and no-secret-on-read; FI8 отдельное письмо не раскрывает адреса других recipients; BD2 formula-like CSV values preceded by whitespace/control are neutralized. Для FI9 отдельно проверить expiry/revoke, отсутствие referrer/browser-history token после fragment cleanup и cache headers. Для FI3 проверить replay window, bad HMAC/constant-time path и permission scope. Для FI8 отправка чужому/неактивному member и произвольному внешнему email отклоняется одинаковой недискриминирующей ошибкой.
+
+## Приёмка всего плана
+
+- Все незакрытые checklist items из `ROADMAP.md` и перечисленные Future Ideas отмечены завершёнными только после реализации и соответствующей проверки.
+- REST/MCP parity доказана контрактным сравнением и runtime для каждой новой операции; существующие clients и старые записи остаются совместимы.
+- Миграции, import, search и analytics проверены на disposable DB; пользовательская основная БД не получает тестовых записей.
+- Frontend lint/build, backend compile/static checks, `git diff --check`, desktop/mobile browser smoke и docs review проходят.
+- После restart backend/frontend контейнеры VTPad остаются Up; `/docs`, `/openapi.json`, frontend дают 200, UI login/space/run/suite flows работают, новые миграции зарегистрированы, ключевые новые сценарии успешно выполняются на disposable clone.
+
+## Статус
+
+Подготовлен для точного одобрения после второго архитектурного и security review; feature code в рамках этой ревизии не начат. Supersedes r1/r2.

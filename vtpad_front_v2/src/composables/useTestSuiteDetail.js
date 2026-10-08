@@ -49,7 +49,7 @@ export function useTestSuiteDetail() {
   )
 
   const filteredTestCases = computed(() => {
-    const q = caseSearch.value.toLowerCase().trim()
+    const q = String(caseSearch.value ?? '').toLowerCase().trim()
     if (!q) return testCases.value
     return testCases.value.filter(tc =>
       tc.title?.toLowerCase().includes(q) ||
@@ -58,7 +58,7 @@ export function useTestSuiteDetail() {
   })
 
   const filteredExistingCases = computed(() => {
-    const q = existingCaseSearch.value.toLowerCase().trim()
+    const q = String(existingCaseSearch.value ?? '').toLowerCase().trim()
     if (!q) return existingCases.value
     return existingCases.value.filter(tc => {
       const haystack = [

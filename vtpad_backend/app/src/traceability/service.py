@@ -54,7 +54,8 @@ class TraceabilityService:
     async def get_testcases_for_doc(tech_doc_id: str) -> list[dict]:
         from ..tech_doc.model import TechDocModel
 
-        if not await TechDocModel.filter(id=tech_doc_id).exists():
+        tech_doc = await TechDocModel.get_or_none(id=tech_doc_id)
+        if not tech_doc:
             raise HTTPException(status_code=404, detail='Tech doc not found')
         links = await TechDocTestCaseLinkModel.filter(tech_doc_id=tech_doc_id).prefetch_related('testcase').order_by('created_at')
         return [
@@ -67,13 +68,18 @@ class TraceabilityService:
                 'created_at': link.created_at.isoformat() if link.created_at else None,
             }
             for link in links
+            if (
+                str(link.space_id) == str(tech_doc.space_id)
+                and str(link.testcase.space_id) == str(tech_doc.space_id)
+            )
         ]
 
     @staticmethod
     async def get_docs_for_testcase(testcase_id: str) -> list[dict]:
         from ..test_case.model import TestCaseModel
 
-        if not await TestCaseModel.filter(id=testcase_id).exists():
+        testcase = await TestCaseModel.get_or_none(id=testcase_id)
+        if not testcase:
             raise HTTPException(status_code=404, detail='Test case not found')
         links = await TechDocTestCaseLinkModel.filter(testcase_id=testcase_id).prefetch_related('tech_doc').order_by('created_at')
         return [
@@ -86,6 +92,10 @@ class TraceabilityService:
                 'created_at': link.created_at.isoformat() if link.created_at else None,
             }
             for link in links
+            if (
+                str(link.space_id) == str(testcase.space_id)
+                and str(link.tech_doc.space_id) == str(testcase.space_id)
+            )
         ]
 
     @staticmethod

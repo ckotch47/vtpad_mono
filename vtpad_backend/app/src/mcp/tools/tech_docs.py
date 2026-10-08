@@ -12,6 +12,8 @@ from ...section.service import SectionService
 from ...embedding.service import EmbeddingService
 from ...tech_doc.model import TechDocModel
 from ...tech_doc.service import TechDocService
+from ...traceability.service import TraceabilityService
+from ...common.right_guard import check_user_into_space
 from ...test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from ...space.model import SpaceModel
 from ...test_run.service import TestRunService, TestResultService
@@ -26,6 +28,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+async def _require_space_access(space_id: str):
+    await check_user_into_space(space_id, get_http_request())
+
+
+async def _require_doc_access(doc_id: str):
+    doc = await TechDocService.get_by_id(doc_id)
+    await check_user_into_space(str(doc.space_id), get_http_request())
+    return doc
+
+
+async def _require_testcase_access(testcase_id: str):
+    testcase = await TestCaseService.get_by_id(testcase_id)
+    await check_user_into_space(str(testcase.space_id), get_http_request())
+    return testcase
+
+
+def _tech_doc_to_dict(doc) -> dict:
+    return {
+        "id": str(doc.id),
+        "space_id": str(doc.space_id),
+        "title": doc.title,
+        "content": doc.content,
+        "source_url": doc.source_url,
+        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
+        "version": doc.version,
+        "content_hash": doc.content_hash,
+        "parent_id": str(doc.parent_id) if doc.parent_id else None,
+        "sort": doc.sort,
+    }
+
+
 @mcp.tool()
 async def get_tech_doc_tree(space_id: str) -> list[dict]:
     """Get wiki tree of all tech docs in a space.
@@ -36,6 +69,7 @@ async def get_tech_doc_tree(space_id: str) -> list[dict]:
     Returns:
         Hierarchical tree of tech docs
     """
+    await _require_space_access(space_id)
     return await TechDocService.get_tree(space_id)
 
 @mcp.tool()
@@ -64,6 +98,7 @@ async def create_tech_doc(
     """
     from ...tech_doc.dto import TechDocCreateDto
 
+    await _require_space_access(space_id)
     dto = TechDocCreateDto(
         space_id=space_id,
         title=title,
@@ -74,13 +109,7 @@ async def create_tech_doc(
         parent_id=parent_id,
     )
     doc = await TechDocService.create(dto)
-    return {
-        "id": str(doc.id),
-        "title": doc.title,
-        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
-        "parent_id": str(doc.parent_id) if doc.parent_id else None,
-        "sort": doc.sort,
-    }
+    return _tech_doc_to_dict(doc)
 
 @mcp.tool()
 async def update_tech_doc(
@@ -108,6 +137,7 @@ async def update_tech_doc(
     """
     from ...tech_doc.dto import TechDocUpdateDto
 
+    await _require_doc_access(doc_id)
     dto = TechDocUpdateDto(
         title=title,
         content=content,
@@ -117,13 +147,7 @@ async def update_tech_doc(
         parent_id=parent_id,
     )
     doc = await TechDocService.update(doc_id, dto)
-    return {
-        "id": str(doc.id),
-        "title": doc.title,
-        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
-        "parent_id": str(doc.parent_id) if doc.parent_id else None,
-        "sort": doc.sort,
-    }
+    return _tech_doc_to_dict(doc)
 
 @mcp.tool()
 async def delete_tech_doc(doc_id: str) -> dict:
@@ -138,10 +162,48 @@ async def delete_tech_doc(doc_id: str) -> dict:
         Success or error
     """
     try:
+        await _require_doc_access(doc_id)
         await TechDocService.delete(doc_id)
         return {"deleted": True, "id": doc_id}
     except Exception as e:
         return {"error": str(e)}
+
+
+@mcp.tool()
+async def list_tech_docs(
+    space_id: str,
+    query: str | None = None,
+    doc_type: str | None = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> dict:
+    """List Tech Docs in a space with the same filters and pagination as REST.
+
+    Args:
+        space_id: UUID of the space
+        query: Optional text search across title and content
+        doc_type: Optional type filter
+        page: One-based page number
+        page_size: Number of documents per page
+
+    Returns:
+        Paginated documents with total count and page metadata
+    """
+    await _require_space_access(space_id)
+    result = await TechDocService.get_by_space(
+        space_id=space_id,
+        query=query,
+        doc_type=doc_type,
+        page=page,
+        page_size=page_size,
+    )
+    return {
+        "items": [_tech_doc_to_dict(doc) for doc in result["items"]],
+        "total": result["total"],
+        "page": result["page"],
+        "page_size": result["page_size"],
+        "pages": result["pages"],
+    }
 
 @mcp.tool()
 async def search_tech_docs(
@@ -161,6 +223,7 @@ async def search_tech_docs(
     Returns:
         List of matching tech docs
     """
+    await _require_space_access(space_id)
     result = await TechDocService.get_by_space(
         space_id=space_id,
         query=query,
@@ -200,6 +263,7 @@ async def semantic_search_tech_docs(
     Returns:
         List of matching docs with similarity scores
     """
+    await _require_space_access(space_id)
     results = await EmbeddingService.semantic_search(
         space_id=space_id,
         query=query,
@@ -219,14 +283,53 @@ async def get_doc(doc_id: str) -> dict | None:
     Returns:
         Doc details or None
     """
-    doc = await TechDocService.get_by_id(doc_id)
-    return {
-        "id": str(doc.id),
-        "title": doc.title,
-        "content": doc.content,
-        "doc_type": doc.doc_type.value if hasattr(doc.doc_type, "value") else doc.doc_type,
-        "source_url": doc.source_url,
-        "version": doc.version,
-        "parent_id": str(doc.parent_id) if doc.parent_id else None,
-        "sort": doc.sort,
-    }
+    doc = await _require_doc_access(doc_id)
+    return _tech_doc_to_dict(doc)
+
+
+@mcp.tool()
+async def link_tech_doc_to_testcase(tech_doc_id: str, testcase_id: str) -> dict:
+    """Link a Tech Doc to a testcase in the same space."""
+    await _require_doc_access(tech_doc_id)
+    await _require_testcase_access(testcase_id)
+    return await TraceabilityService.link(tech_doc_id, testcase_id)
+
+
+@mcp.tool()
+async def unlink_tech_doc_from_testcase(tech_doc_id: str, testcase_id: str) -> bool:
+    """Remove the link between a Tech Doc and a testcase."""
+    await _require_doc_access(tech_doc_id)
+    await _require_testcase_access(testcase_id)
+    return await TraceabilityService.unlink(tech_doc_id, testcase_id)
+
+
+@mcp.tool()
+async def get_testcases_for_tech_doc(tech_doc_id: str) -> list[dict]:
+    """List testcases linked to a Tech Doc."""
+    await _require_doc_access(tech_doc_id)
+    return await TraceabilityService.get_testcases_for_doc(tech_doc_id)
+
+
+@mcp.tool()
+async def replace_testcases_for_tech_doc(tech_doc_id: str, testcase_ids: list[str]) -> list[dict]:
+    """Replace all testcase links for a Tech Doc with same-space testcases."""
+    await _require_doc_access(tech_doc_id)
+    for testcase_id in testcase_ids:
+        await _require_testcase_access(testcase_id)
+    return await TraceabilityService.replace_testcases_for_doc(tech_doc_id, testcase_ids)
+
+
+@mcp.tool()
+async def get_tech_docs_for_testcase(testcase_id: str) -> list[dict]:
+    """List Tech Docs linked to a testcase."""
+    await _require_testcase_access(testcase_id)
+    return await TraceabilityService.get_docs_for_testcase(testcase_id)
+
+
+@mcp.tool()
+async def replace_tech_docs_for_testcase(testcase_id: str, tech_doc_ids: list[str]) -> list[dict]:
+    """Replace all Tech Doc links for a testcase with same-space documents."""
+    await _require_testcase_access(testcase_id)
+    for tech_doc_id in tech_doc_ids:
+        await _require_doc_access(tech_doc_id)
+    return await TraceabilityService.replace_docs_for_testcase(testcase_id, tech_doc_ids)

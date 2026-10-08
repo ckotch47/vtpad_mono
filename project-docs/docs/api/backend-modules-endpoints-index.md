@@ -191,6 +191,17 @@ Current behavior constraints (synced with code):
 - `PATCH /api/v2/test-run/result/bulk`
 
 Run creation snapshots the selected test cases in the same transaction as the new results. A suite, plan, or explicit case selection can include test cases of any status; source validation is limited to source and space membership. Results can be corrected while their run is active; returning a result to `not_run` clears execution attribution and timestamp. List responses for test runs, test cases, test suites and test plans, as well as testcase detail, include a nullable creator `{id, username}` without email.
+Run detail responses include `linked_bug_ids` as an array, including for legacy results with a null database value.
+
+### `app/src/tech_doc`
+- `GET /api/v2/tech-doc/space/{space_id}`
+- `GET /api/v2/tech-doc/space/{space_id}/tree`
+- `GET /api/v2/tech-doc/{doc_id}`
+- `POST /api/v2/tech-doc/`
+- `PATCH /api/v2/tech-doc/{doc_id}`
+- `DELETE /api/v2/tech-doc/{doc_id}`
+
+All REST routes require JWT and space access. Create/update reject a parent document from another space and serialize parent changes per space to prevent concurrent cycles. MCP exposes the same list, tree, get-by-id, create, update, and delete operations; its list tool supports the REST filters and pagination. MCP also provides text and semantic search, plus link/unlink and list/replace operations for Tech Doc/testcase relationships from either side. Each operation checks access to the requested space or document. Space access allows an active space member or an active company admin in that space's company.
 
 ### `app/src/test_case`
 - `GET /api/v2/test-case/{testcase_id}/versions`

@@ -144,9 +144,12 @@ class EmbeddingService:
             await cls._set_pgvector(str(record.id), emb)
 
     @classmethod
-    async def delete_embeddings(cls, source_type: str, source_id: str) -> None:
+    async def delete_embeddings(cls, source_type: str, source_id: str, connection=None) -> None:
         """Delete all embeddings for a source entity."""
-        await EmbeddingModel.filter(source_type=source_type, source_id=source_id).delete()
+        query = EmbeddingModel.filter(source_type=source_type, source_id=source_id)
+        if connection is not None:
+            query = query.using_db(connection)
+        await query.delete()
 
     @classmethod
     async def _search_pgvector(

@@ -1,40 +1,84 @@
 import hashlib
-from datetime import timezone, datetime
 from typing import Optional
 
 from fastapi import HTTPException
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
-from .model import TechDocModel, TechDocType
+from .model import TechDocModel
 from .dto import *
 from ..embedding.service import EmbeddingService
 from ..common.pagination import paginate
+from ..space.model import SpaceModel
 
 
 class TechDocService:
     @staticmethod
+    async def _validate_parent(
+        parent_id: Optional[str],
+        space_id: str,
+        doc_id: Optional[str] = None,
+        connection=None,
+    ) -> None:
+        if parent_id is None:
+            return
+
+        parent_query = TechDocModel.filter(id=parent_id)
+        if connection is not None:
+            parent_query = parent_query.using_db(connection)
+        current = await parent_query.first()
+        if current is None or str(current.space_id) != str(space_id):
+            raise HTTPException(status_code=422, detail="Parent tech doc must belong to the same space")
+
+        visited = set()
+        while current is not None:
+            current_id = str(current.id)
+            if str(current.space_id) != str(space_id):
+                raise HTTPException(status_code=422, detail="Parent tech doc hierarchy must belong to the same space")
+            if current_id in visited:
+                raise HTTPException(status_code=422, detail="Tech doc parent hierarchy contains a cycle")
+            visited.add(current_id)
+            if doc_id is not None and current_id == str(doc_id):
+                raise HTTPException(status_code=422, detail="Tech doc cannot be nested under itself")
+            parent_id = current.parent_id
+            if parent_id is None:
+                break
+            parent_query = TechDocModel.filter(id=parent_id)
+            if connection is not None:
+                parent_query = parent_query.using_db(connection)
+            current = await parent_query.first()
+
+    @staticmethod
+    async def _lock_space(space_id: str, connection) -> None:
+        space = await SpaceModel.filter(id=space_id).using_db(connection).select_for_update().first()
+        if space is None:
+            raise HTTPException(status_code=404, detail="Space not found")
+
+    @staticmethod
     async def create(dto: TechDocCreateDto) -> TechDocModel:
         content_hash = hashlib.sha256((dto.content or "").encode()).hexdigest()
-        now = datetime.now(timezone.utc)
+        async with in_transaction() as connection:
+            await TechDocService._lock_space(dto.space_id, connection)
+            await TechDocService._validate_parent(dto.parent_id, dto.space_id, connection=connection)
 
-        # Compute sort
-        last = await TechDocModel.filter(
-            space_id=dto.space_id,
-            parent_id=dto.parent_id
-        ).order_by("-sort").first()
-        sort = (last.sort + 10) if last else 10
+            last = await TechDocModel.filter(
+                space_id=dto.space_id,
+                parent_id=dto.parent_id,
+            ).using_db(connection).order_by("-sort").first()
+            sort = (last.sort + 10) if last else 10
 
-        doc = await TechDocModel.create(
-            space_id=dto.space_id,
-            title=dto.title,
-            content=dto.content or "",
-            source_url=dto.source_url,
-            doc_type=dto.doc_type,
-            version=dto.version,
-            content_hash=content_hash,
-            parent_id=dto.parent_id,
-            sort=sort,
-        )
+            doc = await TechDocModel.create(
+                space_id=dto.space_id,
+                title=dto.title,
+                content=dto.content or "",
+                source_url=dto.source_url,
+                doc_type=dto.doc_type,
+                version=dto.version,
+                content_hash=content_hash,
+                parent_id=dto.parent_id,
+                sort=sort,
+                using_db=connection,
+            )
 
         await EmbeddingService.index_tech_doc(
             doc_id=str(doc.id),
@@ -96,7 +140,6 @@ class TechDocService:
 
     @staticmethod
     async def update(doc_id: str, dto: TechDocUpdateDto) -> TechDocModel:
-        doc = await TechDocService.get_by_id(doc_id)
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
 
@@ -106,7 +149,17 @@ class TechDocService:
         data.pop("created_at", None)
         data.pop("updated_at", None)
 
-        if data:
+        if "parent_id" in data:
+            async with in_transaction() as connection:
+                doc = await TechDocModel.filter(id=doc_id).using_db(connection).select_for_update().first()
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Tech doc not found")
+                await TechDocService._lock_space(str(doc.space_id), connection)
+                await TechDocService._validate_parent(
+                    data["parent_id"], str(doc.space_id), doc_id, connection
+                )
+                await TechDocModel.filter(id=doc_id).using_db(connection).update(**data)
+        elif data:
             await TechDocModel.filter(id=doc_id).update(**data)
 
         updated = await TechDocService.get_by_id(doc_id)
@@ -120,17 +173,30 @@ class TechDocService:
 
     @staticmethod
     async def delete(doc_id: str) -> bool:
-        doc = await TechDocService.get_by_id(doc_id)
-        # Check children
-        children = await TechDocModel.filter(parent_id=doc_id).count()
-        if children > 0:
-            raise HTTPException(status_code=400, detail="Cannot delete: page has subpages")
-        await EmbeddingService.delete_embeddings("tech_doc", doc_id)
-        await TechDocModel.filter(id=doc_id).delete()
+        async with in_transaction() as connection:
+            doc = await TechDocModel.filter(id=doc_id).using_db(connection).select_for_update().first()
+            if not doc:
+                raise HTTPException(status_code=404, detail="Tech doc not found")
+            await TechDocService._lock_space(str(doc.space_id), connection)
+            children = await TechDocModel.filter(parent_id=doc_id).using_db(connection).count()
+            if children > 0:
+                raise HTTPException(status_code=400, detail="Cannot delete: page has subpages")
+            await EmbeddingService.delete_embeddings("tech_doc", doc_id, connection=connection)
+            await TechDocModel.filter(id=doc_id).using_db(connection).delete()
         return True
 
     @staticmethod
     async def reorder(doc_id: str, new_parent_id: Optional[str], new_sort: int) -> TechDocModel:
-        doc = await TechDocService.get_by_id(doc_id)
-        await TechDocModel.filter(id=doc_id).update(parent_id=new_parent_id, sort=new_sort)
+        async with in_transaction() as connection:
+            doc = await TechDocModel.filter(id=doc_id).using_db(connection).select_for_update().first()
+            if not doc:
+                raise HTTPException(status_code=404, detail="Tech doc not found")
+            await TechDocService._lock_space(str(doc.space_id), connection)
+            await TechDocService._validate_parent(
+                new_parent_id, str(doc.space_id), doc_id, connection
+            )
+            await TechDocModel.filter(id=doc_id).using_db(connection).update(
+                parent_id=new_parent_id,
+                sort=new_sort,
+            )
         return await TechDocService.get_by_id(doc_id)

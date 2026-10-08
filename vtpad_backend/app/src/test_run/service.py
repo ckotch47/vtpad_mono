@@ -323,6 +323,7 @@ class TestRunService:
             'status': r.status,
             'duration_seconds': r.duration_seconds,
             'comment': r.comment,
+            'linked_bug_ids': r.linked_bug_ids or [],
             'testcase_id': str(r.testcase_id),
             'testcase': testcase_data,
             'testcase_snapshot': snapshot,

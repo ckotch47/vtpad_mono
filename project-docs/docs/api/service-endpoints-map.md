@@ -104,7 +104,7 @@
 | POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов для cases любого статуса; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`; возвращает nullable `created_by` с `{id, username}` |
 | GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
-| GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты и snapshot/legacy-признак |
+| GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты и snapshot/legacy-признак; `linked_bug_ids` всегда массив |
 | PATCH | `/api/v2/test-run/{run_id}` | JWT + space check | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
 | POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | перевод run из `draft` в `active` |
 | POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | завершает active run |
@@ -117,6 +117,14 @@
 | POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной |
 | GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
 | GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |
+| POST | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | создаёт same-space связь Tech Doc и testcase |
+| DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | удаляет связь Tech Doc и testcase |
+| GET | `/api/v2/tech-doc/space/{space_id}` | JWT + space check | список Tech Docs в space |
+| GET | `/api/v2/tech-doc/space/{space_id}/tree` | JWT + space check | дерево Tech Docs в space |
+| GET | `/api/v2/tech-doc/{doc_id}` | JWT + space check | получает документ после проверки доступа к его space |
+| POST | `/api/v2/tech-doc/` | JWT + space check | создаёт документ; родитель должен быть в том же space |
+| PATCH | `/api/v2/tech-doc/{doc_id}` | JWT + space check | обновляет документ; родитель должен быть в том же space, переносы сериализуются по space и не создают циклы |
+| DELETE | `/api/v2/tech-doc/{doc_id}` | JWT + space check | удаляет документ после проверки доступа к его space |
 
 Списки V2 test cases, test suites и test plans также возвращают nullable `created_by` с `{id, username}`. Почта и другие персональные данные автора не включаются.
 

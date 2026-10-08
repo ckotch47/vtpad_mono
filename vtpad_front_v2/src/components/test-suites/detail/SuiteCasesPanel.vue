@@ -54,7 +54,11 @@
           </template>
         </v-list-item>
       </v-list>
-      <v-empty-state v-if="filteredTestCases.length === 0" icon="mdi-test-tube-off" text="No test cases in this section" />
+      <v-empty-state
+        v-if="filteredTestCases.length === 0"
+        icon="mdi-test-tube-off"
+        :text="caseSearch?.trim() ? 'No matching test cases' : 'No test cases in this section'"
+      />
     </v-card-text>
   </v-card>
 

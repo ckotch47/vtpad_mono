@@ -78,8 +78,9 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [ ] Add filterable and searchable tags and priority for cases
 
 ### Test Cases and Checklists
+The TC2 Test IT review is complete; the exact TC1 implementation plan is prepared in `plans/checklist-ux-package-r1.md` and awaits approval.
 - [ ] Design distinct views for test cases and checklists
-- [ ] Review how Test IT presents checklists and use the findings to inform the VTPad design
+- [x] Review how Test IT presents checklists and use the findings to inform the VTPad design
 
 ### Defects Dashboard
 - [x] Add a space-level dashboard for bugs linked to test results

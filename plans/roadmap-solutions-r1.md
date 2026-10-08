@@ -77,9 +77,9 @@
 
 ## 4. Test Cases and Checklists
 
-### TC1. Разные представления — нет
+### TC1. Разные представления — реализовано (frontend `ade63d8`; disposable-clone browser acceptance)
 
-**Основание:** type уже есть, но `testCasesListComponent.vue` и редактор кейса используют общий набор полей, включая expected results для checklist. **Решение:** сохранить общий data слой и библиотеку, но разделить форму/просмотр по type: для checklist — краткие проверки; для case — предусловия, шаги и ожидаемые результаты. Уточнить правила преобразования checklist в case и истории версий. **Приёмка:** каждое представление показывает только применимые поля; переключение, сохранение, пустой список и старые записи не теряют данные. **Зависимость:** TC2.
+**Реализация:** сохранить общий data слой и библиотеку, но разделить форму/просмотр по type: для checklist — краткие проверки; для case — предусловия, шаги и ожидаемые результаты. Type-switch скрывает неприменимые поля, не удаляя их из payload. **Проверки:** checklist/manual create, edit, detail, switching types, v1/v2 versions, mixed-run preview, run snapshot с type и сохранёнными hidden fields на disposable clone; frontend lint/build прошли.
 
 ### TC2. Изучить Test IT — выполнено как исследование
 

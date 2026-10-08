@@ -49,7 +49,9 @@
 
 1. Test Cases
 - List: поиск, пагинация, сортировка.
-- Detail: вкладки `Details/Run History`.
+- Detail: вкладки `Details/Run History`; checklist показывает checks и description, без полей case-only.
+- Create/Edit: проверить manual и checklist представления; при type-switch hidden `preconditions`/`expected_results` сохраняются после save и version restore.
+- Mixed run: checklist и manual отображают соответствующие метки; snapshot сохраняет type и исходные значения.
 - Create: создание нового кейса.
 - Edit: изменение полей + сохранение.
 - Duplicate: дублирование.
@@ -90,6 +92,8 @@
 - Создание бага.
 - Открытие modal/detail.
 - Обновление статуса/тегов/комментариев.
+- Failed result: cancel не отправляет create request и не создаёт link/receipt.
+- Failed result: invalid title показывает validation, повтор payload безопасен; явный submit показывает bug и создаёт одну result link.
 
 ### 3. Permissions & Access
 

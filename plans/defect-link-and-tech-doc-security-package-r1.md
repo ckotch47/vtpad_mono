@@ -27,7 +27,8 @@
 9. Провести независимую security review Tech Docs REST/MCP и выполнить проверку доступа между двумя spaces: tree/list/get/create/update/delete, parent из другого space, перенос между spaces и связи traceability. Проверить same-space pair в общем unlink service и отдельно во всех REST/MCP маршрутах.
 10. Не возвращать foreign `parent_id` из повреждённых legacy записей в REST/MCP get/tree/list; сериализовать недействительного parent как `null` и не отдавать его содержимое.
 11. Сохранить ацикличность дерева при конкурентных parent updates: одна блокировка space должна сериализовать проверку и запись, а runtime acceptance покрывает параллельные переносы, которые иначе замкнули бы цикл.
-12. Исправить найденные security-дефекты до приёмки и повторно проверить все изменения независимым reviewer.
+12. Сериализовать миграционный startup между несколькими Uvicorn workers/репликами через PostgreSQL advisory lock: миграционная проверка, DDL и ledger update для transactional/non-transactional миграций не должны гоняться за один и тот же migration name.
+13. Исправить найденные security-дефекты до приёмки и повторно проверить все изменения независимым reviewer.
 
 ## Вне объёма
 
@@ -48,6 +49,7 @@
 - Существующий bug можно связать повторно без дублирования связи; старые `NULL` и массивы `linked_bug_ids` продолжают читаться.
 - Tech Docs cross-space runtime-проверки подтверждают отказ для чужого space и parent, а допустимые same-space операции сохраняют работу.
 - Повреждённый legacy parent не раскрывает foreign UUID или содержимое через REST/MCP; конкурентные parent changes не создают цикл.
+- Два конкурентных startup процесса сериализуются до проверки migration ledger; второй процесс после lock видит migration уже применённой и не запускает DDL повторно.
 - Backend compile/static checks, frontend lint/build, миграция проходит статическую проверку; independent API/security review и `git diff --check` проходят.
 
 ## Изменяемые области
@@ -56,6 +58,7 @@
 - `vtpad_backend/app/src/bug/` (транзакционное создание и уникальная выдача short name)
 - `vtpad_backend/app/src/traceability/` (same-space REST unlink)
 - `vtpad_backend/app/src/tech_doc/` и `vtpad_backend/app/src/mcp/tools/tech_docs.py` (legacy parent serialization and safe hierarchy updates)
+- `vtpad_backend/app/migration.py` (startup migration lock)
 - `vtpad_backend/app/src/mcp/tools/test_runs.py`
 - `vtpad_backend/app/src/migration/data/` и `app/imports.py`, если потребуется модель
 - `vtpad_front_v2/src/components/test-runs/detail/testRunDetailComponent.vue` и run API service

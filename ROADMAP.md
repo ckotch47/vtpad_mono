@@ -63,9 +63,10 @@ RN1 and RN2 are implemented in code under approved plan r1. Static checks and pr
 
 ### Suite and Case UX
 SU1 and SU3 are implemented in code under approved plan r1: suite list/detail share a URL-backed split workspace with a flat searchable navigation list. Frontend lint/build and independent review passed; browser history and mobile interaction checks remain outstanding.
+SU2 is implemented in code under approved plan r1: case search is scoped to the selected section, treats clearable `null` as an empty query, and distinguishes empty, no-match, loading, and request-error states. Frontend checks passed; browser interaction remains outstanding.
 
 - [x] Redesign the suites screen to keep the suite list on the left and show the selected suite on the same page
-- [ ] Fix the case filter in suites (it currently does not work)
+- [x] Fix the case filter in suites: normalize clearable input, filter within the selected section, and distinguish empty/error states
 - [x] Explore a Tech Docs-style tree structure for browsing test suites; use a flat searchable list because suites have no parent hierarchy
 - [ ] Add drag-and-drop reordering for sections
 - [ ] Add search/filter for sections in the tree

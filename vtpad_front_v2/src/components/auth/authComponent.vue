@@ -46,8 +46,10 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { authService } from '@/services'
 
+const router = useRouter()
 const visible = ref(false)
 const errorMessage = ref(null)
 const loginData = ref({
@@ -65,7 +67,7 @@ function loginUser() {
       errorMessage.value = null
       localStorage.setItem('auth_token', res.data.access_token)
       localStorage.setItem('refresh_token', res.data.refresh_token)
-      location.href = '/space'
+      router.replace('/company/spaces')
     } else {
       errorMessage.value = 'Not found user'
     }

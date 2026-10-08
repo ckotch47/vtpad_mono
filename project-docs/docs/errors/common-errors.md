@@ -28,6 +28,7 @@
 | Комментарий в модалке бага не сохраняется | Отсутствует `bug.id` или отправляется пустой HTML (`<p></p>`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalCommentComponent.vue` |
 | `403` или лог-ошибка в уведомлениях при отсутствии assigner | Background task пытался создать notification с пустым `assigner_id` | `vtpad_backend/app/src/bug/service.py`, `vtpad_backend/app/src/comments/service.py` |
 | `401` после долгого простоя | Access token expired, refresh failed | `app/src/auth/service.py`, Redis |
+| Пустой экран после открытия `/` или входа | Главная страница и успешная авторизация переходили на `/space` без `spaceId`; существует только маршрут `/space/:spaceId` | `vtpad_front_v2/src/pages/index.vue`, `vtpad_front_v2/src/components/auth/authComponent.vue` |
 
 ## Исправленные дефекты
 
@@ -52,6 +53,7 @@
 19. Tech Docs REST unlink больше не меняет повреждённую cross-space связь: роут проверяет доступ к документу и testcase, а сервис повторно сверяет same-space пару. Повреждённый legacy `parent_id` больше не раскрывается в REST/MCP ответах и отображается как корневой документ без родителя.
 20. После закрытия левой панели пространств переключатель остаётся поверх содержимого и сохраняет возможность открыть панель без обновления страницы.
 21. Tech Docs различает пустое дерево, загрузку и ошибку: `Create first page` появляется только после успешно загруженного пустого списка; при ошибке доступен Retry.
+22. Главная страница, успешный вход и возврат после удаления space переходят на существующий `/company/spaces` через Vue Router; пустая заглушка `/space` больше не является точкой входа.
 
 ## Источники в коде
 

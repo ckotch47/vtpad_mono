@@ -34,10 +34,11 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { spaceService } from '@/services'
 
 const route = useRoute()
+const router = useRouter()
 const spaceId = ref(route.params.spaceId)
 
 const loader = ref(true)
@@ -71,7 +72,7 @@ function delSpace() {
     return false
   }
   spaceService.delete(spaceId.value).then(() => {
-    location.href = '/space'
+    router.replace('/company/spaces')
   })
 }
 

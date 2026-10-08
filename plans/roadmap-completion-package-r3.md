@@ -49,7 +49,7 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 
 Реализовать scoped keyboard shortcuts: Cmd/Ctrl+S вызывает существующее сохранение только в активном редактируемом форме; не перехватывать текстовый ввод/браузерные поля. Esc закрывает верхний modal/dialog только когда форма не находится в состоянии подтверждения/сохранения; unsaved changes используют уже существующий confirm flow или явное предупреждение.
 
-**Статус 2026-10-09:** код shortcut scope, save/loading guards и unsaved-change guards добавлен для форм test case, plan, run, suite/section, run result, quick bug и Tech Docs; точечные ESLint/build и полный desktop acceptance ещё выполняются. Браузерная spot-check на чистой вкладке подтвердила только Ctrl+S в пустой форме (не отправляет форму и не создаёт запись) и закрытие пустой формы через Esc. UX1 остаётся незакрытым до проверки валидного save, поиска/браузерного default, dirty prompt, in-flight запроса и верхнего вложенного overlay. Мобильная проверка исключена из scope по просьбе пользователя.
+**Статус 2026-10-09:** код shortcut scope, save/loading guards и unsaved-change guards добавлен для форм test case, plan, run, suite/section, run result, quick bug и Tech Docs. Desktop browser smoke на Test Runs подтвердил: Ctrl+S в пустой форме не отправляет её, Esc закрывает чистую форму, Escape на изменённой форме показывает подтверждение; отмена подтверждения сохраняет форму, подтверждение закрывает только несохранённый черновик. Валидное сохранение, поиск/браузерный default, блокировка закрытия in-flight save и обработка верхнего вложенного overlay остаются непроверенными, поэтому UX1 partial. Ни один run не создавался.
 
 ### UX2. Skeleton таблиц
 

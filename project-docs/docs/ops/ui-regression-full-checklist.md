@@ -51,7 +51,8 @@
 - Иконки-действия имеют доступные имена, а при клавиатурной навигации виден фокус.
 - Cmd/Ctrl+S сохраняет только активную форму; в поиске и вне формы не перехватывает браузерное действие.
 - Esc закрывает верхний диалог; при изменённых данных показывает подтверждение, а во время сохранения не закрывает форму.
-- UX1 browser spot-check 2026-10-09: on the desktop Test Cases list, opening a blank create form and pressing Ctrl+S left the form open without creating a record; Esc then closed it. Unsaved-change confirmation, active save on a valid form, in-flight save blocking, search/browser shortcut behavior, and nested-overlay targeting remain unverified. No record was saved.
+- UX1 desktop browser smoke 2026-10-09: on Test Runs, Ctrl+S in a blank create form left it open without creating a record; Esc closed a clean form. With a temporary unsaved name, Esc showed the discard confirmation; dismissing it kept the form open, and accepting it removed only the draft. The Cancel button is keyboard-focusable and Enter closes the empty form. Valid save, in-flight save blocking, search/browser shortcut behavior, and nested-overlay targeting remain unverified. No run was created.
+- Route smoke 2026-10-09: opening `/` redirects to `/company/spaces`, which rendered the authenticated spaces list. The old `/space` destination rendered a blank placeholder and has been removed from root/login/delete-space redirects.
 
 ### 2. Full Functional (основной регресс)
 

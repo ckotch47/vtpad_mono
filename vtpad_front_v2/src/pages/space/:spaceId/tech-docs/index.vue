@@ -34,9 +34,11 @@
           :editing="editing"
           :is-creating="isCreating"
           :save-loading="saveLoading"
-          :form="editForm"
+          v-model:form="editForm"
           :doc-types="docTypes"
           :flat-pages="flatPages"
+          :pages-loading="treeLoading"
+          :pages-error="treeError"
           :path="selectedPath"
           :type-color="typeColor"
           @create="openCreate"
@@ -45,6 +47,7 @@
           @delete="deleteDoc"
           @cancel="cancelEdit"
           @save="save"
+          @retry-load="loadTree"
         />
       </v-col>
     </v-row>
@@ -57,11 +60,14 @@ import { useTechDocs } from '@/composables/useTechDocs'
 import TechDocSidebar from '@/components/tech-docs/TechDocSidebar.vue'
 import TechDocContent from '@/components/tech-docs/TechDocContent.vue'
 
+defineOptions({ name: 'TechDocsPage' })
+
 const sidebarRef = ref(null)
 
 const techDocs = useTechDocs()
 const {
   treeLoading,
+  treeError,
   treeQuery,
   flatFilteredPages,
   flatPages,
@@ -82,6 +88,7 @@ const {
   cancelEdit,
   save,
   deleteDoc,
+  loadTree,
   typeColor,
   treeContainerRef,
 } = techDocs

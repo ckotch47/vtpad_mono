@@ -11,6 +11,7 @@ export function useTechDocs() {
   const spaceId = computed(() => route.params.spaceId)
 
   const treeLoading = ref(true)
+  const treeError = ref(false)
   const tree = ref([])
   const treeQuery = ref('')
   const treeContainerRef = ref(null)
@@ -70,10 +71,12 @@ export function useTechDocs() {
 
   async function loadTree() {
     treeLoading.value = true
+    treeError.value = false
     try {
       const res = await techDocService.getTree(spaceId.value)
       tree.value = res.data || []
     } catch (e) {
+      treeError.value = true
       log.error('request failed', e)
     } finally {
       treeLoading.value = false
@@ -310,6 +313,7 @@ export function useTechDocs() {
 
   return {
     treeLoading,
+    treeError,
     tree,
     treeQuery,
     treeContainerRef,

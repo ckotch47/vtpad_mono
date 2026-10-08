@@ -4,7 +4,7 @@
       <v-icon class="ml-2">mdi-book-open-variant</v-icon>
       <v-toolbar-title class="text-subtitle-2">Pages</v-toolbar-title>
       <v-spacer />
-      <v-btn icon="mdi-plus" size="small" variant="text" @click="$emit('create')" />
+      <v-btn icon="mdi-plus" size="small" variant="text" aria-label="Create page" title="Create page" @click="$emit('create')" />
     </v-toolbar>
     <v-card-text class="pa-2 pb-0 tech-doc-list">
       <v-text-field
@@ -50,6 +50,8 @@
                   variant="text"
                   density="compact"
                   class="tree-action-btn"
+                  :aria-label="`More actions for ${item.title}`"
+                  :title="`More actions for ${item.title}`"
                 />
               </template>
               <v-list density="compact" min-width="140">
@@ -115,7 +117,13 @@ defineExpose({ containerRef })
   opacity: 0;
   transition: opacity 0.15s;
 }
-:deep(.v-treeview-node__root:hover) .tree-action-btn {
+.tech-doc-list-item:hover .tree-action-btn,
+.tech-doc-list-item:focus-within .tree-action-btn,
+.tree-action-btn:focus-visible {
   opacity: 1;
+}
+.tree-action-btn:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
 }
 </style>

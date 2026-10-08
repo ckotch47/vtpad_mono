@@ -4,9 +4,18 @@
     <v-card-text class="text-center">
       <v-icon size="80" color="grey-lighten-2">mdi-book-open-variant</v-icon>
       <div class="text-h5 text-grey mt-4">Tech Documentation</div>
-      <div class="text-body-1 text-grey mt-2">Select a page or create one</div>
-      <v-btn color="primary" class="mt-6" prepend-icon="mdi-plus" @click="$emit('create')">
-        Create first page
+      <v-progress-circular v-if="pagesLoading" indeterminate color="primary" class="mt-4" aria-label="Loading documentation pages" />
+      <v-alert v-else-if="pagesError" type="error" variant="tonal" density="compact" class="mt-4" role="alert">
+        Documentation pages could not be loaded.
+      </v-alert>
+      <div v-else class="text-body-1 text-grey mt-2">
+        {{ hasPages ? 'Select a page from the list or create a page' : 'No documentation pages yet' }}
+      </div>
+      <div v-if="pagesError" class="mt-4">
+        <v-btn color="primary" variant="tonal" @click="$emit('retry-load')">Retry</v-btn>
+      </div>
+      <v-btn v-else-if="!pagesLoading" color="primary" class="mt-6" prepend-icon="mdi-plus" @click="$emit('create')">
+        {{ hasPages ? 'Create page' : 'Create first page' }}
       </v-btn>
     </v-card-text>
   </v-card>
@@ -21,9 +30,9 @@
       </div>
       <v-spacer />
       <v-chip size="small" :color="typeColor(doc.doc_type)" class="mr-2">{{ doc.doc_type }}</v-chip>
-      <v-btn icon="mdi-pencil" size="small" variant="text" @click="$emit('edit')" />
-      <v-btn icon="mdi-plus" size="small" variant="text" @click="$emit('create-subpage')" />
-      <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="$emit('delete')" />
+      <v-btn icon="mdi-pencil" size="small" variant="text" aria-label="Edit page" title="Edit page" @click="$emit('edit')" />
+      <v-btn icon="mdi-plus" size="small" variant="text" aria-label="Create subpage" title="Create subpage" @click="$emit('create-subpage')" />
+      <v-btn icon="mdi-delete" size="small" variant="text" color="error" aria-label="Delete page" title="Delete page" @click="$emit('delete')" />
     </v-toolbar>
     <v-divider />
     <v-card-text v-if="doc.source_url" class="pb-0 source-url-section">
@@ -97,7 +106,7 @@
   <!-- Edit mode -->
   <v-card v-else-if="editing" flat class="content-card">
     <v-toolbar density="comfortable" color="surface">
-      <v-btn icon="mdi-close" size="small" variant="text" @click="$emit('cancel')" />
+      <v-btn icon="mdi-close" size="small" variant="text" aria-label="Cancel page editing" title="Cancel page editing" @click="$emit('cancel')" />
       <v-toolbar-title class="text-subtitle-1">{{ isCreating ? 'New Page' : 'Edit Page' }}</v-toolbar-title>
       <v-spacer />
       <v-btn color="primary" size="small" :loading="saveLoading" @click="$emit('save')">Save</v-btn>
@@ -106,11 +115,11 @@
     <v-card-text class="content-body">
       <v-row dense>
         <v-col cols="12" md="6">
-          <v-text-field v-model="form.title" label="Title *" density="compact" hide-details class="mb-3" />
+          <v-text-field v-model="localForm.title" label="Title *" density="compact" hide-details class="mb-3" />
         </v-col>
         <v-col cols="12" md="3">
           <v-select
-            v-model="form.doc_type"
+            v-model="localForm.doc_type"
             :items="docTypes"
             item-title="title"
             item-value="value"
@@ -121,16 +130,16 @@
           />
         </v-col>
         <v-col cols="12" md="3">
-          <v-text-field v-model="form.version" label="Version" density="compact" hide-details class="mb-3" />
+          <v-text-field v-model="localForm.version" label="Version" density="compact" hide-details class="mb-3" />
         </v-col>
       </v-row>
       <v-row dense>
         <v-col cols="12" md="6">
-          <v-text-field v-model="form.source_url" label="Source URL" density="compact" hide-details class="mb-3" />
+          <v-text-field v-model="localForm.source_url" label="Source URL" density="compact" hide-details class="mb-3" />
         </v-col>
         <v-col cols="12" md="6" v-if="isCreating">
           <v-select
-            v-model="form.parent_id"
+            v-model="localForm.parent_id"
             :items="flatPages"
             item-title="title"
             item-value="id"
@@ -145,20 +154,20 @@
       <div class="text-subtitle-2 mb-2">Content</div>
       <editor-component
         :key="isCreating ? 'create' : (doc?.id || 'edit')"
-        :text="form.content || ''"
+        :text="localForm.content || ''"
         :edit="true"
         :show-menu-fixed="true"
         max-height="calc(100vh - 360px)"
         min-height="420px"
         place-holder-editor="Enter documentation content..."
-        @editor-update="form.content = $event"
+        @editor-update="localForm.content = $event"
       />
     </v-card-text>
   </v-card>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import { techDocService, testCaseService } from '@/services'
@@ -174,9 +183,13 @@ const props = defineProps({
   form: { type: Object, required: true },
   docTypes: { type: Array, default: () => [] },
   flatPages: { type: Array, default: () => [] },
+  pagesLoading: { type: Boolean, default: false },
+  pagesError: { type: Boolean, default: false },
   path: { type: Array, default: () => [] },
   typeColor: { type: Function, default: () => 'grey' },
 })
+
+const hasPages = computed(() => props.flatPages.length > 0)
 
 const linkedCases = ref([])
 const availableCases = ref([])
@@ -206,7 +219,17 @@ async function saveLinks() {
   try { await techDocService.updateTestCases(props.doc.id, linkedCaseIds.value); await loadLinks(); editingLinks.value = false } finally { linksSaving.value = false }
 }
 
-defineEmits(['create', 'edit', 'create-subpage', 'delete', 'cancel', 'save'])
+const emit = defineEmits(['create', 'edit', 'create-subpage', 'delete', 'cancel', 'save', 'retry-load', 'update:form'])
+
+const localForm = reactive({ ...props.form })
+
+watch(() => props.form, (form) => {
+  Object.assign(localForm, form)
+}, { deep: true })
+
+watch(localForm, (form) => {
+  emit('update:form', { ...form })
+}, { deep: true })
 
 const readonlyContentRef = ref(null)
 let renderSeq = 0

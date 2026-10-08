@@ -443,14 +443,15 @@ p.is-empty:first-child::before {
   .editor-custom_text { padding-top: 40px; }
 }
 .editor-custom_menu--fixed_top {
-  overflow-x: auto;
   z-index: 9;
   .editor--menu {
     display: flex;
-    flex-wrap: nowrap;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: flex-start;
     max-width: calc(100vw - 15px);
-    overflow-x: auto;
+    max-height: 96px;
+    overflow: auto;
   }
 }
 .editor-custom_text { overflow-y: auto; }

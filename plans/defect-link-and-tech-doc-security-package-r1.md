@@ -19,9 +19,12 @@
 1. Ввести общую backend-операцию привязки существующего bug к result. Она проверяет доступ к space run, активность run, существование bug, совпадение bug.space с run.space и идемпотентность связи.
 2. Добавить REST endpoint и MCP tool для привязки существующего bug через эту же операцию. MCP должен возвращать те же связанные bug identifiers, что и REST; прямые обходные обновления JSON из MCP убрать.
 3. Добавить атомарную операцию create-and-link для quick bug flow: bug создаётся и связывается в одной DB-транзакции с блокировкой результата/run. Запрос принимает клиентский `operation_id`; уникальное ограничение сохраняет результат операции, чтобы повтор после сетевой ошибки возвращал уже созданную связь без второго bug. Добавить нужную миграцию с сохранением старых `linked_bug_ids`.
-4. Перевести UI quick bug flow на атомарный REST endpoint и повторное использование `operation_id` для retry одной попытки. Выбор существующего bug использует endpoint из пункта 2.
-5. Сохранить `linked_bug_ids` в ответах run detail и результата, включая legacy `NULL` как пустой массив. Обновить API/MCP, flow, архитектурные, access и error docs.
-6. Провести независимую security review Tech Docs REST/MCP и выполнить проверку доступа между двумя spaces: tree/list/get/create/update/delete, parent из другого space, перенос между spaces и связи traceability. Исправить найденные дефекты в рамках Tech Docs доступа/иерархии.
+4. Сохранить проверку bug принадлежности также в обычном PATCH `linked_bug_ids`; этот существующий путь не должен обходить общую same-space политику.
+5. Выделять `short_name` без коллизий в одной space при параллельных bug creation. Изменить общий генератор для стандартного create и create-and-link, сериализовать выдачу блокировкой space и добавить составной unique constraint/index после проверки исторических данных.
+6. Сохранить контракт `operation_id`: UUID уникален глобально; запись хранит actor, result, нормализованный payload hash и созданный bug. Повтор с тем же actor/result/hash возвращает прежний bug; тот же ключ с другим actor, result или payload даёт конфликт без возврата исходной операции.
+7. Перевести UI quick bug flow на атомарный REST endpoint и повторное использование `operation_id` для retry одной попытки. Выбор существующего bug использует endpoint из пункта 2.
+8. Сохранить `linked_bug_ids` в ответах run detail и результата, включая legacy `NULL` как пустой массив. Обновить API/MCP, flow, архитектурные, access и error docs.
+9. Провести независимую security review Tech Docs REST/MCP и выполнить проверку доступа между двумя spaces: tree/list/get/create/update/delete, parent из другого space, перенос между spaces и связи traceability. Проверить same-space pair в общем unlink service и отдельно во всех REST/MCP маршрутах; исправить найденные дефекты в рамках Tech Docs доступа/иерархии.
 
 ## Вне объёма
 
@@ -35,6 +38,9 @@
 - Повторная загрузка run detail показывает созданный или выбранный bug.
 - Повтор create-and-link с тем же `operation_id` возвращает тот же bug; конкурентные повторы не создают дубль.
 - Нельзя связать bug из другого space; результат нельзя изменить в завершённом run; неавторизованный пользователь не может читать или менять чужой result/bug.
+- PATCH `linked_bug_ids`, REST link/unlink и MCP link/unlink отклоняют чужие bug и не обходят ту же политику доступа.
+- Коллизия short name не возникает при параллельных созданиях; перед unique constraint проверены исторические дубликаты, а существующие значения сохранены.
+- Повтор `operation_id` с изменённым actor/result/payload не раскрывает bug и завершается конфликтом.
 - REST и MCP используют общую сервисную логику, валидируют одинаковые условия и сериализуют одинаковые поля.
 - Существующий bug можно связать повторно без дублирования связи; старые `NULL` и массивы `linked_bug_ids` продолжают читаться.
 - Tech Docs cross-space runtime-проверки подтверждают отказ для чужого space и parent, а допустимые same-space операции сохраняют работу.
@@ -43,7 +49,8 @@
 ## Изменяемые области
 
 - `vtpad_backend/app/src/test_run/` (DTO, service, router, model при необходимости)
-- `vtpad_backend/app/src/bug/` (переиспользование создания bug)
+- `vtpad_backend/app/src/bug/` (транзакционное создание и уникальная выдача short name)
+- `vtpad_backend/app/src/traceability/` (same-space REST unlink)
 - `vtpad_backend/app/src/mcp/tools/test_runs.py`
 - `vtpad_backend/app/src/migration/data/` и `app/imports.py`, если потребуется модель
 - `vtpad_front_v2/src/components/test-runs/detail/testRunDetailComponent.vue` и run API service
@@ -58,4 +65,4 @@
 
 ## Статус
 
-Подготовлен для согласования. Реализация не начата.
+Согласован пользователем в составе полного плана работ; технические инварианты уточнены после architecture/security review. Реализация в работе.

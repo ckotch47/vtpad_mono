@@ -120,4 +120,4 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 
 ## Статус
 
-Подготовлен для точного одобрения после второго архитектурного и security review; feature code в рамках этой ревизии не начат. Supersedes r1/r2.
+Одобрен пользователем 2026-10-09; выполнение продолжается. Архитектурный и security review прошли на `b4d1d58`. В текущем execution RDU2 UI polish реализован и прошёл desktop/mobile smoke; TC1 frontend committed as `ade63d8` with browser/payload acceptance pending; DD5 REST/MCP runtime acceptance passed on a disposable DB clone. Остальные roadmap packages ещё не начаты. Этот status update не меняет утверждённый scope. Supersedes r1/r2.

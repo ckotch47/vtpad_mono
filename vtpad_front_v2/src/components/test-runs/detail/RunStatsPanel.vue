@@ -26,47 +26,39 @@
             <span class="font-weight-bold ml-auto">{{ status.value }}</span>
           </div>
         </div>
-      </v-card-text>
-    </v-card>
 
-    <v-row class="mt-1">
-      <v-col cols="12" md="6">
-        <v-card variant="outlined" class="run-summary__detail h-100">
-          <v-card-text class="pa-4">
-            <div class="d-flex align-center ga-2 mb-3">
-              <v-avatar color="primary" variant="tonal" size="34">
-                <v-icon size="19">mdi-timer-outline</v-icon>
-              </v-avatar>
-              <div>
-                <div class="text-subtitle-1 font-weight-bold">Case execution time</div>
-                <div class="text-caption text-medium-emphasis">Measured time across test cases</div>
-              </div>
+        <v-divider class="my-4" />
+
+        <div class="d-flex align-center ga-2 mb-3">
+          <v-avatar color="primary" variant="tonal" size="30">
+            <v-icon size="17">mdi-chart-timeline-variant</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-subtitle-2 font-weight-bold">Time measurements</div>
+            <div class="text-caption text-medium-emphasis">Case work and shared run timer</div>
+          </div>
+        </div>
+
+        <div class="run-summary__measurement-grid">
+          <section class="run-summary__measurement" aria-labelledby="case-time-heading">
+            <div class="d-flex align-center justify-space-between ga-2 mb-2">
+              <div id="case-time-heading" class="text-body-2 font-weight-medium">Case execution</div>
+              <v-icon size="18" color="primary" aria-hidden="true">mdi-timer-outline</v-icon>
             </div>
             <div class="d-flex flex-wrap align-end justify-space-between ga-2">
-              <div class="text-h5 font-weight-bold">{{ formatDuration(stats.duration_seconds_total) }}</div>
+              <div class="text-h5 font-weight-bold">{{ formatCaseDuration(stats.duration_seconds_total, stats.duration_measured_count) }}</div>
               <div class="text-caption text-medium-emphasis">{{ stats.duration_measured_count ?? 'No data' }} measured</div>
             </div>
-            <v-divider class="my-3" />
-            <div class="d-flex align-center justify-space-between text-body-2">
-              <span class="text-medium-emphasis">Cases without recorded time</span>
-              <span class="font-weight-medium">{{ stats.duration_unmeasured_count ?? 'No data' }}</span>
+            <div class="text-caption text-medium-emphasis mt-2">
+              {{ stats.duration_unmeasured_count ?? 'No data' }} cases without recorded time
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </section>
 
-      <v-col cols="12" md="6">
-        <v-card variant="outlined" class="run-summary__detail h-100">
-          <v-card-text class="pa-4">
-            <div class="d-flex align-center justify-space-between ga-2 mb-3">
-              <div class="d-flex align-center ga-2">
-                <v-avatar color="success" variant="tonal" size="34">
-                  <v-icon size="19">mdi-clock-time-four-outline</v-icon>
-                </v-avatar>
-                <div>
-                  <div class="text-subtitle-1 font-weight-bold">Run time</div>
-                  <div class="text-caption text-medium-emphasis">Shared run timer</div>
-                </div>
+          <section class="run-summary__measurement" aria-labelledby="run-time-heading">
+            <div class="d-flex align-center justify-space-between ga-2 mb-2">
+              <div>
+                <div id="run-time-heading" class="text-body-2 font-weight-medium">Run timer</div>
+                <div class="text-caption text-medium-emphasis">Elapsed time for the whole run</div>
               </div>
               <v-chip v-if="timer.state" size="small" :color="timerStateColor(timer.state)" variant="tonal" class="text-capitalize">
                 {{ timerStateLabel(timer.state) }}
@@ -86,13 +78,13 @@
                 <div class="text-subtitle-1 font-weight-bold text-warning">{{ formatDuration(timer.paused_seconds) }}</div>
               </div>
             </div>
-            <div v-if="timer.state === 'untracked'" class="text-caption text-medium-emphasis mt-3">
-              Time tracking is unavailable for this run.
+            <div v-if="timer.state === 'untracked'" class="text-caption text-medium-emphasis mt-2">
+              Timer measurements are unavailable for this run.
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </section>
+        </div>
+      </v-card-text>
+    </v-card>
   </v-container>
 </template>
 
@@ -113,6 +105,11 @@ function formatDuration(seconds) {
   return hours > 0
     ? `${hours}h ${String(minutes).padStart(2, '0')}m`
     : `${minutes}m ${String(remainder).padStart(2, '0')}s`
+}
+
+function formatCaseDuration(seconds, measuredCount) {
+  if (!Number.isFinite(Number(measuredCount)) || Number(measuredCount) <= 0) return 'No data'
+  return formatDuration(seconds)
 }
 
 const statusList = computed(() => [
@@ -168,8 +165,18 @@ function timerStateColor(state) {
 .run-summary__status-dot--blocked { background: rgb(var(--v-theme-warning)); }
 .run-summary__status-dot--skipped { background: rgba(var(--v-theme-on-surface), 0.45); }
 .run-summary__status-dot--not-run { background: rgb(var(--v-theme-primary)); }
-.run-summary__detail {
-  border-radius: 12px;
+.run-summary__measurement-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+}
+.run-summary__measurement {
+  min-width: 0;
+  padding: 4px 20px 4px 0;
+}
+.run-summary__measurement + .run-summary__measurement {
+  padding-right: 0;
+  padding-left: 20px;
+  border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .run-summary__timer-grid {
   display: grid;
@@ -182,6 +189,19 @@ function timerStateColor(state) {
   }
   .run-summary__timer-grid {
     gap: 8px;
+  }
+  .run-summary__measurement-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .run-summary__measurement,
+  .run-summary__measurement + .run-summary__measurement {
+    padding: 4px 0;
+  }
+  .run-summary__measurement + .run-summary__measurement {
+    margin-top: 12px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-left: 0;
   }
 }
 </style>

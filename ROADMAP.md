@@ -25,6 +25,8 @@
 
 RN1/RN2 passed frontend lint/build and desktop/mobile browser checks: the left navigator stayed visible during a long scroll, keyboard focus and result deep-link worked, and mobile had no page-wide horizontal overflow.
 
+RDU2 polish is implemented in the approved full roadmap package: the sticky run map uses clearer suite/section hierarchy, highlights the group in view, and shows the active group; summary progress, statuses, and time measurements share one card. Desktop and 390×844 mobile smoke passed on a read-only run, including long-scroll stickiness, group navigation/focus, and no page-wide overflow. Unknown case time with zero measured cases displays as “No data”; actual measured zero stays distinct.
+
 ### Test Plan & Execution
 - [x] **Test Plan** entity — intermediate layer between Suite and Run
 - [x] **Step-level results** — mark pass/fail/skip per individual step
@@ -76,7 +78,7 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [ ] Add filterable and searchable tags and priority for cases
 
 ### Test Cases and Checklists
-The TC2 Test IT review is complete; the exact TC1 implementation plan is prepared in `plans/checklist-ux-package-r1.md` and awaits approval.
+The TC2 Test IT review is complete. TC1 is approved through the full roadmap package and its frontend implementation is committed as `ade63d8`; lint/build pass. Browser and saved-payload preservation acceptance are still pending.
 - [ ] Design distinct views for test cases and checklists
 - [x] Review how Test IT presents checklists and use the findings to inform the VTPad design
 
@@ -85,6 +87,8 @@ The TC2 Test IT review is complete; the exact TC1 implementation plan is prepare
 - [x] Group and filter defects by status (Open, Fixed, Reopen; retain an Other group)
 - [x] Show defect statistics by run and suite
 - [ ] Extend automatic bug linking on failed results (partially available through the bug modal)
+
+DD5 backend REST/MCP acceptance passed on a disposable DB clone: status-only failure did not create a bug, and explicit quick-create/link passed retry, validation and same-space checks. Browser acceptance for the failed-result dialog remains pending.
 
 DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separately from result links, groups by run and historical suite snapshot, bounds each bug's displayed navigation to 25 result links, and labels legacy JSON-only links as excluded. Runtime fixtures, cross-space isolation checks, browser smoke, API review, and security review passed on an isolated database copy. `EXPLAIN (ANALYZE, BUFFERS)` for the final paginated query on the restored clone took 1.584 ms with 231 shared-hit blocks and no shared reads; no index change was needed.
 

@@ -103,8 +103,19 @@
         <v-col cols="12" md="4" lg="3" class="py-0">
           <nav aria-label="Run result groups" class="group-navigation-desktop d-none d-md-block">
             <div class="group-navigation__header">
-              <div class="text-subtitle-2 font-weight-bold">Result groups</div>
-              <div class="text-caption text-medium-emphasis">{{ groupedResults.length }} groups</div>
+              <div class="d-flex align-center ga-2">
+                <v-avatar color="primary" variant="tonal" size="30">
+                  <v-icon size="17" aria-hidden="true">mdi-folder-multiple-outline</v-icon>
+                </v-avatar>
+                <div class="min-width-0">
+                  <div class="text-subtitle-2 font-weight-bold">Run map</div>
+                  <div class="text-caption text-medium-emphasis">{{ groupedResults.length }} groups</div>
+                </div>
+              </div>
+              <div v-if="activeGroup" class="group-navigation__current">
+                <span class="group-navigation__current-label">Current group</span>
+                <span class="group-navigation__current-name" :title="activeGroup.accessibleName">{{ activeGroup.pathName }}</span>
+              </div>
             </div>
             <v-list density="compact" nav class="group-navigation__list">
               <v-list-item
@@ -117,8 +128,17 @@
                 @click.prevent="goToGroup(group)"
               >
                 <v-list-item-title class="group-navigation__title">
-                  <span v-if="group.suiteDisplayName" class="group-navigation__suite">{{ group.suiteDisplayName }}</span>
-                  <span class="group-navigation__path">{{ group.pathName }}</span>
+                  <span v-if="group.suiteDisplayName" class="group-navigation__suite"><v-icon size="13" aria-hidden="true">mdi-view-grid-outline</v-icon><span>{{ group.suiteDisplayName }}</span></span>
+                  <span class="group-navigation__path" :title="group.pathName">
+                    <template v-for="(section, index) in group.pathOrder" :key="section.id || `${section.name}-${index}`">
+                      <span
+                        class="group-navigation__path-segment"
+                        :class="{ 'group-navigation__path-segment--current': index === group.pathOrder.length - 1 }"
+                      >{{ section.name }}</span>
+                      <v-icon v-if="index < group.pathOrder.length - 1" size="13" aria-hidden="true">mdi-chevron-right</v-icon>
+                    </template>
+                    <span v-if="!group.pathOrder.length" class="group-navigation__path-segment group-navigation__path-segment--current">Default</span>
+                  </span>
                 </v-list-item-title>
                 <template #append>
                   <v-chip size="x-small" :color="currentGroupId === group.id ? 'primary' : undefined">{{ group.results.length }}</v-chip>
@@ -294,7 +314,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useLogger } from '@/composables/useLogger'
 import { testRunService, bugService, testCaseService } from '@/services'
@@ -336,6 +356,7 @@ const currentGroupId = ref(null)
 const loadedRunId = ref(null)
 let drilldownFocused = false
 let drilldownRequestVersion = 0
+let groupScrollFrame = null
 
 const groupedResults = computed(() => {
   const groups = new Map()
@@ -361,7 +382,6 @@ const groupedResults = computed(() => {
         suiteDisplayName,
         pathOrder: sectionPath,
         pathName,
-        navigationName: suiteDisplayName ? `${suiteDisplayName} / ${pathName}` : pathName,
         accessibleName: suiteDisplayName ? `${suiteDisplayName}, ${pathName}` : pathName,
         results: []
       })
@@ -370,6 +390,8 @@ const groupedResults = computed(() => {
   }
   return [...groups.values()].sort(compareGroups)
 })
+
+const activeGroup = computed(() => groupedResults.value.find((group) => group.id === currentGroupId.value) || null)
 
 function getSectionPath(testcase) {
   if (Array.isArray(testcase.section_path)) {
@@ -637,6 +659,35 @@ function goToGroup(group) {
   })
 }
 
+function syncCurrentGroup() {
+  if (groupScrollFrame !== null) return
+  groupScrollFrame = requestAnimationFrame(() => {
+    groupScrollFrame = null
+    const visibleGroups = groupedResults.value
+      .map((group) => ({ group, element: document.getElementById(group.headingId) }))
+      .filter(({ element }) => element)
+    if (!visibleGroups.length) return
+
+    const markerLine = Math.min(240, window.innerHeight * 0.3)
+    const precedingGroup = visibleGroups
+      .filter(({ element }) => element.getBoundingClientRect().top <= markerLine)
+      .at(-1)
+    const currentGroup = precedingGroup || visibleGroups.find(({ element }) => element.getBoundingClientRect().bottom > 0)
+    if (currentGroup) currentGroupId.value = currentGroup.group.id
+  })
+}
+
+watch(groupedResults, async () => {
+  await nextTick()
+  syncCurrentGroup()
+}, { flush: 'post' })
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', syncCurrentGroup)
+  window.removeEventListener('resize', syncCurrentGroup)
+  if (groupScrollFrame !== null) cancelAnimationFrame(groupScrollFrame)
+})
+
 async function bulkUpdateResults() {
   if (run.value.status !== 'active' || !selectedResultIds.value.length) return
   bulkUpdating.value = true
@@ -787,6 +838,8 @@ function typeColor(type) {
 }
 
 onMounted(() => {
+  window.addEventListener('scroll', syncCurrentGroup, { passive: true })
+  window.addEventListener('resize', syncCurrentGroup)
   loadRun()
   loadBugs()
 })
@@ -822,9 +875,34 @@ onMounted(() => {
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 12px 12px 8px;
+  padding: 12px;
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   background: rgb(var(--v-theme-surface));
+}
+.group-navigation__current {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-primary), 0.07);
+}
+.group-navigation__current-label {
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.group-navigation__current-name {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .group-navigation__list {
   padding: 6px !important;
@@ -840,6 +918,10 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 .group-navigation__suite {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.72rem;
   font-weight: 600;
@@ -847,16 +929,36 @@ onMounted(() => {
   line-height: 1.35;
   white-space: nowrap;
 }
+.group-navigation__suite > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .group-navigation__path {
-  padding-left: 10px;
-  border-left: 2px solid rgba(var(--v-theme-primary), 0.35);
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 1px;
+  margin-top: 2px;
   font-size: 0.82rem;
   line-height: 1.45;
   white-space: nowrap;
 }
+.group-navigation__path-segment {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-navigation__path-segment--current {
+  color: rgb(var(--v-theme-on-surface));
+  font-weight: 600;
+}
 .group-navigation-desktop :deep(.v-list-item) {
+  position: relative;
   min-height: 48px;
-  margin-bottom: 2px;
+  margin: 2px 4px;
   border-radius: 8px;
 }
 .group-navigation-desktop :deep(.v-list-item:hover) {
@@ -869,6 +971,16 @@ onMounted(() => {
 }
 .group-navigation-desktop :deep(.group-navigation__item--current) {
   background: rgba(var(--v-theme-primary), 0.1);
+}
+.group-navigation-desktop :deep(.group-navigation__item--current)::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: rgb(var(--v-theme-primary));
+  content: '';
 }
 .group-navigation-mobile > div {
   max-width: 100%;

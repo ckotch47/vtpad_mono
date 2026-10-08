@@ -429,7 +429,8 @@ function extractSteps(value) {
   const sanitized = sanitizeHtml(value || '')
   if (!sanitized) return []
   const document = new DOMParser().parseFromString(sanitized, 'text/html')
-  const listItems = [...document.querySelectorAll('ol > li, ul > li')]
+  const topLevelLists = [...document.querySelectorAll('ol, ul')].filter((list) => !list.parentElement?.closest('li'))
+  const listItems = topLevelLists.flatMap((list) => [...list.children].filter((child) => child.tagName === 'LI'))
   if (listItems.length) return listItems.map((item) => sanitizeHtml(item.innerHTML).trim()).filter(Boolean)
   const blockItems = [...document.body.children]
   if (blockItems.length > 1) return blockItems.map((item) => sanitizeHtml(item.innerHTML).trim()).filter(Boolean)

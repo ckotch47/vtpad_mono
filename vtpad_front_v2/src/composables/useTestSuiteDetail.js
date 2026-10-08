@@ -16,6 +16,7 @@ export function useTestSuiteDetail() {
   const testCases = ref([])
   const allCases = ref([])
   const loader = ref(true)
+  const suiteError = ref('')
   const caseSearch = ref('')
   const openAddCase = ref(false)
   const openAddExistingCase = ref(false)
@@ -36,6 +37,7 @@ export function useTestSuiteDetail() {
   const caseDialogOpen = ref(false)
   const selectedCase = ref(null)
   const breadcrumbItems = ref([])
+  let caseListRequestId = 0
 
   const defaultSection = computed(() => ({
     id: null,
@@ -79,33 +81,55 @@ export function useTestSuiteDetail() {
   })
 
   function loadSuite() {
-    testSuiteService.getById(suiteId.value).then(res => {
+    const requestedSuiteId = suiteId.value
+    if (!requestedSuiteId) {
+      suiteError.value = 'Test suite was not found or you do not have access to it.'
+      loader.value = false
+      return
+    }
+    testSuiteService.getById(requestedSuiteId).then(res => {
+      if (String(suiteId.value) !== String(requestedSuiteId)) return
       suite.value = res.data
       breadcrumbItems.value = [
         { title: 'Test Suites', to: `/space/${spaceId.value}/test-suites` },
         { title: suite.value.name }
       ]
+      suiteError.value = ''
+      loader.value = false
+    }).catch(() => {
+      if (String(suiteId.value) !== String(requestedSuiteId)) return
+      suite.value = {}
+      suiteError.value = 'Test suite was not found or you do not have access to it.'
       loader.value = false
     })
   }
 
   function loadSections() {
-    sectionService.getTree(suiteId.value).then(res => {
+    const requestedSuiteId = suiteId.value
+    sectionService.getTree(requestedSuiteId).then(res => {
+      if (String(suiteId.value) !== String(requestedSuiteId)) return
       sectionTree.value = res.data
       flatSections.value = flattenTree(res.data)
       if (flatSections.value.length === 0 && !selectedSection.value) {
         onDefaultSectionSelect()
       }
+    }).catch(() => {
+      if (String(suiteId.value) !== String(requestedSuiteId)) return
+      sectionTree.value = []
+      flatSections.value = []
     })
   }
 
   function loadAllCases() {
-    testCaseService.listBySuite(suiteId.value).then(res => {
+    const requestedSuiteId = suiteId.value
+    testCaseService.listBySuite(requestedSuiteId).then(res => {
+      if (String(suiteId.value) !== String(requestedSuiteId)) return
       allCases.value = res.data
       if (selectedSection.value?.isDefault) {
         testCases.value = unassignedCases()
       }
     }).catch(() => {
+      if (String(suiteId.value) !== String(requestedSuiteId)) return
       allCases.value = []
     })
   }
@@ -124,6 +148,7 @@ export function useTestSuiteDetail() {
   }
 
   function onDefaultSectionSelect() {
+    caseListRequestId += 1
     selectedSection.value = defaultSection.value
     testCases.value = unassignedCases()
   }
@@ -133,15 +158,22 @@ export function useTestSuiteDetail() {
   }
 
   function loadTestCases(sectionId) {
+    const requestedSuiteId = suiteId.value
+    const currentRequestId = ++caseListRequestId
     if (sectionId == null) {
       testCases.value = unassignedCases()
       return
     }
 
     testCaseService.listBySection(sectionId).then(res => {
+      if (String(suiteId.value) !== String(requestedSuiteId) || currentRequestId !== caseListRequestId) return
       testCases.value = res.data
       if (openAddExistingCase.value) {
         loadExistingCases(existingCaseSearch.value)
+      }
+    }).catch(() => {
+      if (String(suiteId.value) === String(requestedSuiteId) && currentRequestId === caseListRequestId) {
+        testCases.value = []
       }
     })
   }
@@ -308,10 +340,23 @@ export function useTestSuiteDetail() {
   }
 
   function init() {
+    loader.value = true
+    suiteError.value = ''
+    suite.value = {}
+    sectionTree.value = []
+    flatSections.value = []
+    selectedSection.value = null
+    testCases.value = []
+    allCases.value = []
+    breadcrumbItems.value = []
     loadSuite()
     loadSections()
     loadAllCases()
   }
+
+  watch(suiteId, (nextSuiteId, previousSuiteId) => {
+    if (nextSuiteId && nextSuiteId !== previousSuiteId) init()
+  })
 
   watch(openAddExistingCase, (open) => {
     if (open) {
@@ -335,6 +380,7 @@ export function useTestSuiteDetail() {
     testCases,
     allCases,
     loader,
+    suiteError,
     caseSearch,
     openAddCase,
     openAddExistingCase,

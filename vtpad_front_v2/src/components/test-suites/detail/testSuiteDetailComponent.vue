@@ -3,12 +3,26 @@
     <v-progress-linear color="primary" indeterminate />
   </div>
 
+  <div v-else-if="suiteError" class="suite-load-error pa-4">
+    <v-btn
+      variant="text"
+      prepend-icon="mdi-arrow-left"
+      :to="listRoute"
+      class="pl-0 mb-3"
+    >
+      Back to Test Suites
+    </v-btn>
+    <v-alert type="error" variant="tonal" role="alert">
+      {{ suiteError }}
+    </v-alert>
+  </div>
+
   <div v-else>
     <v-container fluid class="pb-0">
       <breadcrumbs-component :items="breadcrumbItems" />
       <v-row align="center">
         <v-col>
-          <v-btn variant="text" prepend-icon="mdi-arrow-left" :to="`/space/${spaceId}/test-suites`" class="pl-0">
+          <v-btn variant="text" prepend-icon="mdi-arrow-left" :to="listRoute" class="pl-0">
             Test Suites
           </v-btn>
           <h1 class="text-h4 font-weight-bold mt-1">{{ suite.name }}</h1>
@@ -114,6 +128,7 @@
 
 <script setup>
 import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTestSuiteDetail } from '@/composables/useTestSuiteDetail'
 import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
 import SuiteSectionsPanel from './SuiteSectionsPanel.vue'
@@ -123,6 +138,7 @@ import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
 
 const {
   spaceId,
+  suiteError,
   suite,
   flatSections,
   selectedSection,
@@ -160,6 +176,12 @@ const {
   init,
 } = useTestSuiteDetail()
 
+const route = useRoute()
+const listRoute = computed(() => ({
+  path: `/space/${spaceId.value}/test-suites`,
+  query: route.query
+}))
+
 const stats = computed(() => [
   { label: 'Total Cases', value: allCases.value.length, icon: 'mdi-test-tube', color: 'primary' },
   { label: 'Manual', value: caseCountByType('manual'), icon: 'mdi-hand-back-right-outline', color: 'info' },
@@ -171,6 +193,11 @@ onMounted(() => init())
 </script>
 
 <style scoped>
+.suite-load-error {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
 .section-list-item {
   cursor: pointer;
 }

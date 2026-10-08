@@ -1,79 +1,133 @@
 <template>
-  <div>
-    <v-toolbar density="compact" class="list-toolbar">
+  <div class="suite-navigation">
+    <div class="suite-navigation__toolbar">
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
-        label="Search test suites"
+        label="Search suites"
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2 list-filter-search"
         clearable
+        aria-label="Search test suites"
         @update:model-value="onSearch"
       />
       <v-select
         v-model="filterStatus"
-        :items="[{title:'All', value:''}, {title:'Active', value:'active'}, {title:'Archived', value:'archived'}]"
+        :items="statusOptions"
         item-title="title"
         item-value="value"
         label="Status"
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2 list-filter-sm"
+        aria-label="Filter test suites by status"
         @update:model-value="onFilterChange"
       />
-      <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
+      <v-select
+        v-model="sortSelection"
+        :items="sortOptions"
+        item-title="title"
+        item-value="value"
+        label="Sort"
+        density="compact"
+        hide-details
+        variant="solo"
+        aria-label="Sort test suites"
+      />
+      <v-btn color="primary" prepend-icon="mdi-plus" block @click="openCreate = true">
         New Test Suite
       </v-btn>
-    </v-toolbar>
+    </div>
 
-    <v-data-table-server
-      v-model:items-per-page="itemsPerPage"
-      v-model:page="page"
-      :headers="headers"
-      :items="suites"
-      :items-length="totalSuites"
-      :loading="tableLoading"
-      :sort-by="sortBy"
-      hover
-      @update:options="loadSuites"
-      @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-suites/${item.id}`)"
-    >
-      <template v-slot:item.name="{ item }">
-        <div class="font-weight-medium">{{ item.name }}</div>
-        <div v-if="item.description" class="text-caption text-medium-emphasis text-truncate" style="max-width: 400px">
-          {{ item.description }}
-        </div>
-      </template>
-      <template v-slot:item.cases_count="{ item }">
-        <v-chip size="small" color="primary">{{ item.cases_count || 0 }}</v-chip>
-      </template>
-      <template v-slot:item.sections_count="{ item }">
-        <v-chip size="small" color="info">{{ item.sections_count || 0 }}</v-chip>
-      </template>
-      <template v-slot:item.status="{ item }">
-        <v-chip size="small" :color="item.status === 'archived' ? 'grey' : 'success'">{{ item.status }}</v-chip>
-      </template>
-      <template v-slot:item.created_by="{ item }">
-        <div v-if="item.created_by?.username" class="creator-cell">
-          <v-avatar color="grey" size="24">
-            <span class="text-body-2">{{ item.created_by.username[0]?.toUpperCase() }}</span>
-          </v-avatar>
-          <span>{{ item.created_by.username }}</span>
-        </div>
-        <span v-else class="text-medium-emphasis">—</span>
-      </template>
-      <template v-slot:item.created_at="{ item }">
-        {{ formatDate(item.created_at) }}
-      </template>
-      <template v-slot:item.actions="{ item }">
-        <v-btn icon="mdi-pencil" size="x-small" variant="text" @click.stop="editSuite(item)" />
-        <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click.stop="deleteSuite(item)" />
-      </template>
-    </v-data-table-server>
+    <nav class="suite-navigation__list" aria-label="Test suites" :aria-busy="tableLoading">
+      <v-progress-linear v-if="tableLoading" color="primary" indeterminate />
+      <v-alert v-else-if="loadError" type="error" variant="tonal" density="compact" class="ma-3">
+        {{ loadError }}
+        <template #append>
+          <v-btn size="small" variant="text" @click="loadSuites()">Retry</v-btn>
+        </template>
+      </v-alert>
+      <v-list v-else-if="suites.length" nav density="compact" class="suite-navigation__items">
+        <v-list-item
+          v-for="item in suites"
+          :key="item.id"
+          :to="suiteRoute(item.id)"
+          :active="String(route.params.suiteId || '') === String(item.id)"
+          active-color="primary"
+          rounded="lg"
+          class="suite-navigation__item"
+          :aria-label="`${item.name}, ${item.cases_count || 0} cases, ${item.status || 'active'}`"
+        >
+          <template #prepend>
+            <v-icon :color="item.status === 'archived' ? 'grey' : 'primary'" size="small">
+              {{ item.status === 'archived' ? 'mdi-archive-outline' : 'mdi-folder-outline' }}
+            </v-icon>
+          </template>
+          <v-list-item-title class="suite-navigation__title">
+            {{ item.name }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="suite-navigation__subtitle">
+            <span>{{ item.cases_count || 0 }} cases</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ item.sections_count || 0 }} sections</span>
+          </v-list-item-subtitle>
+          <template #append>
+            <div class="suite-navigation__actions">
+              <v-chip
+                size="x-small"
+                :color="item.status === 'archived' ? 'grey' : 'success'"
+                variant="tonal"
+              >
+                {{ item.status || 'active' }}
+              </v-chip>
+              <v-btn
+                icon="mdi-pencil"
+                size="x-small"
+                variant="text"
+                :aria-label="`Edit ${item.name}`"
+                @click.stop.prevent="editSuite(item)"
+              />
+              <v-btn
+                icon="mdi-archive-outline"
+                size="x-small"
+                variant="text"
+                :aria-label="`Archive ${item.name}`"
+                @click.stop.prevent="deleteSuite(item)"
+              />
+            </div>
+          </template>
+        </v-list-item>
+      </v-list>
+      <v-empty-state
+        v-else
+        icon="mdi-folder-search-outline"
+        :title="search || filterStatus ? 'No matching suites' : 'No test suites yet'"
+        :text="search || filterStatus ? 'Try changing the search or status filter.' : 'Create a suite to start organizing test cases.'"
+        class="suite-navigation__empty"
+      />
+    </nav>
+
+    <div v-if="pageCount > 1" class="suite-navigation__pagination">
+      <v-btn
+        icon="mdi-chevron-left"
+        size="small"
+        variant="text"
+        aria-label="Previous suites page"
+        :disabled="page <= 1 || tableLoading"
+        @click="changePage(page - 1)"
+      />
+      <span class="text-caption">{{ page }} / {{ pageCount }}</span>
+      <v-btn
+        icon="mdi-chevron-right"
+        size="small"
+        variant="text"
+        aria-label="Next suites page"
+        :disabled="page >= pageCount || tableLoading"
+        @click="changePage(page + 1)"
+      />
+      <span class="text-caption text-medium-emphasis ml-auto">{{ totalSuites }} suites</span>
+    </div>
 
     <v-dialog v-model="openCreate" max-width="500">
       <v-card>
@@ -85,7 +139,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openCreate = false">Cancel</v-btn>
-          <v-btn color="primary" @click="createSuite">Create</v-btn>
+          <v-btn color="primary" :disabled="!newSuite.name.trim()" @click="createSuite">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -98,7 +152,7 @@
           <v-textarea v-model="editSuiteData.description" label="Description" rows="2" />
           <v-select
             v-model="editSuiteData.status"
-            :items="[{title:'Active', value:'active'}, {title:'Archived', value:'archived'}]"
+            :items="[{ title: 'Active', value: 'active' }, { title: 'Archived', value: 'archived' }]"
             item-title="title"
             item-value="value"
             label="Status"
@@ -107,7 +161,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openEdit = false">Cancel</v-btn>
-          <v-btn color="primary" @click="saveSuite">Save</v-btn>
+          <v-btn color="primary" :disabled="!editSuiteData.name.trim()" @click="saveSuite">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -115,169 +169,272 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testSuiteService } from '@/services'
 
+const emit = defineEmits(['suite-changed'])
+
 const route = useRoute()
 const router = useRouter()
-
 const spaceId = computed(() => route.params.spaceId)
 
 const suites = ref([])
 const totalSuites = ref(0)
 const page = ref(1)
-const itemsPerPage = ref(25)
+const pageSize = ref(25)
 const sortBy = ref([{ key: 'created_at', order: 'desc' }])
 const tableLoading = ref(false)
-const firstLoad = ref(true)
+const loadError = ref('')
 const search = ref('')
+const filterStatus = ref('')
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
+const requestId = ref(0)
 const openCreate = ref(false)
 const openEdit = ref(false)
 const newSuite = ref({ name: '', description: '' })
 const editSuiteData = ref({ id: null, name: '', description: '', status: 'active' })
-const filterStatus = ref('')
 
-const headers = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Cases', key: 'cases_count', width: '100px', sortable: false },
-  { title: 'Sections', key: 'sections_count', width: '100px', sortable: false },
-  { title: 'Status', key: 'status', width: '100px', sortable: false },
-  { title: 'Create', key: 'created_by', width: '180px', sortable: false },
-  { title: 'Created', key: 'created_at', width: '150px', sortable: true },
-  { title: 'Actions', key: 'actions', width: '120px', sortable: false }
+const pageCount = computed(() => Math.max(1, Math.ceil(totalSuites.value / pageSize.value)))
+const sortSelection = computed({
+  get: () => {
+    const sort = sortBy.value[0] || { key: 'created_at', order: 'desc' }
+    return `${sort.key}:${sort.order}`
+  },
+  set: value => {
+    const [key, order] = value.split(':')
+    sortBy.value = [{ key, order }]
+    loadSuites({ page: 1 })
+  }
+})
+const statusOptions = [
+  { title: 'Active suites', value: '' },
+  { title: 'Archived', value: 'archived' },
+  { title: 'All suites', value: 'all' }
+]
+const sortOptions = [
+  { title: 'Recently created', value: 'created_at:desc' },
+  { title: 'Oldest first', value: 'created_at:asc' },
+  { title: 'Name A–Z', value: 'name:asc' },
+  { title: 'Name Z–A', value: 'name:desc' }
 ]
 
-const q = route.query
-page.value = parseInt(q.page) || 1
-itemsPerPage.value = parseInt(q.page_size) || 25
-search.value = q.search || ''
-filterStatus.value = q.status || ''
-if (q.sort_by && q.sort_order) {
-  sortBy.value = [{ key: q.sort_by, order: q.sort_order }]
+function readRouteState() {
+  const query = route.query
+  page.value = Math.max(1, Number.parseInt(query.page, 10) || 1)
+  pageSize.value = Math.max(1, Number.parseInt(query.page_size, 10) || 25)
+  search.value = typeof query.search === 'string' ? query.search : ''
+  filterStatus.value = typeof query.status === 'string' ? query.status : ''
+  if (typeof query.sort_by === 'string' && typeof query.sort_order === 'string') {
+    sortBy.value = [{ key: query.sort_by, order: query.sort_order }]
+  } else {
+    sortBy.value = [{ key: 'created_at', order: 'desc' }]
+  }
 }
 
-function loadSuites(options) {
-  clearTimeout(optionsDebounce.value)
-  optionsDebounce.value = setTimeout(() => {
-    doLoadSuites(options)
-  }, 150)
-}
-
-function doLoadSuites(options) {
-  if (!spaceId.value || tableLoading.value) return
-  tableLoading.value = true
-  const p = firstLoad.value ? page.value : (options?.page || page.value)
-  const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
-  firstLoad.value = false
-  const sb = options?.sortBy?.[0]
-  const sortKey = sb?.key || 'created_at'
-  const sortOrder = sb?.order || 'desc'
-
-  const query = { page: p, page_size: pageSize }
+function routeQueryForState() {
+  const sort = sortBy.value[0] || { key: 'created_at', order: 'desc' }
+  const query = { page: String(page.value), page_size: String(pageSize.value) }
   if (search.value) query.search = search.value
   if (filterStatus.value) query.status = filterStatus.value
-  if (sortKey !== 'created_at' || sortOrder !== 'desc') {
-    query.sort_by = sortKey
-    query.sort_order = sortOrder
+  if (sort.key !== 'created_at' || sort.order !== 'desc') {
+    query.sort_by = sort.key
+    query.sort_order = sort.order
   }
-  router.replace({ query })
+  return query
+}
 
+function sameQuery(left, right) {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)])
+  return [...keys].every(key => String(left[key] ?? '') === String(right[key] ?? ''))
+}
+
+function syncRouteQuery() {
+  const query = routeQueryForState()
+  if (!sameQuery(route.query, query)) router.replace({ query })
+}
+
+function loadSuites(options = {}) {
+  clearTimeout(optionsDebounce.value)
+  optionsDebounce.value = setTimeout(() => doLoadSuites(options), 120)
+}
+
+function doLoadSuites(options = {}) {
+  if (!spaceId.value) return
+  const currentRequest = ++requestId.value
+  page.value = Math.max(1, options.page || page.value)
+  pageSize.value = Math.max(1, options.itemsPerPage || pageSize.value)
+  if (options.sortBy?.[0]) sortBy.value = options.sortBy
+  syncRouteQuery()
+  tableLoading.value = true
+  loadError.value = ''
+
+  const sort = sortBy.value[0] || { key: 'created_at', order: 'desc' }
   testSuiteService.listBySpace(spaceId.value, {
-    page: p,
-    page_size: pageSize,
-    sort_by: sortKey,
-    sort_order: sortOrder,
+    page: page.value,
+    page_size: pageSize.value,
+    sort_by: sort.key,
+    sort_order: sort.order,
     search: search.value || undefined,
     status: filterStatus.value || undefined
   }).then(res => {
+    if (currentRequest !== requestId.value) return
     suites.value = res.data.items || res.data
     totalSuites.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
-    itemsPerPage.value = res.data.page_size || itemsPerPage.value
-    tableLoading.value = false
+    pageSize.value = res.data.page_size || pageSize.value
   }).catch(() => {
-    tableLoading.value = false
+    if (currentRequest === requestId.value) {
+      loadError.value = 'Could not load test suites.'
+      suites.value = []
+      totalSuites.value = 0
+    }
+  }).finally(() => {
+    if (currentRequest === requestId.value) tableLoading.value = false
   })
 }
 
 function onSearch() {
   clearTimeout(searchDebounce.value)
-  searchDebounce.value = setTimeout(() => {
-    page.value = 1
-    loadSuites({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
-  }, 400)
+  searchDebounce.value = setTimeout(() => loadSuites({ page: 1 }), 350)
 }
 
 function onFilterChange() {
-  page.value = 1
-  loadSuites({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  loadSuites({ page: 1 })
+}
+
+function changePage(nextPage) {
+  loadSuites({ page: nextPage })
+}
+
+function suiteRoute(id) {
+  return { path: `/space/${spaceId.value}/test-suites/${id}`, query: route.query }
 }
 
 function createSuite() {
   testSuiteService.create({
-    name: newSuite.value.name,
+    name: newSuite.value.name.trim(),
     description: newSuite.value.description,
     space_id: spaceId.value
   }).then(() => {
     openCreate.value = false
     newSuite.value = { name: '', description: '' }
-    loadSuites({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+    loadSuites({ page: 1 })
   })
 }
 
 function editSuite(item) {
-  editSuiteData.value = { ...item }
+  editSuiteData.value = {
+    id: item.id,
+    name: item.name || '',
+    description: item.description || '',
+    status: item.status || 'active'
+  }
   openEdit.value = true
 }
 
 function saveSuite() {
   testSuiteService.update(editSuiteData.value.id, {
-    name: editSuiteData.value.name,
+    name: editSuiteData.value.name.trim(),
     description: editSuiteData.value.description,
     status: editSuiteData.value.status
   }).then(() => {
     openEdit.value = false
-    loadSuites({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+    emit('suite-changed')
+    loadSuites()
   })
 }
 
 function deleteSuite(item) {
   if (!confirm(`Archive test suite "${item.name}"?`)) return
   testSuiteService.delete(item.id).then(() => {
-    loadSuites({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+    if (String(route.params.suiteId || '') === String(item.id)) {
+      router.push({ path: `/space/${spaceId.value}/test-suites`, query: route.query })
+    }
+    emit('suite-changed')
+    loadSuites()
   })
 }
 
-function formatDate(date) {
-  return date ? new Date(date).toLocaleDateString() : ''
-}
+watch(() => route.query, (query, oldQuery) => {
+  if (sameQuery(query, oldQuery || {})) return
+  readRouteState()
+  loadSuites()
+}, { deep: true })
+
+watch(spaceId, (nextSpaceId, oldSpaceId) => {
+  if (nextSpaceId !== oldSpaceId) {
+    clearTimeout(optionsDebounce.value)
+    requestId.value += 1
+    tableLoading.value = false
+    readRouteState()
+    loadSuites()
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  clearTimeout(searchDebounce.value)
+  clearTimeout(optionsDebounce.value)
+  requestId.value += 1
+})
 </script>
 
 <style scoped>
-.list-toolbar {
-  gap: 8px;
-}
-
-.list-filter-search {
-  max-width: 320px;
-}
-
-.list-filter-sm {
-  max-width: 160px;
-}
-
-.creator-cell {
+.suite-navigation {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.suite-navigation__toolbar {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.suite-navigation__list {
+  min-height: 180px;
+  overflow: auto;
+  flex: 1;
+}
+
+.suite-navigation__items {
+  padding: 8px;
+}
+
+.suite-navigation__item {
+  margin-bottom: 4px;
   min-width: 0;
 }
 
-.creator-cell span:last-child {
+.suite-navigation__title,
+.suite-navigation__subtitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.suite-navigation__subtitle {
+  display: flex;
+  gap: 5px;
+}
+
+.suite-navigation__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.suite-navigation__empty {
+  min-height: 220px;
+}
+
+.suite-navigation__pagination {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

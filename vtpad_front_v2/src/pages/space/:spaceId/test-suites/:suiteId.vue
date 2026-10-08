@@ -8,11 +8,9 @@
 </route>
 
 <template>
-  <v-container class="mx-auto custom-container max-width-1500">
-    <test-suite-detail-component />
-  </v-container>
+  <test-suites-workspace-component />
 </template>
 
 <script setup>
-import TestSuiteDetailComponent from "@/components/test-suites/detail/testSuiteDetailComponent.vue";
+import TestSuitesWorkspaceComponent from "@/components/test-suites/testSuitesWorkspaceComponent.vue";
 </script>

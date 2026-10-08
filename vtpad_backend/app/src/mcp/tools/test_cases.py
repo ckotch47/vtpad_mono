@@ -262,24 +262,24 @@ async def duplicate_test_case(case_id: str) -> dict:
 @mcp.tool()
 async def move_test_case(
     case_id: str,
-    suite_id: str | None = None,
-    section_id: str | None = None,
+    suite_id: str,
+    section_id: str | None,
 ) -> dict:
     """Move a test case to another suite or section.
 
     Args:
         case_id: UUID of the test case
-        suite_id: Optional new suite UUID
-        section_id: Optional new section UUID
+        suite_id: Required destination suite UUID
+        section_id: Required destination section UUID; null selects its Default section
 
     Returns:
         Updated test case
     """
     await _require_case_access(case_id)
-    values = {'suite_id': suite_id, 'section_id': section_id}
-    dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
-    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
-    case = await TestCaseService.update(case_id, dto, token)
+    from ...test_case.dto import TestCaseMoveDto
+
+    dto = TestCaseMoveDto(suite_id=suite_id, section_id=section_id)
+    case = await TestCaseService.move(case_id, dto)
     return _case_to_dict(case)
 
 

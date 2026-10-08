@@ -64,6 +64,18 @@ async def update(testcase_id: str, dto: TestCaseUpdateDto, request: Request, tok
     return await TestCaseService.update(testcase_id, dto, token)
 
 
+@router.post('/{testcase_id}/move', dependencies=[Depends(bearer)])
+async def move_testcase(testcase_id: str, dto: TestCaseMoveDto, request: Request):
+    await _require_testcase_access(testcase_id, request)
+    moved = await TestCaseService.move(testcase_id, dto)
+    return {
+        'id': str(moved.id),
+        'space_id': str(moved.space_id),
+        'suite_id': str(moved.suite_id) if moved.suite_id else None,
+        'section_id': str(moved.section_id) if moved.section_id else None,
+    }
+
+
 @router.delete('/{testcase_id}', dependencies=[Depends(bearer)])
 async def delete(testcase_id: str, request: Request):
     await _require_testcase_access(testcase_id, request)

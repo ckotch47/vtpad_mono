@@ -38,6 +38,14 @@ class TestCaseUpdateDto(BaseModel):
     sort: Optional[int] = None
 
 
+class TestCaseMoveDto(BaseModel):
+    """Explicit destination for moving a case between suite locations."""
+
+    suite_id: str
+    # Required but nullable: null selects the suite's virtual Default section.
+    section_id: Optional[str] = Field(...)
+
+
 class TestCaseSortDto(BaseModel):
     sort_before_id: Optional[str] = None
     sort_after_id: Optional[str] = None

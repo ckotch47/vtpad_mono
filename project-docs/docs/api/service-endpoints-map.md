@@ -118,6 +118,7 @@
 | POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + space check | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
 | PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`; явный `section_id: null` снимает кейс с секции и оставляет его в указанном (или текущем) suite — UI показывает его в виртуальной секции `Default`; `null` остальных полей игнорируется. |
+| POST | `/api/v2/test-case/{testcase_id}/move` | JWT + space check | явно перемещает кейс в тело `{suite_id, section_id}`; оба поля обязательны, `section_id: null` означает виртуальную секцию `Default` указанного suite. Suite и section проверяются в space кейса; чужая/несуществующая ссылка возвращает общий `404`, section другого suite в том же space — `422`. Ответ содержит `id`, `space_id`, `suite_id`, `section_id`; перемещение не создаёт content version. |
 | GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/{version_id}` | JWT + space check | конкретная версия testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/diff` | JWT + space check | сравнение двух версий |

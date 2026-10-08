@@ -237,6 +237,51 @@ class TestCaseService:
         return updated
 
     @staticmethod
+    async def move(testcase_id: str, dto: TestCaseMoveDto) -> TestCaseModel:
+        """Move a case to a suite location without creating a content version."""
+        from ..section.model import SectionModel
+        from ..test_suite.model import TestSuiteModel
+
+        async with in_transaction() as connection:
+            testcase = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()
+            if not testcase:
+                raise HTTPException(status_code=404, detail="Test case not found")
+
+            suite = await TestSuiteModel.filter(id=dto.suite_id).using_db(connection).first()
+            if not suite or str(suite.space_id) != str(testcase.space_id):
+                # Do not reveal whether a foreign-space suite exists.
+                raise HTTPException(status_code=404, detail="Test case destination not found")
+
+            if dto.section_id is not None:
+                section = await SectionModel.filter(id=dto.section_id).using_db(connection).first()
+                if not section:
+                    raise HTTPException(status_code=404, detail="Test case destination not found")
+                section_suite = await TestSuiteModel.filter(id=section.suite_id).using_db(connection).first()
+                if not section_suite or str(section_suite.space_id) != str(testcase.space_id):
+                    # Hide section identifiers outside the testcase's space.
+                    raise HTTPException(status_code=404, detail="Test case destination not found")
+                if str(section.suite_id) != str(suite.id):
+                    raise HTTPException(status_code=422, detail="Section must belong to destination suite")
+
+            if str(testcase.suite_id) == str(suite.id) and (
+                str(testcase.section_id) if testcase.section_id else None
+            ) == dto.section_id:
+                return testcase
+
+            last = await TestCaseModel.filter(
+                space_id=testcase.space_id,
+                suite_id=suite.id,
+                section_id=dto.section_id,
+            ).using_db(connection).order_by('-sort').first()
+            next_sort = (last.sort + 10) if last else 10
+            await TestCaseModel.filter(id=testcase_id).using_db(connection).update(
+                suite_id=suite.id,
+                section_id=dto.section_id,
+                sort=next_sort,
+            )
+            return await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
+
+    @staticmethod
     async def delete(testcase_id: str) -> bool:
         await TestCaseService.get_by_id(testcase_id)
         from ..test_run.model import TestResultModel

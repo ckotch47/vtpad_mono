@@ -25,7 +25,7 @@
 - Добавляемый участник должен быть активным пользователем той же company, что и space; иначе API отвечает тем же `404 user not found`, что и для неизвестного email.
 - Обычные участники space — доступ к pads, runs, bugs в рамках space.
 - REST-маршруты и MCP-инструменты Tech Docs проверяют доступ через `check_user_into_space`: активное членство в space или роль активного `company_admin` в company этого space. Создать документ или переместить его под родительский можно только внутри того же space; конкурентные переносы сериализуются, чтобы не допустить циклы в дереве.
-- REST section reorder проверяет доступ к space, найденному через suite целевой секции. Участник space или активный `company_admin` этой company может переставлять только siblings с теми же `suite_id` и `parent_id`; caller не может указать другую suite/space в body.
+- REST section reorder and MCP `sort_sections` check access to the space derived from the target section's suite. An active space member or active `company_admin` in that company can reorder only siblings with the same `suite_id` and `parent_id`; callers cannot supply another suite/space in the request.
 
 ## Защита endpoint'ов
 

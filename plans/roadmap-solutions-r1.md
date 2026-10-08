@@ -55,9 +55,9 @@
 
 **Решение:** использовать плоский searchable `v-list` с case/section counts и archived state, URL-backed active suite, серверной пагинацией и CRUD actions. Вложенность не добавляется: suite model не имеет parent, а отдельное hierarchy/API изменение не требуется. **Проверено по коду:** keyboard-focusable list links, empty/loading/error states и mobile panel switch добавлены; реальное поведение на больших списках и телефоне ожидает browser QA.
 
-### SU4. Перетаскивание секций — частично (REST/UI реализовано, MCP parity ожидает r2)
+### SU4. Перетаскивание секций — реализовано (REST/UI r1 + MCP parity r2)
 
-**Реализация:** корневые секции и секции под одним parent переставляются drag-and-drop за ручку или кнопками Move up/down; перенос между родителями не доступен. REST API требует ровно одного `sort_before_id`/`sort_after_id`, проверяет suite, parent и membership в space, затем атомарно записывает уникальные позиции siblings. UI делает оптимистичное обновление и при ошибке восстанавливает исходный порядок с сообщением и Retry. **Проверено:** backend `py_compile`, frontend ESLint и production build прошли; независимый review выявил drag-start defect, исправленный после ревью. Финальный повторный review и browser runtime проверка ещё нужны. Миграция и новая зависимость не добавлены.
+**Реализация:** корневые секции и секции под одним parent переставляются drag-and-drop за ручку или кнопками Move up/down; перенос между родителями не доступен. REST API и MCP `sort_sections` принимают ровно одного соседа, используют общую проверку suite/parent и membership в space, а затем атомарно записывают уникальные позиции siblings. MCP возвращает JSON-поля секций. UI делает оптимистичное обновление и при ошибке восстанавливает исходный порядок с сообщением и Retry. **Проверено:** backend/MCP `py_compile`, frontend ESLint и production build прошли; независимые reviews одобрены. Browser/runtime проверка и запросы к реальной БД не запускались. Миграция и новая зависимость не добавлены.
 
 ### SU5. Поиск и фильтр дерева секций — нет
 

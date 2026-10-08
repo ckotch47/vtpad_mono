@@ -18,7 +18,7 @@ from ...test_run.service import TestRunService, TestResultService
 from ...test_run.dto import TestRunCreateDto, TestResultUpdateDto
 from ...test_case.dto import TestCaseUpdateDto
 from ...test_suite.dto import TestSuiteUpdateDto
-from ...section.dto import SectionUpdateDto
+from ...section.dto import SectionSortDto, SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
@@ -100,6 +100,46 @@ async def delete_section(section_id: str) -> dict:
     """
     await SectionService.delete(section_id)
     return {"deleted": True, "id": section_id}
+
+@mcp.tool()
+async def sort_sections(
+    section_id: str,
+    sort_before_id: str | None = None,
+    sort_after_id: str | None = None,
+) -> list[dict]:
+    """Move a section before or after one of its siblings.
+
+    Exactly one of sort_before_id and sort_after_id must be provided. Sections
+    can only be reordered within the same test suite and parent section.
+
+    Args:
+        section_id: UUID of the section to move
+        sort_before_id: Optional UUID of a sibling to place this section before
+        sort_after_id: Optional UUID of a sibling to place this section after
+
+    Returns:
+        The updated ordered siblings, including their parent and suite IDs
+    """
+    dto = SectionSortDto(
+        sort_before_id=sort_before_id,
+        sort_after_id=sort_after_id,
+    )
+    siblings = await SectionService.update_sort(
+        section_id,
+        dto,
+        get_http_request(),
+    )
+    return [
+        {
+            "id": str(section.id),
+            "name": section.name,
+            "description": section.description,
+            "suite_id": str(section.suite_id) if section.suite_id else None,
+            "parent_id": str(section.parent_id) if section.parent_id else None,
+            "sort": section.sort,
+        }
+        for section in siblings
+    ]
 
 @mcp.tool()
 async def hard_delete_section(section_id: str) -> dict:

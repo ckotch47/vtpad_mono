@@ -32,4 +32,12 @@
 
 ## Согласование
 
-Реализация требует явного подтверждения пользователя для `plans/section-reordering-package-r2.md`, revision r2.
+Пользователь одобрил revision r2 перед реализацией.
+
+## Результат реализации
+
+- Добавлен MCP tool `sort_sections`; он создаёт общий `SectionSortDto`, передаёт текущий MCP HTTP request в `SectionService.update_sort` и возвращает JSON-массив siblings с согласованными полями.
+- Проверка membership, suite/parent соседства, self-reference и транзакционная сортировка общие с REST.
+- Добавлена интеграционная документация MCP; roadmap отмечает SU4 реализованным через REST, MCP и UI.
+- `py_compile` и `git diff --check` прошли. Независимое API/MCP review подтвердило цепочку auth/request context и безопасную JSON форму. Runtime список инструментов/HTTP MCP вызов не проверен: backend контейнер не запущен, а локально `fastmcp` отсутствует. Docker не перезапускался.
+- Миграций и зависимостей нет.

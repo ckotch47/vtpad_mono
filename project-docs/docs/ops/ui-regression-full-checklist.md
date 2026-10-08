@@ -61,6 +61,16 @@
 - Для initial request и повторного request проверить controlled failure: показывается ошибка вместо ложного «пусто», Retry повторяет чтение; уже загруженное содержимое при ошибке refetch сохраняется.
 - Проверить Retry клавиатурой (Tab/Enter/Space) и доступное объявление loading/error. В сценариях использовать QA fixture или network mock; не сохранять и не менять продуктовые записи.
 
+1. Empty states (UX3, desktop)
+- Cases, suites, plans, runs, bugs and the plan case picker distinguish first-empty from filter/search no-match; Create/Clear actions work with keyboard when shown.
+- Run detail distinguishes an empty run snapshot from a status filter with no results.
+- Tech Docs distinguishes an empty tree from search no-match; load errors stay distinct and Retry remains keyboard accessible.
+- Analytics shows a first-empty state and separates aggregate request failure from zero-valued metrics.
+- For cases, suites, plans, runs, bugs, run detail, plan case picker, Tech Docs and analytics, simulate a non-permission error (Retry) and HTTP 403 (permission message, no Retry).
+- Role-based Create CTA visibility remains an open manual check: there is no shared frontend capability source yet. Do not interpret currently visible create affordances as permission proof.
+- UX3 desktop source review (2026-10-09): common empty-state component and route/request guards were reviewed; case search no-match plus Clear filters was observed in the desktop browser and restored the case list. Controlled error/403, keyboard interaction across all states and read-only role fixtures remain open.
+- Mobile implementation and smoke are deferred for this roadmap pass per user instruction.
+
 1. Test Cases
 - List: поиск, пагинация, сортировка; на desktop подписи поиска и фильтров не обрезаются, фильтры сохраняют поведение.
 - Duplicate: кнопка действия в строке кейса имеет имя `Duplicate <case title>` для accessibility tree.

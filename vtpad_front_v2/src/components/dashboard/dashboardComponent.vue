@@ -3,9 +3,28 @@
     <v-progress-linear color="primary" indeterminate />
   </div>
 
+  <v-container v-else-if="dashboardError" class="mx-auto custom-container max-width-1500 py-10">
+    <contextual-empty-state
+      icon="mdi-chart-box-outline"
+      :title="dashboardErrorStatus === 403 ? 'You do not have access to this dashboard' : 'Analytics could not be loaded'"
+      :text="dashboardErrorStatus === 403 ? 'Ask a space administrator to grant access.' : 'Check your connection and try again.'"
+      :action-label="dashboardErrorStatus === 403 ? '' : 'Retry'"
+      action-icon="mdi-refresh"
+      @action="retryDashboard"
+    />
+  </v-container>
+
   <div v-else>
     <v-container class="mx-auto custom-container max-width-1500 pb-0">
       <page-header-component title="Dashboard" />
+    </v-container>
+
+    <v-container v-if="!dashboardHasData" class="mx-auto custom-container max-width-1500">
+      <contextual-empty-state
+        icon="mdi-chart-box-outline"
+        title="No analytics data yet"
+        text="Dashboard metrics will appear after test cases and runs are added to this space."
+      />
     </v-container>
 
     <!-- Stats Cards -->
@@ -497,6 +516,8 @@ const spaceId = computed(() => route.params.spaceId)
 const selectedBugUuid = computed(() => route.query.bug_uuid)
 
 const loader = ref(true)
+const dashboardError = ref(false)
+const dashboardErrorStatus = ref(0)
 const stats = ref({
   cases: { total: 0, manual: 0, checklist: 0, automated: 0 },
   suites: 0,
@@ -550,8 +571,17 @@ let suiteRequest = 0
 let activeSpaceRequest = 0
 let bugDetailRequest = 0
 
+const dashboardHasData = computed(() => Boolean(
+  stats.value.cases.total || stats.value.suites || stats.value.runs.total || stats.value.latest_results.total || topFailed.value.length || trend.value.length
+))
+
+function retryDashboard() {
+  loadDashboard(spaceId.value, ++dashboardRequest)
+}
+
 async function loadDashboard(space, requestId) {
   loader.value = true
+  dashboardError.value = false
   try {
     const [statsRes, topRes, trendRes] = await Promise.all([
       analyticsService.getSpaceStats(space),
@@ -563,7 +593,11 @@ async function loadDashboard(space, requestId) {
     topFailed.value = topRes.data
     trend.value = trendRes.data
   } catch (e) {
-    if (requestId === dashboardRequest) log.error('request failed', e)
+    if (requestId === dashboardRequest) {
+      dashboardError.value = true
+      dashboardErrorStatus.value = Number(e?.response?.status || 0)
+      log.error('request failed', e)
+    }
   } finally {
     if (requestId === dashboardRequest) loader.value = false
   }

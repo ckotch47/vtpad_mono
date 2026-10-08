@@ -61,9 +61,11 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 
 Обязательный перечень: suite list, case list, plan list и case picker, run list, run detail без результатов, bugs list, Tech Docs tree, analytics dashboard. Для каждого оформить отдельные состояния: первоначально пусто, нет результатов фильтра, ошибка загрузки и нет прав. Показать понятный CTA Create/Clear/Retry только при доступных правах; CTA должен работать с клавиатуры.
 
-### UX4. Mobile responsiveness
+**Статус UX3, 2026-10-09 — реализация частичная, приёмка открыта:** добавлен общий Vuetify `ContextualEmptyState` и различимые пустые/filtered-empty состояния для suites, cases, plans, runs, run detail, bugs, plan case picker, Tech Docs и analytics. Initial 403 разделён с обычной ошибкой в списках cases/plans/runs/bugs, run detail, case picker, Tech Docs и dashboard; Retry скрыт для 403. Исправлены гонки устаревших запросов при смене пространства и поисковой строки, включая источники создания run и поиск кейсов в plan picker. Независимый UI/UX source review подтвердил различимость состояний и исправленные маршруты; browser недоступен тестеру. В основной desktop-вкладке проверен поиск кейсов без результатов и Clear filters: сообщение «No matching test cases» отображается, очистка возвращает список. Controlled error/403, keyboard flows для всех CTA и role-based fixtures остаются непроверенными. В приложении пока нет надёжного общего источника user/space capability flags, поэтому Create CTA для пользователей с read-only доступом остаются подтверждённым gap. UX3 не закрыт до реализации/проверки этих прав и полного desktop acceptance. Мобильный проход исключён по просьбе пользователя.
 
-Провести аудит критических flows по `project-docs/docs/ops/ui-regression-full-checklist.md`: suite/case, test plan, run/result, bugs, analytics, tech docs. Исправить overflow toolbar/table/editor/dialog, проверить touch targets, zoom/reflow, focus и back navigation на малом viewport.
+### UX4. Mobile responsiveness (deferred)
+
+Провести аудит отдельным проходом после текущего roadmap: suite/case, test plan, run/result, bugs, analytics, tech docs. Исправить overflow toolbar/table/editor/dialog, проверить touch targets, zoom/reflow, focus и back navigation на малом viewport. Mobile implementation and smoke are out of scope for this approved pass.
 
 ## Этап 3 — backend search
 
@@ -112,7 +114,7 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 3. BD1 разрабатывается отдельно. Затем FI5 → FI1 → BD2, чтобы import/export round-trip поддерживал custom-field definitions/values.
 4. AN1/AN2 и затем FI2–FI4/FI6–FI9; публичные ссылки проходят независимые API/security review и leakage tests до feature-flag enable.
 5. После каждой правки — отдельный осмысленный commit с соответствующей документацией; не включать пользовательские файлы/локальные секреты.
-6. Кодовые проверки включают существующий lint/build/compile, REST+MCP parity, миграционный прогон на disposable clone, а для критичных auth/tenant paths — cross-space matrix. Браузерные сценарии проверяются на desktop и mobile; финально перезапустить локальный VTPad stack и повторить health + smoke.
+6. Кодовые проверки включают существующий lint/build/compile, REST+MCP parity, миграционный прогон на disposable clone, а для критичных auth/tenant paths — cross-space matrix. Браузерные сценарии текущего прохода проверяются на desktop; mobile явно отложен по просьбе пользователя. Финально перезапустить локальный VTPad stack и повторить health + smoke.
 
 ## Обязательная security acceptance matrix
 

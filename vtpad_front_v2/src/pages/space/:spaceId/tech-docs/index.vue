@@ -19,6 +19,7 @@
           :items="flatFilteredPages"
           :loading="treeLoading"
           :error="treeError"
+          :error-status="treeErrorStatus"
           :active-id="activeId"
           @select="onTreeSelect"
           @create="openCreate"
@@ -37,11 +38,15 @@
           :is-creating="isCreating"
           :save-loading="saveLoading"
           :has-unsaved-changes="hasUnsavedChanges"
+          :has-visible-pages="flatFilteredPages.length > 0"
           v-model:form="editForm"
           :doc-types="docTypes"
           :flat-pages="flatPages"
           :pages-loading="treeLoading"
           :pages-error="treeError"
+          :pages-error-status="treeErrorStatus"
+          :selected-doc-error="selectedDocError"
+          :selected-doc-error-status="selectedDocErrorStatus"
           :path="selectedPath"
           :type-color="typeColor"
           @create="openCreate"
@@ -51,6 +56,7 @@
           @cancel="cancelEdit"
           @save="save"
           @retry-load="loadTree"
+          @retry-load-doc="retryLoadDoc"
         />
       </v-col>
     </v-row>
@@ -59,6 +65,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTechDocs } from '@/composables/useTechDocs'
 import TechDocSidebar from '@/components/tech-docs/TechDocSidebar.vue'
 import TechDocContent from '@/components/tech-docs/TechDocContent.vue'
@@ -66,15 +73,19 @@ import TechDocContent from '@/components/tech-docs/TechDocContent.vue'
 defineOptions({ name: 'TechDocsPage' })
 
 const sidebarRef = ref(null)
+const route = useRoute()
 
 const techDocs = useTechDocs()
 const {
   treeLoading,
   treeError,
+  treeErrorStatus,
   treeQuery,
   flatFilteredPages,
   flatPages,
   selectedDoc,
+  selectedDocError,
+  selectedDocErrorStatus,
   activeId,
   editing,
   isCreating,
@@ -93,9 +104,14 @@ const {
   save,
   deleteDoc,
   loadTree,
+  loadDoc,
   typeColor,
   treeContainerRef,
 } = techDocs
+
+function retryLoadDoc() {
+  if (route.query.doc) loadDoc(route.query.doc)
+}
 
 watch(() => sidebarRef.value?.containerRef, (el) => {
   if (el) treeContainerRef.value = el

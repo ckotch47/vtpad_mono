@@ -3,7 +3,23 @@
     <v-progress-linear color="primary" indeterminate />
   </div>
 
+  <v-container v-else-if="runLoadError" class="py-10">
+    <contextual-empty-state
+      icon="mdi-lock-outline"
+      :title="runLoadErrorStatus === 403 ? 'You do not have access to this run' : 'Run could not be loaded'"
+      :text="runLoadErrorStatus === 403 ? 'Ask a space administrator to grant access.' : 'Check your connection and try again.'"
+      :action-label="runLoadErrorStatus === 403 ? '' : 'Retry'"
+      action-icon="mdi-refresh"
+      @action="loadRun()"
+    />
+  </v-container>
+
   <div v-else>
+    <v-alert v-if="runRefreshError" type="error" variant="tonal" density="compact" class="mx-4 mt-3" role="alert">
+      {{ runRefreshErrorStatus === 403 ? 'You do not have permission to refresh this run.' : 'Run could not be refreshed. Existing results are still shown.' }}
+      <v-btn v-if="runRefreshErrorStatus !== 403" size="small" variant="text" @click="loadRun({ showLoader: false })">Retry</v-btn>
+    </v-alert>
+    <v-progress-linear v-if="runRefreshing" color="primary" indeterminate aria-hidden="true" />
     <!-- Header -->
     <v-container fluid class="pb-0">
       <v-row align="center">
@@ -272,16 +288,20 @@
 
         </v-col>
       </v-row>
-      <v-row v-else>
-        <v-col>
-          <v-card class="text-center pa-10" variant="outlined">
-            <v-icon size="64" color="grey-lighten-1">mdi-playlist-remove</v-icon>
-            <div class="text-h6 text-grey mt-4">
-              {{ results.length ? 'No test cases match this filter' : 'No test cases in this run' }}
-            </div>
-          </v-card>
-        </v-col>
-      </v-row>
+      <contextual-empty-state
+        v-else-if="results.length && resultFilter !== 'all'"
+        icon="mdi-filter-off-outline"
+        :title="`No ${resultFilter.replace('_', ' ')} results`"
+        text="Choose another result status to see cases."
+        action-label="Show all results"
+        @action="resultFilter = 'all'"
+      />
+      <contextual-empty-state
+        v-else
+        icon="mdi-text-box-check-outline"
+        title="This run has no results"
+        text="The run snapshot does not contain any test cases."
+      />
     </v-container>
 
     <run-result-edit-dialog
@@ -330,6 +350,11 @@ const run = ref({})
 const stats = ref({})
 const results = ref([])
 const loader = ref(true)
+const runLoadError = ref(false)
+const runLoadErrorStatus = ref(0)
+const runRefreshing = ref(false)
+const runRefreshError = ref(false)
+const runRefreshErrorStatus = ref(0)
 const editModal = ref(false)
 const editingResult = ref(null)
 const spaceBugs = ref([])
@@ -448,6 +473,9 @@ const nextNotRunResult = computed(() => results.value.find((result) => result.st
 async function loadRun({ showLoader = true } = {}) {
   const requestedRunId = String(runId.value)
   if (showLoader) loader.value = true
+  runRefreshing.value = !showLoader
+  runLoadError.value = false
+  runRefreshError.value = false
   try {
     const res = await testRunService.getDetail(requestedRunId)
     if (requestedRunId !== String(runId.value)) return
@@ -458,8 +486,29 @@ async function loadRun({ showLoader = true } = {}) {
     loadedRunId.value = requestedRunId
     await nextTick()
     focusDrilldownResult()
+  } catch (error) {
+    if (requestedRunId === String(runId.value)) {
+      const status = Number(error?.response?.status || 0)
+      if (status === 403) {
+        runLoadError.value = true
+        runLoadErrorStatus.value = status
+        run.value = {}
+        stats.value = {}
+        results.value = []
+        selectedResultIds.value = []
+        runRefreshError.value = false
+      } else if (showLoader) {
+        runLoadError.value = true
+        runLoadErrorStatus.value = status
+      } else {
+        runRefreshError.value = true
+        runRefreshErrorStatus.value = status
+      }
+    }
+    log.error('failed to load run detail', error)
   } finally {
     if (showLoader && requestedRunId === String(runId.value)) loader.value = false
+    if (requestedRunId === String(runId.value)) runRefreshing.value = false
   }
 }
 

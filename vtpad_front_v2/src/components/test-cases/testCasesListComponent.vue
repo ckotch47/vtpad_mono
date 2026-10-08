@@ -90,7 +90,7 @@
             <v-btn v-if="selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">
               Change Status ({{ selectedCases.length }})
             </v-btn>
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
+            <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
               New Test Case
             </v-btn>
           </div>
@@ -99,8 +99,8 @@
     </v-card>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
-      {{ cases.length ? 'Test cases could not be refreshed. Existing results are still shown.' : 'Test cases could not be loaded.' }}
-      <v-btn size="small" variant="text" @click="loadCases({ page: page, itemsPerPage: itemsPerPage, sortBy: sortBy })">Retry</v-btn>
+      {{ loadErrorStatus === 403 ? 'You do not have permission to view test cases in this space.' : cases.length ? 'Test cases could not be refreshed. Existing results are still shown.' : 'Test cases could not be loaded.' }}
+      <v-btn v-if="loadErrorStatus !== 403" size="small" variant="text" @click="loadCases({ page: page, itemsPerPage: itemsPerPage, sortBy: sortBy })">Retry</v-btn>
     </v-alert>
 
     <div class="list-loading-region" :aria-busy="initialLoading || tableLoading">
@@ -127,6 +127,22 @@
       @update:options="loadCases"
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-cases/${item.id}`)"
     >
+      <template #no-data>
+        <contextual-empty-state
+          v-if="hasCaseFilters"
+          icon="mdi-filter-off-outline"
+          title="No matching test cases"
+          text="Change or clear the current search and filters."
+          action-label="Clear filters"
+          @action="clearCaseFilters"
+        />
+        <contextual-empty-state
+          v-else
+          icon="mdi-test-tube-empty"
+          title="No test cases yet"
+          text="Use New Test Case when you have permission to add cases to this space."
+        />
+      </template>
       <template v-slot:[`item.type`]="{ item }">
         <v-chip size="small" :color="typeColor(item.type)">{{ item.type }}</v-chip>
       </template>
@@ -307,6 +323,8 @@ const tagOptions = ref([])
 const tagOptionsLoading = ref(false)
 const tagOptionsError = ref(false)
 const loadError = ref(false)
+const loadErrorStatus = ref(0)
+const hasCaseFilters = computed(() => Boolean(search.value || filterType.value || filterStatus.value || filterSuite.value || filterPriority.value || filterTags.value.length))
 const availableTagOptions = computed(() => [...new Set([...tagOptions.value, ...filterTags.value])])
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
@@ -359,6 +377,7 @@ function doLoadCases(options) {
   }
   tableLoading.value = true
   loadError.value = false
+  loadErrorStatus.value = 0
   const p = firstLoad.value ? page.value : (options?.page || page.value)
   const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
   firstLoad.value = false
@@ -395,8 +414,13 @@ function doLoadCases(options) {
     totalCases.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     itemsPerPage.value = res.data.page_size || itemsPerPage.value
     hasLoaded.value = true
-  }).catch(() => {
+  }).catch((error) => {
     loadError.value = true
+    loadErrorStatus.value = Number(error?.response?.status || 0)
+    if (loadErrorStatus.value === 403) {
+      cases.value = []
+      totalCases.value = 0
+    }
   }).finally(() => {
     hasLoaded.value = true
     tableLoading.value = false
@@ -429,6 +453,16 @@ function onSearch() {
 function onFilterChange() {
   page.value = 1
   loadCases({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+}
+
+function clearCaseFilters() {
+  search.value = ''
+  filterType.value = ''
+  filterStatus.value = ''
+  filterSuite.value = ''
+  filterPriority.value = ''
+  filterTags.value = []
+  onFilterChange()
 }
 
 function createCase() {

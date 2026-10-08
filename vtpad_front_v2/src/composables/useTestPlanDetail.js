@@ -26,6 +26,9 @@ export function useTestPlanDetail() {
   const casesPage = ref(1)
   const casesHasMore = ref(true)
   const loadingCases = ref(false)
+  const casesLoadError = ref(false)
+  const casesLoadErrorStatus = ref(0)
+  const casesRequestId = ref(0)
 
   const selectedCases = ref([])
   const caseSearch = ref('')
@@ -99,8 +102,8 @@ export function useTestPlanDetail() {
     editSuiteIds.value = [...(plan.value.suite_ids || [])]
   }
 
-  async function doLoadCases(page, search) {
-    const res = await testCaseService.listBySpace(spaceId.value, {
+  async function doLoadCases(requestedSpaceId, page, search) {
+    const res = await testCaseService.listBySpace(requestedSpaceId, {
       page,
       page_size: CASES_PAGE_SIZE,
       search: search || undefined,
@@ -110,44 +113,84 @@ export function useTestPlanDetail() {
 
   async function loadMoreCases() {
     if (loadingCases.value || !casesHasMore.value) return
+    const currentRequest = casesRequestId.value
+    const requestedSpaceId = String(spaceId.value)
+    const requestedSearch = caseSearch.value
+    const requestedPage = casesPage.value
     loadingCases.value = true
+    casesLoadError.value = false
     try {
-      const items = await doLoadCases(casesPage.value, caseSearch.value)
+      const items = await doLoadCases(requestedSpaceId, requestedPage, requestedSearch)
+      if (currentRequest !== casesRequestId.value || requestedSpaceId !== String(spaceId.value) || requestedSearch !== caseSearch.value) return
       availableCases.value.push(...items)
       casesPage.value += 1
       if (items.length < CASES_PAGE_SIZE) {
         casesHasMore.value = false
       }
     } catch (e) {
+      if (currentRequest !== casesRequestId.value || requestedSpaceId !== String(spaceId.value) || requestedSearch !== caseSearch.value) return
+      casesLoadError.value = true
+      casesLoadErrorStatus.value = Number(e?.response?.status || 0)
+      if (casesLoadErrorStatus.value === 403) {
+        availableCases.value = []
+        casesHasMore.value = false
+      }
       log.error('loadMoreCases failed', e)
     } finally {
-      loadingCases.value = false
+      if (currentRequest === casesRequestId.value) loadingCases.value = false
     }
   }
 
   async function reloadCasesWithSearch() {
     clearTimeout(searchDebounce.value)
+    const currentRequest = ++casesRequestId.value
+    const requestedSpaceId = String(spaceId.value)
+    const requestedSearch = caseSearch.value
     searchDebounce.value = setTimeout(async () => {
       availableCases.value = []
       casesPage.value = 1
       casesHasMore.value = true
       loadingCases.value = true
+      casesLoadError.value = false
+      casesLoadErrorStatus.value = 0
       try {
-        const items = await doLoadCases(1, caseSearch.value)
+        const items = await doLoadCases(requestedSpaceId, 1, requestedSearch)
+        if (currentRequest !== casesRequestId.value || requestedSpaceId !== String(spaceId.value) || requestedSearch !== caseSearch.value) return
         availableCases.value = items
         casesPage.value = 2
         if (items.length < CASES_PAGE_SIZE) {
           casesHasMore.value = false
         }
       } catch (e) {
+        if (currentRequest !== casesRequestId.value || requestedSpaceId !== String(spaceId.value) || requestedSearch !== caseSearch.value) return
+        casesLoadError.value = true
+        casesLoadErrorStatus.value = Number(e?.response?.status || 0)
+        if (casesLoadErrorStatus.value === 403) {
+          availableCases.value = []
+          casesHasMore.value = false
+        }
         log.error('reloadCasesWithSearch failed', e)
       } finally {
-        loadingCases.value = false
+        if (currentRequest === casesRequestId.value) loadingCases.value = false
       }
     }, 300)
   }
 
   watch(caseSearch, reloadCasesWithSearch)
+  watch(spaceId, (nextSpaceId, previousSpaceId) => {
+    if (!nextSpaceId || nextSpaceId === previousSpaceId) return
+    clearTimeout(searchDebounce.value)
+    casesRequestId.value += 1
+    availableCases.value = []
+    casesPage.value = 1
+    casesHasMore.value = true
+    loadingCases.value = false
+    casesLoadError.value = false
+    casesLoadErrorStatus.value = 0
+    caseSearch.value = ''
+    selectedCases.value = []
+    loadMoreCases()
+  })
 
   async function removeCase(caseId) {
     const current = (plan.value.case_ids || []).filter(id => id !== caseId)
@@ -249,6 +292,8 @@ export function useTestPlanDetail() {
     casesPage,
     casesHasMore,
     loadingCases,
+    casesLoadError,
+    casesLoadErrorStatus,
     selectedCases,
     caseSearch,
     savingCases,

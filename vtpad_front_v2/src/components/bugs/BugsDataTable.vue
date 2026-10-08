@@ -60,13 +60,22 @@
       <tr v-else-if="initialError">
         <td :colspan="settings.compact ? 6 : 7" class="pa-4">
           <v-alert type="error" variant="tonal" density="compact" role="alert">
-            Bugs could not be loaded.
-            <v-btn size="small" variant="text" @click="$emit('retry')">Retry</v-btn>
+            {{ permissionError ? 'You do not have permission to view bugs in this space.' : 'Bugs could not be loaded.' }}
+            <v-btn v-if="!permissionError" size="small" variant="text" @click="$emit('retry')">Retry</v-btn>
           </v-alert>
         </td>
       </tr>
       <template v-else>
-        <tr>
+        <tr v-if="items.length === 0">
+          <td :colspan="settings.compact ? 6 : 7" class="pa-2">
+            <contextual-empty-state
+              :icon="hasFilters ? 'mdi-filter-off-outline' : 'mdi-bug-outline'"
+              :title="hasFilters ? 'No matching bugs' : 'No bugs yet'"
+              :text="hasFilters ? 'Change the filters or use New Bug above if you have permission to add bugs.' : 'Use New Bug above if you have permission to add bugs to this space.'"
+            />
+          </td>
+        </tr>
+        <tr v-if="items.length">
           <td />
           <td class="title color-state--OPEN" @click="$emit('create-bug')">Create…</td>
           <td class="username-compact" />
@@ -92,15 +101,38 @@
 import BugsListRowComponent from './list/bugsListRowComponent.vue'
 import BugsListFilterTableComponent from './list/bugsListFilterTableComponent.vue'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import { computed } from 'vue'
 
-defineProps({
+const props = defineProps({
   items: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   filter: { type: Object, default: () => ({}) },
   filterParam: { type: Object, default: () => ({}) },
   settings: { type: Object, default: () => ({}) },
   initialLoading: { type: Boolean, default: false },
-  initialError: { type: Boolean, default: false }
+  initialError: { type: Boolean, default: false },
+  permissionError: { type: Boolean, default: false }
+})
+
+const hasFilters = computed(() => {
+  const active = props.filterParam || {}
+  const hasValue = value => Array.isArray(value)
+    ? value.length > 0
+    : value !== undefined && value !== null && value !== false && value !== ''
+  return [
+    active.create_date,
+    active.create_date_end,
+    active.create_user,
+    active.assigner_id,
+    active.state,
+    active.external_link,
+    active.estimate_date,
+    active.estimate_date_end,
+    active.not_assigner,
+    active.show_closed,
+    active.q,
+    active.tag
+  ].some(hasValue)
 })
 
 defineEmits(['change-filter', 'create-bug', 'open-bug', 'click-tag', 'retry'])

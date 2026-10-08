@@ -5,17 +5,23 @@
       <v-icon size="80" color="grey-lighten-2">mdi-book-open-variant</v-icon>
       <div class="text-h5 text-grey mt-4">Tech Documentation</div>
       <v-progress-circular v-if="pagesLoading" indeterminate color="primary" class="mt-4" aria-label="Loading documentation pages" />
+      <v-alert v-else-if="selectedDocError" type="error" variant="tonal" density="compact" class="mt-4" role="alert">
+        {{ selectedDocErrorStatus === 403 ? 'You do not have permission to view this documentation page.' : 'This documentation page could not be loaded.' }}
+      </v-alert>
       <v-alert v-else-if="pagesError" type="error" variant="tonal" density="compact" class="mt-4" role="alert">
-        Documentation pages could not be loaded.
+        {{ pagesErrorStatus === 403 ? 'You do not have permission to view documentation pages.' : 'Documentation pages could not be loaded.' }}
       </v-alert>
       <div v-else class="text-body-1 text-grey mt-2">
-        {{ hasPages ? 'Select a page from the list or create a page' : 'No documentation pages yet' }}
+        {{ hasPages && !props.hasVisiblePages ? 'No pages match this search' : hasPages ? 'Select a page from the list' : 'No documentation pages yet' }}
       </div>
-      <div v-if="pagesError" class="mt-4">
+      <div v-if="selectedDocError && selectedDocErrorStatus !== 403" class="mt-4">
+        <v-btn color="primary" variant="tonal" @click="$emit('retry-load-doc')">Retry</v-btn>
+      </div>
+      <div v-else-if="pagesError && pagesErrorStatus !== 403" class="mt-4">
         <v-btn color="primary" variant="tonal" @click="$emit('retry-load')">Retry</v-btn>
       </div>
-      <v-btn v-else-if="!pagesLoading" color="primary" class="mt-6" prepend-icon="mdi-plus" @click="$emit('create')">
-        {{ hasPages ? 'Create page' : 'Create first page' }}
+      <v-btn v-else-if="!pagesLoading && !pagesError && !selectedDocError && !hasPages" color="primary" class="mt-6" prepend-icon="mdi-plus" @click="$emit('create')">
+        Create first page
       </v-btn>
     </v-card-text>
   </v-card>
@@ -191,8 +197,12 @@ const props = defineProps({
   form: { type: Object, required: true },
   docTypes: { type: Array, default: () => [] },
   flatPages: { type: Array, default: () => [] },
+  hasVisiblePages: { type: Boolean, default: true },
   pagesLoading: { type: Boolean, default: false },
   pagesError: { type: Boolean, default: false },
+  pagesErrorStatus: { type: Number, default: 0 },
+  selectedDocError: { type: Boolean, default: false },
+  selectedDocErrorStatus: { type: Number, default: 0 },
   path: { type: Array, default: () => [] },
   typeColor: { type: Function, default: () => 'grey' },
 })

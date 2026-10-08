@@ -12,11 +12,15 @@ export function useTechDocs() {
 
   const treeLoading = ref(true)
   const treeError = ref(false)
+  const treeErrorStatus = ref(0)
   const treeRequestId = ref(0)
+  const docRequestId = ref(0)
   const tree = ref([])
   const treeQuery = ref('')
   const treeContainerRef = ref(null)
   const selectedDoc = ref(null)
+  const selectedDocError = ref(false)
+  const selectedDocErrorStatus = ref(0)
   const activeId = ref([])
   const editing = ref(false)
   const isCreating = ref(false)
@@ -59,9 +63,30 @@ export function useTechDocs() {
       loadDoc(val)
     } else {
       selectedDoc.value = null
+      selectedDocError.value = false
+      selectedDocErrorStatus.value = 0
       activeId.value = []
     }
   }, { immediate: true })
+
+  watch(spaceId, (nextSpaceId, previousSpaceId) => {
+    if (!nextSpaceId || nextSpaceId === previousSpaceId) return
+    treeRequestId.value += 1
+    docRequestId.value += 1
+    tree.value = []
+    treeError.value = false
+    treeErrorStatus.value = 0
+    selectedDoc.value = null
+    selectedDocError.value = false
+    selectedDocErrorStatus.value = 0
+    activeId.value = []
+    editing.value = false
+    isCreating.value = false
+    editBaseline.value = null
+    editForm.value = emptyEditForm()
+    if (route.query.doc) router.replace({ query: { ...route.query, doc: undefined } })
+    loadTree()
+  })
 
   onMounted(async () => {
     await loadTree()
@@ -76,12 +101,27 @@ export function useTechDocs() {
     const currentRequest = ++treeRequestId.value
     treeLoading.value = true
     treeError.value = false
+    treeErrorStatus.value = 0
     try {
       const res = await techDocService.getTree(spaceId.value)
       if (currentRequest === treeRequestId.value) tree.value = res.data || []
     } catch (e) {
       if (currentRequest === treeRequestId.value) {
         treeError.value = true
+        treeErrorStatus.value = Number(e?.response?.status || 0)
+        if (treeErrorStatus.value === 403) {
+          docRequestId.value += 1
+          tree.value = []
+          selectedDoc.value = null
+          selectedDocError.value = false
+          selectedDocErrorStatus.value = 0
+          activeId.value = []
+          editing.value = false
+          isCreating.value = false
+          editBaseline.value = null
+          editForm.value = emptyEditForm()
+          if (route.query.doc) router.replace({ query: { ...route.query, doc: undefined } })
+        }
         log.error('request failed', e)
       }
     } finally {
@@ -94,12 +134,22 @@ export function useTechDocs() {
   }
 
   async function loadDoc(docId) {
+    const currentRequest = ++docRequestId.value
+    const requestedSpaceId = String(spaceId.value)
+    selectedDocError.value = false
+    selectedDocErrorStatus.value = 0
     try {
       const res = await techDocService.getById(docId)
-      selectedDoc.value = res.data
+      if (currentRequest === docRequestId.value && requestedSpaceId === String(spaceId.value)) {
+        selectedDoc.value = res.data
+      }
     } catch (e) {
       log.error('request failed', e)
-      selectedDoc.value = null
+      if (currentRequest === docRequestId.value && requestedSpaceId === String(spaceId.value)) {
+        selectedDoc.value = null
+        selectedDocError.value = true
+        selectedDocErrorStatus.value = Number(e?.response?.status || 0)
+      }
     }
   }
 
@@ -112,6 +162,10 @@ export function useTechDocs() {
       loadDoc(id)
       router.replace({ query: { doc: id } })
     }
+  }
+
+  function emptyEditForm() {
+    return { title: '', content: '', doc_type: 'other', source_url: '', version: '', parent_id: null }
   }
 
   function startEdit() {
@@ -328,10 +382,13 @@ export function useTechDocs() {
   return {
     treeLoading,
     treeError,
+    treeErrorStatus,
     tree,
     treeQuery,
     treeContainerRef,
     selectedDoc,
+    selectedDocError,
+    selectedDocErrorStatus,
     activeId,
     editing,
     isCreating,

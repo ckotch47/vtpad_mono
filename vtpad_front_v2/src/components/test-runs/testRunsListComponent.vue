@@ -13,14 +13,14 @@
         @update:model-value="onSearch"
       />
       <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
         New Test Run
       </v-btn>
     </v-toolbar>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
-      {{ runs.length ? 'Test runs could not be refreshed. Existing results are still shown.' : 'Test runs could not be loaded.' }}
-      <v-btn size="small" variant="text" @click="loadRuns({ page: page, itemsPerPage: itemsPerPage, sortBy: [] })">Retry</v-btn>
+      {{ loadErrorStatus === 403 ? 'You do not have permission to view test runs in this space.' : runs.length ? 'Test runs could not be refreshed. Existing results are still shown.' : 'Test runs could not be loaded.' }}
+      <v-btn v-if="loadErrorStatus !== 403" size="small" variant="text" @click="loadRuns({ page: page, itemsPerPage: itemsPerPage, sortBy: [] })">Retry</v-btn>
     </v-alert>
 
     <div class="list-loading-region" :aria-busy="initialLoading || tableLoading">
@@ -43,6 +43,22 @@
       @update:options="loadRuns"
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-runs/${item.id}`)"
     >
+      <template #no-data>
+        <contextual-empty-state
+          v-if="search"
+          icon="mdi-filter-off-outline"
+          title="No matching test runs"
+          text="Clear the search to see all runs."
+          action-label="Clear search"
+          @action="search = ''; onSearch()"
+        />
+        <contextual-empty-state
+          v-else
+          icon="mdi-play-circle-outline"
+          title="No test runs yet"
+          text="Use New Test Run when you have permission to start a run in this space."
+        />
+      </template>
       <template v-slot:[`item.status`]="{ item }">
         <v-chip size="small" :color="statusColor(item.status)">
           <v-icon start size="x-small">{{ statusIcon(item.status) }}</v-icon>
@@ -139,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { testRunService, testSuiteService, testPlanService, testCaseService, milestoneService, environmentService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
@@ -156,6 +172,9 @@ const firstLoad = ref(true)
 const hasLoaded = ref(false)
 const initialLoading = computed(() => Boolean(spaceId.value) && !hasLoaded.value)
 const loadError = ref(false)
+const loadErrorStatus = ref(0)
+const requestId = ref(0)
+const sourceRequestId = ref(0)
 const search = ref('')
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
@@ -172,6 +191,31 @@ const creating = ref(false)
 const createError = ref('')
 const newRun = ref(emptyRun())
 const isCreateDirty = computed(() => JSON.stringify(newRun.value) !== JSON.stringify(emptyRun()))
+
+watch(spaceId, (nextSpaceId, previousSpaceId) => {
+  if (!nextSpaceId || nextSpaceId === previousSpaceId) return
+  requestId.value += 1
+  sourceRequestId.value += 1
+  clearTimeout(searchDebounce.value)
+  clearTimeout(optionsDebounce.value)
+  runs.value = []
+  totalRuns.value = 0
+  page.value = 1
+  firstLoad.value = true
+  hasLoaded.value = false
+  tableLoading.value = false
+  loadError.value = false
+  loadErrorStatus.value = 0
+  search.value = ''
+  openCreate.value = false
+  newRun.value = emptyRun()
+  suites.value = []
+  plans.value = []
+  cases.value = []
+  milestones.value = []
+  environments.value = []
+  loadRuns({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] })
+})
 
 const hasSource = computed(() => {
   if (newRun.value.sourceType === 'suite') return Boolean(newRun.value.suite_id)
@@ -200,8 +244,10 @@ function loadRuns(options) {
 
 function doLoadRuns(options) {
   if (!spaceId.value || tableLoading.value) return
+  const currentRequest = ++requestId.value
   tableLoading.value = true
   loadError.value = false
+  loadErrorStatus.value = 0
   const p = firstLoad.value ? page.value : (options?.page || page.value)
   const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
   firstLoad.value = false
@@ -216,14 +262,23 @@ function doLoadRuns(options) {
     sort_order: sortOrder,
     search: search.value || undefined
   }).then(res => {
+    if (currentRequest !== requestId.value) return
     runs.value = res.data.items || res.data
     totalRuns.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     itemsPerPage.value = res.data.page_size || itemsPerPage.value
-  }).catch(() => {
+  }).catch((error) => {
+    if (currentRequest !== requestId.value) return
     loadError.value = true
+    loadErrorStatus.value = Number(error?.response?.status || 0)
+    if (loadErrorStatus.value === 403) {
+      runs.value = []
+      totalRuns.value = 0
+    }
   }).finally(() => {
-    hasLoaded.value = true
-    tableLoading.value = false
+    if (currentRequest === requestId.value) {
+      hasLoaded.value = true
+      tableLoading.value = false
+    }
   })
 }
 
@@ -259,11 +314,30 @@ function openCreateDialog() {
 }
 
 function loadCreateSources() {
-  testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 100, status: 'active' }).then(res => { suites.value = res.data.items || [] })
-  testPlanService.listBySpace(spaceId.value, { page: 1, page_size: 100 }).then(res => { plans.value = res.data.items || [] })
-  testCaseService.listBySpace(spaceId.value, { page: 1, page_size: 500 }).then(res => { cases.value = res.data.items || res.data || [] })
-  milestoneService.list(spaceId.value).then(res => { milestones.value = res.data.items || res.data || [] })
-  environmentService.list(spaceId.value).then(res => { environments.value = res.data.items || res.data || [] })
+  const currentRequest = ++sourceRequestId.value
+  const requestedSpaceId = String(spaceId.value)
+  const isCurrentRequest = () => currentRequest === sourceRequestId.value && requestedSpaceId === String(spaceId.value)
+  suites.value = []
+  plans.value = []
+  cases.value = []
+  milestones.value = []
+  environments.value = []
+
+  testSuiteService.listBySpace(requestedSpaceId, { page: 1, page_size: 100, status: 'active' }).then(res => {
+    if (isCurrentRequest()) suites.value = res.data.items || []
+  })
+  testPlanService.listBySpace(requestedSpaceId, { page: 1, page_size: 100 }).then(res => {
+    if (isCurrentRequest()) plans.value = res.data.items || []
+  })
+  testCaseService.listBySpace(requestedSpaceId, { page: 1, page_size: 500 }).then(res => {
+    if (isCurrentRequest()) cases.value = res.data.items || res.data || []
+  })
+  milestoneService.list(requestedSpaceId).then(res => {
+    if (isCurrentRequest()) milestones.value = res.data.items || res.data || []
+  })
+  environmentService.list(requestedSpaceId).then(res => {
+    if (isCurrentRequest()) environments.value = res.data.items || res.data || []
+  })
 }
 
 function payload(includeSourceHash = false) {

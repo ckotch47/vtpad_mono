@@ -15,7 +15,7 @@
     />
     <v-spacer />
     <v-btn variant="outlined" text="Filter" @click="isModalFilter = true" />
-    <v-btn color="primary" prepend-icon="mdi-plus" class="ml-2" @click="createBug">
+    <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" class="ml-2" @click="createBug">
       New Bug
     </v-btn>
   </v-toolbar>
@@ -42,6 +42,7 @@
     :loading="loader"
     :initial-loading="initialLoading"
     :initial-error="loadError && hasLoaded && !desserts.length"
+    :permission-error="loadErrorStatus === 403"
     :filter="filter"
     :filter-param="filterParam"
     :settings="settings"
@@ -101,6 +102,7 @@ const loader = ref(true)
 const hasLoaded = ref(false)
 const initialLoading = computed(() => loader.value && !hasLoaded.value)
 const loadError = ref(false)
+const loadErrorStatus = ref(0)
 const requestId = ref(0)
 const retryAppend = ref(false)
 const isInfiniteScroll = ref(true)
@@ -159,6 +161,7 @@ function openPage() {
   loader.value = true
   hasLoaded.value = false
   loadError.value = false
+  loadErrorStatus.value = 0
   desserts.value = []
   requestId.value += 1
   filter.value = {
@@ -234,7 +237,11 @@ async function getData(append = true) {
       filterParam.value.skip -= itemPerPage.value
     }
   } catch (error) {
-    if (currentRequest === requestId.value) loadError.value = true
+    if (currentRequest === requestId.value) {
+      loadError.value = true
+      loadErrorStatus.value = Number(error?.response?.status || 0)
+      if (loadErrorStatus.value === 403) desserts.value = []
+    }
   } finally {
     if (currentRequest === requestId.value) {
       hasLoaded.value = true

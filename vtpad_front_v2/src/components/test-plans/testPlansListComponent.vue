@@ -13,14 +13,14 @@
         @update:model-value="onSearch"
       />
       <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
+      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
         New Plan
       </v-btn>
     </v-toolbar>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
-      {{ plans.length ? 'Test plans could not be refreshed. Existing results are still shown.' : 'Test plans could not be loaded.' }}
-      <v-btn size="small" variant="text" @click="loadPlans({ page: page, itemsPerPage: pageSize })">Retry</v-btn>
+      {{ loadErrorStatus === 403 ? 'You do not have permission to view test plans in this space.' : plans.length ? 'Test plans could not be refreshed. Existing results are still shown.' : 'Test plans could not be loaded.' }}
+      <v-btn v-if="loadErrorStatus !== 403" size="small" variant="text" @click="loadPlans({ page: page, itemsPerPage: pageSize })">Retry</v-btn>
     </v-alert>
 
     <div class="list-loading-region" :aria-busy="initialLoading || loading">
@@ -43,6 +43,22 @@
       @update:options="loadPlans"
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-plans/${item.id}`)"
     >
+      <template #no-data>
+        <contextual-empty-state
+          v-if="search"
+          icon="mdi-filter-off-outline"
+          title="No matching test plans"
+          text="Clear the search to see all test plans."
+          action-label="Clear search"
+          @action="search = ''; onSearch()"
+        />
+        <contextual-empty-state
+          v-else
+          icon="mdi-clipboard-text-outline"
+          title="No test plans yet"
+          text="Use New Plan when you have permission to add plans to this space."
+        />
+      </template>
       <template v-slot:[`item.name`]="{ item }">
         <span class="font-weight-medium">{{ item.name }}</span>
       </template>
@@ -114,6 +130,7 @@ const loading = ref(false)
 const hasLoaded = ref(false)
 const initialLoading = computed(() => Boolean(spaceId.value) && spaceId.value !== 'undefined' && !hasLoaded.value)
 const loadError = ref(false)
+const loadErrorStatus = ref(0)
 const requestId = ref(0)
 const search = ref('')
 const searchDebounce = ref(null)
@@ -124,6 +141,23 @@ const isCreateDirty = computed(() => Boolean(newPlan.value.name || newPlan.value
 
 watch(openDialog, (isOpen) => {
   if (!isOpen && !creating.value) newPlan.value = { name: '', description: '' }
+})
+
+watch(spaceId, (nextSpaceId, previousSpaceId) => {
+  if (!nextSpaceId || nextSpaceId === previousSpaceId) return
+  requestId.value += 1
+  clearTimeout(searchDebounce.value)
+  plans.value = []
+  total.value = 0
+  page.value = 1
+  hasLoaded.value = false
+  loading.value = false
+  loadError.value = false
+  loadErrorStatus.value = 0
+  search.value = ''
+  openDialog.value = false
+  newPlan.value = { name: '', description: '' }
+  loadPlans({ page: 1, itemsPerPage: pageSize.value })
 })
 
 const headers = computed(() => [
@@ -142,6 +176,7 @@ async function loadPlans(options = {}) {
   const itemsPerPage = options.itemsPerPage || pageSize.value
   loading.value = true
   loadError.value = false
+  loadErrorStatus.value = 0
   page.value = p
   pageSize.value = itemsPerPage
   try {
@@ -157,6 +192,11 @@ async function loadPlans(options = {}) {
   } catch (e) {
     if (currentRequest === requestId.value) {
       loadError.value = true
+      loadErrorStatus.value = Number(e?.response?.status || 0)
+      if (loadErrorStatus.value === 403) {
+        plans.value = []
+        total.value = 0
+      }
       log.error("request failed", e)
     }
   } finally {

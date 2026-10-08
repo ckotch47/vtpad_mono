@@ -4,7 +4,7 @@
       <v-icon class="ml-2">mdi-book-open-variant</v-icon>
       <v-toolbar-title class="text-subtitle-2">Pages</v-toolbar-title>
       <v-spacer />
-      <v-btn icon="mdi-plus" size="small" variant="text" aria-label="Create page" title="Create page" @click="$emit('create')" />
+      <v-btn v-if="errorStatus !== 403" icon="mdi-plus" size="small" variant="text" aria-label="Create page" title="Create page" @click="$emit('create')" />
     </v-toolbar>
     <v-card-text class="pa-2 pb-0 tech-doc-list">
       <v-text-field
@@ -27,8 +27,8 @@
       />
       <v-progress-linear v-if="loading && hasLoaded" indeterminate color="primary" height="2" aria-hidden="true" />
       <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-2" role="alert">
-        {{ items.length ? 'Pages could not be refreshed. The previous tree is still shown.' : 'Documentation pages could not be loaded.' }}
-        <v-btn size="small" variant="text" @click="$emit('retry')">Retry</v-btn>
+        {{ errorStatus === 403 ? 'You do not have permission to view documentation pages.' : items.length ? 'Pages could not be refreshed. The previous tree is still shown.' : 'Documentation pages could not be loaded.' }}
+        <v-btn v-if="errorStatus !== 403" size="small" variant="text" @click="$emit('retry')">Retry</v-btn>
       </v-alert>
       <v-list v-if="!initialLoading" density="compact" class="tech-doc-list">
         <v-list-item
@@ -74,6 +74,15 @@
           </template>
         </v-list-item>
       </v-list>
+      <contextual-empty-state
+        v-if="!initialLoading && !error && !items.length"
+        class="ma-2"
+        :icon="localQuery ? 'mdi-filter-off-outline' : 'mdi-book-open-page-variant-outline'"
+        :title="localQuery ? 'No matching pages' : 'No documentation pages yet'"
+        :text="localQuery ? 'Clear the search to see all pages.' : 'Use Create page above if you have permission to add documentation.'"
+        :action-label="localQuery ? 'Clear search' : ''"
+        @action="localQuery = ''"
+      />
     </v-card-text>
   </v-card>
 </template>
@@ -86,6 +95,7 @@ const props = defineProps({
   items: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   error: { type: Boolean, default: false },
+  errorStatus: { type: Number, default: 0 },
   query: { type: String, default: '' },
   activeId: { type: Array, default: () => [] },
 })

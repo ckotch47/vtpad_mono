@@ -35,7 +35,7 @@
         variant="solo"
         aria-label="Sort test suites"
       />
-      <v-btn color="primary" prepend-icon="mdi-plus" block @click="openCreate = true">
+      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" block @click="openCreate = true">
         New Test Suite
       </v-btn>
     </div>
@@ -50,9 +50,9 @@
       <template v-else>
         <v-progress-linear v-if="tableLoading" color="primary" indeterminate aria-hidden="true" />
         <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="ma-3" role="alert">
-          {{ loadError }}
+          {{ loadErrorStatus === 403 ? 'You do not have permission to view suites in this space.' : loadError }}
           <template #append>
-            <v-btn size="small" variant="text" @click="loadSuites()">Retry</v-btn>
+            <v-btn v-if="loadErrorStatus !== 403" size="small" variant="text" @click="loadSuites()">Retry</v-btn>
           </template>
         </v-alert>
       </template>
@@ -113,7 +113,12 @@
         :title="search || filterStatus ? 'No matching suites' : 'No test suites yet'"
         :text="search || filterStatus ? 'Try changing the search or status filter.' : 'Create a suite to start organizing test cases.'"
         class="suite-navigation__empty"
-      />
+      >
+        <template #actions>
+          <v-btn v-if="search || filterStatus" variant="tonal" color="primary" @click="search = ''; filterStatus = ''; onFilterChange()">Clear filters</v-btn>
+          <span v-else class="text-caption text-medium-emphasis">Use New Test Suite above if you have permission to create suites.</span>
+        </template>
+      </v-empty-state>
     </nav>
 
     <div v-if="pageCount > 1" class="suite-navigation__pagination">
@@ -205,6 +210,7 @@ const tableLoading = ref(false)
 const hasLoaded = ref(false)
 const initialLoading = computed(() => Boolean(spaceId.value) && !hasLoaded.value)
 const loadError = ref('')
+const loadErrorStatus = ref(0)
 const search = ref('')
 const filterStatus = ref('')
 const searchDebounce = ref(null)
@@ -300,6 +306,7 @@ function doLoadSuites(options = {}) {
   syncRouteQuery()
   tableLoading.value = true
   loadError.value = ''
+  loadErrorStatus.value = 0
 
   const sort = sortBy.value[0] || { key: 'created_at', order: 'desc' }
   testSuiteService.listBySpace(spaceId.value, {
@@ -314,8 +321,13 @@ function doLoadSuites(options = {}) {
     suites.value = res.data.items || res.data
     totalSuites.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     pageSize.value = res.data.page_size || pageSize.value
-  }).catch(() => {
+  }).catch((error) => {
     if (currentRequest === requestId.value) {
+      loadErrorStatus.value = Number(error?.response?.status || 0)
+      if (loadErrorStatus.value === 403) {
+        suites.value = []
+        totalSuites.value = 0
+      }
       loadError.value = suites.value.length
         ? 'Could not refresh test suites. The previous results are still shown.'
         : 'Could not load test suites.'

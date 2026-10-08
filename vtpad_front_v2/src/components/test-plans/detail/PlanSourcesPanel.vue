@@ -65,6 +65,12 @@
       </div>
 
       <v-list density="compact" style="max-height: 320px; overflow-y: auto;">
+        <v-list-item v-if="casesLoadError" role="alert">
+          <v-alert type="error" variant="tonal" density="compact" class="my-2">
+            {{ casesLoadErrorStatus === 403 ? 'You do not have permission to view cases in this space.' : 'Cases could not be loaded.' }}
+            <v-btn v-if="casesLoadErrorStatus !== 403" size="small" variant="text" @click="$emit('load-more-cases')">Retry</v-btn>
+          </v-alert>
+        </v-list-item>
         <v-list-item
           v-for="tc in filteredAvailableCases"
           :key="tc.id"
@@ -87,6 +93,25 @@
 
         <v-list-item v-if="loadingCases" class="justify-center">
           <v-progress-circular indeterminate size="24" color="primary" />
+        </v-list-item>
+
+        <v-list-item v-else-if="!casesLoadError && !filteredAvailableCases.length">
+          <contextual-empty-state
+            v-if="caseSearch"
+            icon="mdi-filter-off-outline"
+            title="No matching cases"
+            text="Clear the search to see available cases."
+            action-label="Clear search"
+            @action="localCaseSearch = ''"
+          />
+          <contextual-empty-state
+            v-else
+            icon="mdi-test-tube-empty"
+            :title="casesHasMore ? 'No unassigned cases loaded' : 'No cases available to add'"
+            :text="casesHasMore ? 'Load more available cases to continue.' : 'There are no more cases available to add. Check the plan’s current selections.'"
+            :action-label="casesHasMore ? 'Load cases' : ''"
+            @action="loadMoreCases"
+          />
         </v-list-item>
 
         <v-list-item v-else-if="casesHasMore" class="justify-center pa-0">
@@ -142,6 +167,8 @@ const props = defineProps({
   savingSuites: { type: Boolean, default: false },
   suiteIdsChanged: { type: Boolean, default: false },
   loadingCases: { type: Boolean, default: false },
+  casesLoadError: { type: Boolean, default: false },
+  casesLoadErrorStatus: { type: Number, default: 0 },
   casesHasMore: { type: Boolean, default: false },
   selectedCases: { type: Array, default: () => [] },
   caseSearch: { type: String, default: '' },

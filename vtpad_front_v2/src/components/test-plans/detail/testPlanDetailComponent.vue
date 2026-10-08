@@ -46,6 +46,8 @@
             :saving-suites="savingSuites"
             :suite-ids-changed="suiteIdsChanged"
             :loading-cases="loadingCases"
+            :cases-load-error="casesLoadError"
+            :cases-load-error-status="casesLoadErrorStatus"
             :cases-has-more="casesHasMore"
             v-model:selected-cases="selectedCases"
             v-model:case-search="caseSearch"
@@ -86,12 +88,13 @@ const {
   savingSuites,
   suiteIdsChanged,
   loadingCases,
+  casesLoadError,
+  casesLoadErrorStatus,
   casesHasMore,
   selectedCases,
   caseSearch,
   savingCases,
   filteredAvailableCases,
-  caseMap,
   caseDialogOpen,
   selectedCase,
   saveSuites,

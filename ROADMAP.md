@@ -74,7 +74,7 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [x] Reorder sections within the same parent through REST, MCP, drag-and-drop, and keyboard controls
 - [x] Add search/filter for sections in the tree
 - [x] Move cases between sections by dialog (REST and MCP, including Default)
-- [ ] Compare two test case versions side by side
+- [x] Compare two test case versions side by side
 - [x] Add filterable and searchable tags and priority for cases
 
 SU8 is implemented and runtime-checked: priority and space-scoped tags are available through REST and MCP, filters combine with search and pagination, version/duplicate/restore and new run snapshots preserve values, and legacy history remains unknown rather than backfilled. REST/MCP scenarios and migration replay passed on a disposable database; frontend lint/build passed.

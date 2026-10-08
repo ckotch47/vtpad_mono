@@ -16,6 +16,10 @@
 - [x] Add existing test cases to section
 - [x] Test Case view modal from Suite Detail
 
+### Run Navigation
+- [x] Group run results by suite and full nested section path; preserve the path in each run snapshot
+- [x] Add quick navigation between result groups with filtered counts, keyboard focus, and responsive desktop/mobile layouts
+
 ### Test Plan & Execution
 - [x] **Test Plan** entity — intermediate layer between Suite and Run
 - [x] **Step-level results** — mark pass/fail/skip per individual step
@@ -55,8 +59,7 @@
 All five time-tracking items (TE1–TE5) are implemented in code under approved plan r2. The timer is shared across the run, and case duration is entered manually. Timer values are computed by the server from stored interval boundaries when requested; no cron, background loop, or client-side ticking is used. Automated tests, database migration, and Docker runtime checks remain outstanding.
 
 ### Run Navigation
-- [ ] Group run cases by folders/sections
-- [ ] Add quick navigation between groups, following the section navigation pattern used in suites
+RN1 and RN2 are implemented in code under approved plan r1. Static checks and production build passed; browser interaction and keyboard/mobile runtime checks remain outstanding.
 
 ### Suite and Case UX
 - [ ] Redesign the suites screen to keep the suite list on the left and show the selected suite on the same page

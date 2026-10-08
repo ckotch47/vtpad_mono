@@ -31,6 +31,16 @@
 - [x] Run stats show the sum of measured case durations and measured/unmeasured counts
 - [x] Shared run timer with pause/resume; active, paused, and calendar duration appear in run details and case history
 
+TE1–TE5 passed manual REST and MCP runtime checks against a disposable database restored from the pre-apply backup. Startup applied v13/v14; estimates and actual durations distinguish `NULL`, `0`, and positive values; negative values are rejected; run snapshots remain stable; history/aggregates reconcile; pause time is excluded from active time; concurrent Resume requests leave one open interval. Timing controls were not browser-smoke-tested. The project has no automated test suite.
+
+### Run Navigation
+- [x] Group run results by suite and full nested section path; preserve the path in each run snapshot
+- [x] Add quick navigation between result groups with filtered counts, keyboard focus, and responsive desktop/mobile layouts
+- [x] Keep run result groups visible in a sticky left navigator on desktop and compact horizontal navigation on mobile
+- [x] Redesign the run summary into progress/status, case-time, and shared-timer sections
+
+RN1/RN2 passed frontend lint/build and desktop/mobile browser checks: the left navigator stayed visible during a long scroll, keyboard focus and result deep-link worked, and mobile had no page-wide horizontal overflow.
+
 ### AI Integration (Completed)
 - [x] MCP Server — embedded in FastAPI
 - [x] Tech Docs storage with tree hierarchy
@@ -55,14 +65,6 @@
 ---
 
 ## 🚧 In Progress / Planned
-
-### Test Execution Time
-All five time-tracking items (TE1–TE5) are implemented and runtime-verified under approved plan r2. The timer is shared across the run, and case duration is entered manually. Timer values are computed by the server from stored interval boundaries when requested; no cron, background loop, or client-side ticking is used. Manual REST and MCP checks passed against a disposable database restored from the pre-apply backup: startup applied v13/v14, estimates and actual durations distinguish `NULL`, `0`, and positive values, negative values are rejected, run snapshots remain stable, history/aggregates reconcile, and pause/resume excludes paused time. Concurrent Resume requests left one open interval. The timing UI was not browser-smoke-tested; there is no automated test suite.
-
-### Run Navigation
-RN1 and RN2 are verified under approved plan r1. Frontend lint/build and browser desktop/mobile checks passed, including focusable result navigation, sticky left group list through a long scroll, result deep-link, and no page-wide horizontal overflow. The summary now separates progress/status, measured case duration, and the shared timer without changing values.
-- [x] Keep run result groups visible in a sticky left navigator on desktop and compact horizontal navigation on mobile
-- [x] Redesign the run summary into progress/status, case-time, and shared-timer sections
 
 ### Suite and Case UX
 SU1 and SU3 are implemented in code under approved plan r1: suite list/detail share a URL-backed split workspace with a flat searchable navigation list. Frontend lint/build and independent review passed; browser history and mobile interaction checks remain outstanding.

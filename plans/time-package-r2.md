@@ -52,5 +52,5 @@
 - REST passed: actual `NULL`, `0`, and positive durations remain distinct in run detail, aggregate counts, and case history. The total sums measured values and counts unmeasured results.
 - REST passed: start → pause → resume → complete closes both intervals correctly; paused seconds do not accrue to active time. Two concurrent Resume requests produced one new open interval. The final state and timing remained available through detail and history reads.
 - MCP passed: tool discovery and start/pause/resume/complete, result duration update, and run-result reads operated on the same state as REST.
-- No automated test suite exists. Browser verification of the timing controls was not performed. The production-like backend/frontend containers remained running; v13/v14 were confirmed present in the target migration ledger by read-only query.
+- No automated test suite exists. Browser smoke on the disposable clone verified Start, Pause, and Complete display the corresponding timer states and final durations; the Resume control remains unverified in browser (REST/MCP resume passed above). The production-like backend/frontend containers remained running; v13/v14 were confirmed present in the target migration ledger by read-only query.
 - The disposable backend container, database, and temporary script were removed after validation; the verified backup was retained.

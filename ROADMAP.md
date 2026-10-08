@@ -35,7 +35,7 @@ RN1/RN2 passed frontend lint/build and desktop/mobile browser checks: the left n
 - [x] Run stats show the sum of measured case durations and measured/unmeasured counts
 - [x] Shared run timer with pause/resume; active, paused, and calendar duration appear in run details and case history
 
-TE1–TE5 passed manual REST and MCP runtime checks against a disposable database restored from the pre-apply backup. Startup applied v13/v14; estimates and actual durations distinguish `NULL`, `0`, and positive values; negative values are rejected; run snapshots remain stable; history/aggregates reconcile; pause time is excluded from active time; concurrent Resume requests leave one open interval. Timing controls were not browser-smoke-tested. The project has no automated test suite.
+TE1–TE5 passed manual REST and MCP runtime checks against a disposable database restored from the pre-apply backup. Startup applied v13/v14; estimates and actual durations distinguish `NULL`, `0`, and positive values; negative values are rejected; run snapshots remain stable; history/aggregates reconcile; pause time is excluded from active time; concurrent Resume requests leave one open interval. A browser smoke on the disposable clone verified Start, Pause, and Complete display the corresponding timer states and final durations; the Resume control remains unverified in browser. The project has no automated test suite.
 
 ### AI Integration (Completed)
 - [x] MCP Server — embedded in FastAPI

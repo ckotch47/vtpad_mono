@@ -89,6 +89,8 @@
             :selected-section="selectedSection"
             :filtered-test-cases="filteredTestCases"
             :case-search="caseSearch"
+            :test-cases-loading="testCasesLoading"
+            :test-cases-error="testCasesError"
             :open-add-case="openAddCase"
             :open-add-existing-case="openAddExistingCase"
             :existing-cases="existingCases"
@@ -97,7 +99,8 @@
             :new-case="newCase"
             :creating-case="creatingCase"
             :filtered-existing-cases="filteredExistingCases"
-            @update:case-search="caseSearch = $event"
+            @update:case-search="caseSearch = String($event ?? '')"
+            @retry-test-cases="retrySelectedSection"
             @view-case="openCaseDialog"
             @remove-case="removeCaseFromSection"
             @update:open-add-case="openAddCase = $event"
@@ -146,6 +149,8 @@ const {
   hasDefaultSection,
   loader,
   caseSearch,
+  testCasesLoading,
+  testCasesError,
   openAddCase,
   openAddExistingCase,
   existingCases,
@@ -167,6 +172,7 @@ const {
   saveSection,
   deleteSection,
   removeCaseFromSection,
+  retrySelectedSection,
   loadExistingCases,
   addExistingCases,
   addTestCase,

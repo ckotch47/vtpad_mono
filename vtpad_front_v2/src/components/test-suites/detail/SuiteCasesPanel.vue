@@ -7,7 +7,8 @@
       <v-spacer />
       <v-text-field
         :model-value="caseSearch"
-        label="Search cases"
+        label="Search in this section"
+        aria-label="Search test cases in the selected section"
         prepend-inner-icon="mdi-magnify"
         density="compact"
         hide-details
@@ -26,7 +27,11 @@
     </v-card-title>
     <v-divider />
     <v-card-text class="pa-0">
-      <v-list density="compact">
+      <div v-if="testCasesLoading" class="case-list-loading" role="status" aria-live="polite">
+        <v-progress-linear color="primary" indeterminate />
+        <span class="text-body-2 text-medium-emphasis">Loading test cases…</span>
+      </div>
+      <v-list v-else-if="!testCasesError && filteredTestCases.length" density="compact">
         <v-list-item
           v-for="tc in filteredTestCases"
           :key="tc.id"
@@ -54,10 +59,17 @@
           </template>
         </v-list-item>
       </v-list>
+      <v-alert v-else-if="testCasesError" type="error" variant="tonal" role="alert" class="ma-4">
+        {{ testCasesError }}
+        <template #append>
+          <v-btn variant="text" @click="$emit('retry-test-cases')">Retry</v-btn>
+        </template>
+      </v-alert>
       <v-empty-state
-        v-if="filteredTestCases.length === 0"
+        v-else
         icon="mdi-test-tube-off"
-        :text="caseSearch?.trim() ? 'No matching test cases' : 'No test cases in this section'"
+        :title="caseSearch?.trim() ? 'No matching test cases' : 'No test cases in this section'"
+        :text="caseSearch?.trim() ? 'Try another title or short name, or clear the search.' : 'Add a test case or move an existing case into this section.'"
       />
     </v-card-text>
   </v-card>
@@ -137,6 +149,8 @@ const props = defineProps({
   selectedSection: { type: Object, default: null },
   filteredTestCases: { type: Array, default: () => [] },
   caseSearch: { type: String, default: '' },
+  testCasesLoading: { type: Boolean, default: false },
+  testCasesError: { type: String, default: '' },
   openAddCase: { type: Boolean, default: false },
   openAddExistingCase: { type: Boolean, default: false },
   existingCases: { type: Array, default: () => [] },
@@ -148,7 +162,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'update:caseSearch', 'view-case', 'remove-case',
+  'update:caseSearch', 'view-case', 'remove-case', 'retry-test-cases',
   'update:openAddCase', 'open-add-new',
   'update:openAddExistingCase', 'open-add-existing',
   'update:selectedExistingCases', 'update:existingCaseSearch', 'add-existing-cases',
@@ -176,6 +190,12 @@ function statusColor(status) {
 </script>
 
 <style scoped>
+.case-list-loading {
+  display: grid;
+  gap: 12px;
+  padding: 24px 16px;
+}
+
 .case-item {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }

@@ -15,6 +15,10 @@ export function useTestSuiteDetail() {
   const selectedSection = ref(null)
   const testCases = ref([])
   const allCases = ref([])
+  const allCasesLoading = ref(false)
+  const allCasesError = ref('')
+  const testCasesLoading = ref(false)
+  const testCasesError = ref('')
   const loader = ref(true)
   const suiteError = ref('')
   const caseSearch = ref('')
@@ -38,6 +42,7 @@ export function useTestSuiteDetail() {
   const selectedCase = ref(null)
   const breadcrumbItems = ref([])
   let caseListRequestId = 0
+  let allCasesRequestId = 0
 
   const defaultSection = computed(() => ({
     id: null,
@@ -122,15 +127,34 @@ export function useTestSuiteDetail() {
 
   function loadAllCases() {
     const requestedSuiteId = suiteId.value
+    const currentRequestId = ++allCasesRequestId
+    allCasesLoading.value = true
+    allCasesError.value = ''
+    if (selectedSection.value?.isDefault) {
+      testCasesLoading.value = true
+      testCasesError.value = ''
+      testCases.value = []
+    }
     testCaseService.listBySuite(requestedSuiteId).then(res => {
-      if (String(suiteId.value) !== String(requestedSuiteId)) return
+      if (String(suiteId.value) !== String(requestedSuiteId) || currentRequestId !== allCasesRequestId) return
       allCases.value = res.data
+      allCasesError.value = ''
       if (selectedSection.value?.isDefault) {
         testCases.value = unassignedCases()
+        testCasesLoading.value = false
+        testCasesError.value = ''
       }
     }).catch(() => {
-      if (String(suiteId.value) !== String(requestedSuiteId)) return
+      if (String(suiteId.value) !== String(requestedSuiteId) || currentRequestId !== allCasesRequestId) return
       allCases.value = []
+      allCasesError.value = 'Could not load test cases for this section.'
+      if (selectedSection.value?.isDefault) {
+        testCases.value = []
+        testCasesLoading.value = false
+        testCasesError.value = allCasesError.value
+      }
+    }).finally(() => {
+      if (currentRequestId === allCasesRequestId) allCasesLoading.value = false
     })
   }
 
@@ -150,7 +174,9 @@ export function useTestSuiteDetail() {
   function onDefaultSectionSelect() {
     caseListRequestId += 1
     selectedSection.value = defaultSection.value
-    testCases.value = unassignedCases()
+    testCasesError.value = allCasesError.value
+    testCasesLoading.value = allCasesLoading.value
+    testCases.value = allCasesLoading.value ? [] : unassignedCases()
   }
 
   function unassignedCases() {
@@ -161,21 +187,38 @@ export function useTestSuiteDetail() {
     const requestedSuiteId = suiteId.value
     const currentRequestId = ++caseListRequestId
     if (sectionId == null) {
-      testCases.value = unassignedCases()
+      testCasesError.value = allCasesError.value
+      testCasesLoading.value = allCasesLoading.value
+      testCases.value = allCasesLoading.value ? [] : unassignedCases()
       return
     }
 
+    testCasesError.value = ''
+    testCasesLoading.value = true
+    testCases.value = []
     testCaseService.listBySection(sectionId).then(res => {
       if (String(suiteId.value) !== String(requestedSuiteId) || currentRequestId !== caseListRequestId) return
       testCases.value = res.data
+      testCasesLoading.value = false
       if (openAddExistingCase.value) {
         loadExistingCases(existingCaseSearch.value)
       }
     }).catch(() => {
       if (String(suiteId.value) === String(requestedSuiteId) && currentRequestId === caseListRequestId) {
         testCases.value = []
+        testCasesLoading.value = false
+        testCasesError.value = 'Could not load test cases for this section.'
       }
     })
+  }
+
+  function retrySelectedSection() {
+    if (!selectedSection.value) return
+    if (selectedSection.value.isDefault) {
+      loadAllCases()
+      return
+    }
+    loadTestCases(selectedSection.value.id)
   }
 
   function caseCountByType(type) {
@@ -246,6 +289,8 @@ export function useTestSuiteDetail() {
     sectionService.delete(id).then(() => {
       selectedSection.value = null
       testCases.value = []
+      testCasesLoading.value = false
+      testCasesError.value = ''
       loadSections()
       loadAllCases()
     })
@@ -340,6 +385,8 @@ export function useTestSuiteDetail() {
   }
 
   function init() {
+    caseListRequestId += 1
+    allCasesRequestId += 1
     loader.value = true
     suiteError.value = ''
     suite.value = {}
@@ -348,6 +395,10 @@ export function useTestSuiteDetail() {
     selectedSection.value = null
     testCases.value = []
     allCases.value = []
+    allCasesLoading.value = false
+    allCasesError.value = ''
+    testCasesLoading.value = false
+    testCasesError.value = ''
     breadcrumbItems.value = []
     loadSuite()
     loadSections()
@@ -379,6 +430,8 @@ export function useTestSuiteDetail() {
     hasDefaultSection,
     testCases,
     allCases,
+    testCasesLoading,
+    testCasesError,
     loader,
     suiteError,
     caseSearch,
@@ -402,6 +455,7 @@ export function useTestSuiteDetail() {
     onSectionSelect,
     onDefaultSectionSelect,
     loadTestCases,
+    retrySelectedSection,
     caseCountByType,
     typeIcon,
     typeColor,

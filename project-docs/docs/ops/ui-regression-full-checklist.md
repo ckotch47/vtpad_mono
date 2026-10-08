@@ -46,11 +46,15 @@
 5. UI sanity
 - Основной текст не выходит за диапазон размеров (типографический baseline).
 - Нет явных layout-breaks (перекрытия, обрезка ключевых блоков).
+- Spaces drawer открывается и закрывается без перекрытия первой строки; пустые имена отображаются как `Unnamed space`, поиск по ним не падает.
+- На desktop подписи фильтров Test Cases остаются читаемыми; поиск и фильтры продолжают менять выдачу.
+- Иконки-действия имеют доступные имена, а при клавиатурной навигации виден фокус.
 
 ### 2. Full Functional (основной регресс)
 
 1. Test Cases
-- List: поиск, пагинация, сортировка.
+- List: поиск, пагинация, сортировка; на desktop подписи поиска и фильтров не обрезаются, фильтры сохраняют поведение.
+- Duplicate: кнопка действия в строке кейса имеет имя `Duplicate <case title>` для accessibility tree.
 - Detail: вкладки `Details/Run History`; checklist показывает checks и description, без полей case-only.
 - Create/Edit: проверить manual и checklist представления; при type-switch hidden `preconditions`/`expected_results` сохраняются после save и version restore.
 - Mixed run: checklist и manual отображают соответствующие метки; snapshot сохраняет type и исходные значения.
@@ -67,6 +71,7 @@
 - На длинном desktop detail карта групп остаётся закреплённой слева, прокручивается отдельно, показывает текущую группу и подсвечивает её строку.
 - Переход к группе мышью и клавиатурой переводит фокус к заголовку; полные имена групп доступны, длинные названия не раздвигают страницу.
 - Сводка объединена в одну карточку: прогресс и статусы сверху, замеры времени кейсов/run ниже; `NULL` отображается как отсутствие данных, `0` — как измеренное время.
+- Общий таймер различает календарное прошедшее время и измеренные active/paused intervals. Для старого run отсутствие active/paused tracking не скрывает календарное значение и не выдаёт его за время работы тестировщика; фонового polling и перезагрузки страницы нет.
 - Mobile layout не проверяется в текущем roadmap pass по указанию пользователя от 2026-10-09.
 - Status transitions: проверка смены статусов/step results (если поддерживается UI).
 - Delete/archive (если доступно).
@@ -90,9 +95,15 @@
 - Tree загружается.
 - Поиск в sidebar работает.
 - Открытие doc из списка.
+- При существующих страницах без выбранной страницы предлагается выбрать страницу или создать страницу; `Create first page` используется только для пустого дерева.
+- Пока дерево загружается, показывается loading-состояние; при ошибке загрузки показывается ошибка и доступен Retry, без ложного пустого состояния.
+- Иконки create/edit/subpage/delete и меню строки имеют доступные имена и подсказки.
+- Меню строки видно при наведении и при клавиатурном фокусе; фокус имеет видимое выделение.
 - Edit doc (readonly/edit consistency).
 - Create new page + create subpage.
 - Rename/Delete page.
+
+Desktop UIX r1 retest (2026-10-09): UIX-001–004 passed on the observed run, spaces drawer, cases list, and Tech Docs with existing pages. The cases search returned matching rows without a full page navigation. Keyboard focus on a Tech Docs row revealed its action menu and a visible focus outline. UIX-005 accessible names are present; pointer-hover tooltip behavior was not manually observed. A successful empty Tech Docs tree and Tech Docs load-error fixture were unavailable. Test Plan detail and the empty Test Runs list opened; the testcase edit form opened but showed an existing 404 toast for tag options. The Bugs detail path had no populated detail fixture; the read-only “Create…” row opens a draft form, which was closed without saving. No testcase, run, plan, bug, or Tech Docs record was saved during this retest.
 
 6. Bugs (если включено в текущем контуре)
 - List загрузка.

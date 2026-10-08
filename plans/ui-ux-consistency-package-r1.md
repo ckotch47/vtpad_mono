@@ -3,7 +3,7 @@
 ## Status
 
 - Revision: `r1`
-- Status: prepared for explicit approval
+- Status: implemented; desktop acceptance recorded on 2026-10-09 with documented not-run states
 - Scope: desktop UI consistency and usability fixes based on the read-only UIX audit at source `486abba`
 - Mobile layout and mobile-specific implementation/testing are excluded
 - No implementation is authorized until this exact revision is approved

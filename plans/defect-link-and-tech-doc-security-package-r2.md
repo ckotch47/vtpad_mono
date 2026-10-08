@@ -1,6 +1,6 @@
 # Пакет DD4 + BD3 — r2
 
-Дата: 2026-10-08. r2 заменяет DD4 часть `plans/defect-link-and-tech-doc-security-package-r1.md` после read-only preflight целевой базы `vtpad_back`: обнаружены 6,654 группы с повторяющимися `(spaces_id, short_name)` при 13,836 bug rows. UNIQUE index по short name нельзя безопасно применить без рискованного и неоднозначного repair legacy связей.
+Дата: 2026-10-08. Этот план superseded планом r3: rehearsal на disposable copy выявил 6,908 групп дублирующихся `bugsmodel.id` и отсутствие уникального ключа, на который можно создать FK. UUID-связи через legacy id из r2 небезопасны. Исходный r2 сохранён для истории.
 
 ## Цель
 

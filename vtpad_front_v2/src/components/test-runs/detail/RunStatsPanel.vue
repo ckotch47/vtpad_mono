@@ -58,7 +58,7 @@
             <div class="d-flex align-center justify-space-between ga-2 mb-2">
               <div>
                 <div id="run-time-heading" class="text-body-2 font-weight-medium">Run timer</div>
-                <div class="text-caption text-medium-emphasis">Elapsed time for the whole run</div>
+                <div class="text-caption text-medium-emphasis">Calendar time since run start</div>
               </div>
               <v-chip v-if="timer.state" size="small" :color="timerStateColor(timer.state)" variant="tonal" class="text-capitalize">
                 {{ timerStateLabel(timer.state) }}
@@ -66,20 +66,20 @@
             </div>
             <div class="run-summary__timer-grid">
               <div>
-                <div class="text-caption text-medium-emphasis">Calendar</div>
+                <div class="text-caption text-medium-emphasis">Calendar elapsed</div>
                 <div class="text-subtitle-1 font-weight-bold">{{ formatDuration(timer.calendar_seconds) }}</div>
               </div>
               <div>
-                <div class="text-caption text-medium-emphasis">Active</div>
+                <div class="text-caption text-medium-emphasis">Tracked active</div>
                 <div class="text-subtitle-1 font-weight-bold text-success">{{ formatDuration(timer.active_seconds) }}</div>
               </div>
               <div>
-                <div class="text-caption text-medium-emphasis">Paused</div>
+                <div class="text-caption text-medium-emphasis">Tracked paused</div>
                 <div class="text-subtitle-1 font-weight-bold text-warning">{{ formatDuration(timer.paused_seconds) }}</div>
               </div>
             </div>
             <div v-if="timer.state === 'untracked'" class="text-caption text-medium-emphasis mt-2">
-              Timer measurements are unavailable for this run.
+              Calendar elapsed time is based on the run timestamps. Active and paused time were not tracked for this run.
             </div>
           </section>
         </div>

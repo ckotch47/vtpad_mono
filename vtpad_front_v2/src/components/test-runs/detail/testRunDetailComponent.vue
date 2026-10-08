@@ -25,13 +25,6 @@
     <run-stats-panel :stats="stats" :timer="run.timer" />
 
     <v-container v-if="run.timer" fluid class="py-0">
-      <v-alert
-        v-if="run.timer.state === 'untracked'"
-        type="info"
-        variant="tonal"
-        density="compact"
-        class="mb-2"
-      >This run predates timer tracking. Active and paused time are unavailable.</v-alert>
       <div class="d-flex align-center ga-2 mb-2" role="status" aria-live="polite">
         <span class="text-body-2">Run timer:</span>
         <v-chip size="small" :color="timerStateColor(run.timer.state)" class="text-capitalize">

@@ -79,36 +79,58 @@
               :text="form.text || ''"
               :edit="true"
               :show-menu-fixed="true"
+              accessible-label="Description"
               place-holder-editor="Enter description..."
               @editor-update="form.text = $event"
             />
 
-            <div class="text-subtitle-1 mt-4 mb-2">Preconditions</div>
-            <editor-component
-              :text="form.preconditions || ''"
-              :edit="true"
-              :show-menu-fixed="true"
-              place-holder-editor="Enter preconditions..."
-              @editor-update="form.preconditions = $event"
-            />
+            <template v-if="form.type === 'checklist'">
+              <div class="d-flex align-center mt-4 mb-2">
+                <div class="text-subtitle-1">Checks</div>
+                <v-chip size="x-small" color="success" class="ml-2">Checklist</v-chip>
+              </div>
+              <editor-component
+                :text="form.steps || ''"
+                :edit="true"
+                :show-menu-fixed="true"
+                accessible-label="Checks"
+                place-holder-editor="Add checks, one per list item..."
+                @editor-update="form.steps = $event"
+              />
+              <div class="text-caption text-medium-emphasis mt-2">Checks are reviewed together; a run stores one result for the whole checklist.</div>
+            </template>
 
-            <div class="text-subtitle-1 mt-4 mb-2">Steps</div>
-            <editor-component
-              :text="form.steps || ''"
-              :edit="true"
-              :show-menu-fixed="true"
-              place-holder-editor="Enter steps..."
-              @editor-update="form.steps = $event"
-            />
+            <template v-else>
+              <div class="text-subtitle-1 mt-4 mb-2">Preconditions</div>
+              <editor-component
+                :text="form.preconditions || ''"
+                :edit="true"
+                :show-menu-fixed="true"
+                accessible-label="Preconditions"
+                place-holder-editor="Enter preconditions..."
+                @editor-update="form.preconditions = $event"
+              />
 
-            <div class="text-subtitle-1 mt-4 mb-2">Expected Results</div>
-            <editor-component
-              :text="form.expected_results || ''"
-              :edit="true"
-              :show-menu-fixed="true"
-              place-holder-editor="Enter expected results..."
-              @editor-update="form.expected_results = $event"
-            />
+              <div class="text-subtitle-1 mt-4 mb-2">Steps</div>
+              <editor-component
+                :text="form.steps || ''"
+                :edit="true"
+                :show-menu-fixed="true"
+                accessible-label="Steps"
+                place-holder-editor="Enter steps..."
+                @editor-update="form.steps = $event"
+              />
+
+              <div class="text-subtitle-1 mt-4 mb-2">Expected Results</div>
+              <editor-component
+                :text="form.expected_results || ''"
+                :edit="true"
+                :show-menu-fixed="true"
+                accessible-label="Expected Results"
+                place-holder-editor="Enter expected results..."
+                @editor-update="form.expected_results = $event"
+              />
+            </template>
           </v-card-text>
         </v-card>
       </v-col>

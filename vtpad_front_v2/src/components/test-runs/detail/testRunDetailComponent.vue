@@ -189,7 +189,7 @@
                     </v-tooltip>
                   </template>
                   <v-list-item-title class="font-weight-medium">
-                    <span class="cursor-pointer" @click.stop="openCaseDialog(result.testcase_id)">
+                    <span class="cursor-pointer" @click.stop="openCaseDialog(result)">
                       {{ result.testcase?.title || 'Unknown Case' }}
                     </span>
                     <v-chip size="x-small" :color="typeColor(result.testcase?.type)" class="ml-2">
@@ -555,8 +555,14 @@ function openResultModal(result) {
   editModal.value = true
 }
 
-function openCaseDialog(id) {
-  testCaseService.getById(id).then(res => {
+function openCaseDialog(result) {
+  const snapshot = result?.testcase_snapshot
+  if (snapshot) {
+    selectedCase.value = { ...snapshot, id: snapshot.testcase_id || result.testcase_id }
+    caseDialogOpen.value = true
+    return
+  }
+  testCaseService.getById(result?.testcase_id || result).then(res => {
     selectedCase.value = res.data
     caseDialogOpen.value = true
   })

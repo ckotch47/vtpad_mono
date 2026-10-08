@@ -29,6 +29,7 @@ nav:
   - Потоки:
       - Аутентификация и авторизация: flows/auth-flow.md
       - Жизненный цикл бага: flows/bug-lifecycle.md
+      - Жизненный цикл test case и checklist: flows/test-case-lifecycle.md
       - Жизненный цикл Pad / Run: flows/pad-run-lifecycle.md
   - API:
       - Карта сервисов и endpoint'ов: api/service-endpoints-map.md

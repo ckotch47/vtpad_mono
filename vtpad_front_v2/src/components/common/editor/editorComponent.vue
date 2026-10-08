@@ -76,6 +76,7 @@ const props = defineProps({
   showMenuBubble: Boolean,
   showMenuFloating: Boolean,
   placeHolderEditor: String,
+  accessibleLabel: String,
   isSave: Boolean,
   maxHeight: String,
   minHeight: String,
@@ -196,6 +197,9 @@ onMounted(() => {
     content: inbound.content,
     contentType: inbound.contentType,
     editable: props.edit,
+    editorProps: {
+      attributes: props.accessibleLabel ? { 'aria-label': props.accessibleLabel } : {}
+    },
     onCreate: ({ editor: ed }) => {
       // Normalize legacy HTML input to markdown for parent form state.
       if (props.contentFormat !== 'html' && inbound.contentType === 'html') {

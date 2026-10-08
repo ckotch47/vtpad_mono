@@ -114,9 +114,56 @@
         <v-card-text>
           <v-text-field v-model="newCase.title" label="Title" required />
           <v-select v-model="newCase.type" :items="['manual','checklist','automated']" label="Type" />
-          <v-textarea v-model="newCase.steps" label="Steps" rows="4" />
-          <v-textarea v-model="newCase.expected_results" label="Expected Results" rows="3" />
-          <v-textarea v-model="newCase.preconditions" label="Preconditions" rows="2" />
+          <div class="text-subtitle-1 mb-2">Description</div>
+          <editor-component
+            :text="newCase.text"
+            :edit="true"
+            :show-menu-fixed="true"
+            accessible-label="Description"
+            place-holder-editor="Describe the test..."
+            @editor-update="newCase.text = $event"
+          />
+          <template v-if="newCase.type === 'checklist'">
+            <div class="text-subtitle-1 mt-4 mb-2">Checks</div>
+            <editor-component
+              :text="newCase.steps"
+              :edit="true"
+              :show-menu-fixed="true"
+              accessible-label="Checks"
+              place-holder-editor="Add checks, one per list item..."
+              @editor-update="newCase.steps = $event"
+            />
+            <div class="text-caption text-medium-emphasis mt-2">The run records one result for the whole checklist.</div>
+          </template>
+          <template v-else>
+            <div class="text-subtitle-1 mt-4 mb-2">Preconditions</div>
+            <editor-component
+              :text="newCase.preconditions"
+              :edit="true"
+              :show-menu-fixed="true"
+              accessible-label="Preconditions"
+              place-holder-editor="Enter preconditions..."
+              @editor-update="newCase.preconditions = $event"
+            />
+            <div class="text-subtitle-1 mt-4 mb-2">Steps</div>
+            <editor-component
+              :text="newCase.steps"
+              :edit="true"
+              :show-menu-fixed="true"
+              accessible-label="Steps"
+              place-holder-editor="Enter steps..."
+              @editor-update="newCase.steps = $event"
+            />
+            <div class="text-subtitle-1 mt-4 mb-2">Expected Results</div>
+            <editor-component
+              :text="newCase.expected_results"
+              :edit="true"
+              :show-menu-fixed="true"
+              accessible-label="Expected Results"
+              place-holder-editor="Enter expected results..."
+              @editor-update="newCase.expected_results = $event"
+            />
+          </template>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -146,6 +193,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testCaseService } from '@/services'
+import EditorComponent from '@/components/common/editor/editorComponent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -167,7 +215,8 @@ const filterSuite = ref('')
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
-const newCase = ref({ title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' })
+const emptyCase = () => ({ title: '', type: 'manual', text: '', steps: '', expected_results: '', preconditions: '' })
+const newCase = ref(emptyCase())
 const selectedCases = ref([])
 const bulkStatusDialog = ref(false)
 const bulkStatus = ref('active')
@@ -259,7 +308,7 @@ function createCase() {
     space_id: spaceId.value
   }).then(() => {
     openCreate.value = false
-    newCase.value = { title: '', type: 'manual', steps: '', expected_results: '', preconditions: '' }
+    newCase.value = emptyCase()
     loadCases({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
   }).finally(() => {
     creating.value = false

@@ -34,12 +34,13 @@
         <v-window-item value="details">
           <v-row>
             <v-col cols="12" md="8">
-              <v-card class="mb-4">
+              <v-card v-if="testcase.text" class="mb-4">
                 <v-card-title>Description</v-card-title>
                 <v-card-text>
                   <editor-component
-                    :text="testcase.text || ''"
+                    :text="testcase.text"
                     :edit="false"
+                    accessible-label="Description"
                     :show-menu-bubble="false"
                     :show-menu-floating="false"
                     :show-menu-fixed="false"
@@ -47,44 +48,73 @@
                 </v-card-text>
               </v-card>
 
-              <v-card class="mb-4">
-                <v-card-title>Preconditions</v-card-title>
-                <v-card-text>
-                  <editor-component
-                    :text="testcase.preconditions || ''"
-                    :edit="false"
-                    :show-menu-bubble="false"
-                    :show-menu-floating="false"
-                    :show-menu-fixed="false"
-                  />
-                </v-card-text>
-              </v-card>
+              <template v-if="testcase.type === 'checklist'">
+                <v-card class="mb-4">
+                  <v-card-title class="d-flex align-center">
+                    <v-icon class="mr-2" color="success">mdi-format-list-checks</v-icon>
+                    Checks
+                    <v-spacer />
+                    <v-chip size="small" color="success">Checklist</v-chip>
+                  </v-card-title>
+                  <v-card-text>
+                    <editor-component
+                      v-if="testcase.steps"
+                      :text="testcase.steps"
+                      :edit="false"
+                      accessible-label="Checks"
+                      :show-menu-bubble="false"
+                      :show-menu-floating="false"
+                      :show-menu-fixed="false"
+                    />
+                    <div v-else class="text-medium-emphasis">No checks have been added yet.</div>
+                    <div class="text-caption text-medium-emphasis mt-3">A run records one result for this checklist.</div>
+                  </v-card-text>
+                </v-card>
+              </template>
 
-              <v-card class="mb-4">
-                <v-card-title>Steps</v-card-title>
-                <v-card-text>
-                  <editor-component
-                    :text="testcase.steps || ''"
-                    :edit="false"
-                    :show-menu-bubble="false"
-                    :show-menu-floating="false"
-                    :show-menu-fixed="false"
-                  />
-                </v-card-text>
-              </v-card>
+              <template v-else>
+                <v-card class="mb-4">
+                  <v-card-title>Preconditions</v-card-title>
+                  <v-card-text>
+                    <editor-component
+                      :text="testcase.preconditions || ''"
+                      :edit="false"
+                      accessible-label="Preconditions"
+                      :show-menu-bubble="false"
+                      :show-menu-floating="false"
+                      :show-menu-fixed="false"
+                    />
+                  </v-card-text>
+                </v-card>
 
-              <v-card class="mb-4">
-                <v-card-title>Expected Results</v-card-title>
-                <v-card-text>
-                  <editor-component
-                    :text="testcase.expected_results || ''"
-                    :edit="false"
-                    :show-menu-bubble="false"
-                    :show-menu-floating="false"
-                    :show-menu-fixed="false"
-                  />
-                </v-card-text>
-              </v-card>
+                <v-card class="mb-4">
+                  <v-card-title>Steps</v-card-title>
+                  <v-card-text>
+                    <editor-component
+                      :text="testcase.steps || ''"
+                      :edit="false"
+                      accessible-label="Steps"
+                      :show-menu-bubble="false"
+                      :show-menu-floating="false"
+                      :show-menu-fixed="false"
+                    />
+                  </v-card-text>
+                </v-card>
+
+                <v-card class="mb-4">
+                  <v-card-title>Expected Results</v-card-title>
+                  <v-card-text>
+                    <editor-component
+                      :text="testcase.expected_results || ''"
+                      :edit="false"
+                      accessible-label="Expected Results"
+                      :show-menu-bubble="false"
+                      :show-menu-floating="false"
+                      :show-menu-fixed="false"
+                    />
+                  </v-card-text>
+                </v-card>
+              </template>
             </v-col>
 
             <v-col cols="12" md="4">

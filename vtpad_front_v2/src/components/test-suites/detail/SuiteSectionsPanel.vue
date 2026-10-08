@@ -9,18 +9,57 @@
       </v-btn>
     </v-card-title>
     <v-divider />
+    <div class="section-filter px-3 pt-3">
+      <v-text-field
+        v-model="sectionQuery"
+        label="Filter sections"
+        prepend-inner-icon="mdi-magnify"
+        density="compact"
+        variant="outlined"
+        hide-details
+        clearable
+        aria-label="Filter sections by name"
+        @click:clear="sectionQuery = ''"
+      />
+      <div class="d-flex align-center justify-space-between mt-2 text-caption text-medium-emphasis">
+        <span>{{ filteredSections.length }} of {{ localSections.length }} sections</span>
+        <v-btn
+          v-if="sectionQuery"
+          size="small"
+          variant="text"
+          class="section-filter-clear"
+          @click="sectionQuery = ''"
+        >
+          Clear filter
+        </v-btn>
+      </div>
+    </div>
     <v-alert v-if="sortError" type="error" density="compact" class="ma-3" role="alert">
       <div class="d-flex align-center justify-space-between ga-2">
         <span>{{ sortError }}</span>
         <v-btn size="small" variant="text" :disabled="sorting" @click="retrySort">Retry</v-btn>
       </div>
     </v-alert>
+    <v-alert
+      v-if="selectedSectionHidden"
+      type="info"
+      density="compact"
+      class="ma-3"
+      role="status"
+    >
+      <div class="d-flex align-center justify-space-between ga-2">
+        <span>The selected section is hidden by this filter.</span>
+        <v-btn size="small" variant="text" @click="sectionQuery = ''">Show selection</v-btn>
+      </div>
+    </v-alert>
     <v-card-text class="pa-0">
-      <v-list density="compact" class="section-list">
+      <v-list density="compact" class="section-list" aria-label="Suite sections">
         <v-list-item
-          v-for="item in localSections"
+          v-for="item in filteredSections"
           :key="item.id"
           :active="selectedSection?.id === item.id"
+          :aria-label="`${item.name}, ${item.test_case_count || 0} test cases${selectedSection?.id === item.id ? ', selected' : ''}`"
+          :title="item.name"
           rounded="sm"
           class="section-list-item"
           @click="selectSection(item.id)"
@@ -91,13 +130,20 @@
             </div>
           </template>
         </v-list-item>
+        <div v-if="sectionQuery && filteredSections.length === 0" class="pa-4 text-body-2 text-medium-emphasis" role="status">
+          <div>No sections match “{{ sectionQuery }}”.</div>
+          <v-btn class="mt-2" size="small" variant="text" @click="sectionQuery = ''">Clear filter</v-btn>
+        </div>
+        <div v-else-if="!sectionQuery && localSections.length === 0" class="pa-4 text-body-2 text-medium-emphasis" role="status">
+          No sections yet. Add a section to organize this suite.
+        </div>
       </v-list>
     </v-card-text>
   </v-card>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { sectionService } from '@/services'
 
 const props = defineProps({
@@ -107,6 +153,30 @@ const props = defineProps({
 
 const emit = defineEmits(['select-section', 'add-section', 'add-sub-section', 'rename-section', 'delete-section', 'reorder'])
 const localSections = ref([...props.flatSections])
+const sectionQuery = ref('')
+const filteredSections = computed(() => {
+  const query = sectionQuery.value.trim().toLocaleLowerCase()
+  if (!query) return localSections.value
+
+  const byId = new Map(localSections.value.map(section => [String(section.id), section]))
+  const visibleIds = new Set()
+  for (const section of localSections.value) {
+    if (!section.name.toLocaleLowerCase().includes(query)) continue
+    let current = section
+    const visited = new Set()
+    while (current && !visited.has(String(current.id))) {
+      const id = String(current.id)
+      visited.add(id)
+      visibleIds.add(id)
+      current = current.parentId == null ? null : byId.get(String(current.parentId))
+    }
+  }
+  return localSections.value.filter(section => visibleIds.has(String(section.id)))
+})
+const selectedSectionHidden = computed(() => Boolean(
+  sectionQuery.value && props.selectedSection &&
+  !filteredSections.value.some(section => String(section.id) === String(props.selectedSection.id))
+))
 const sorting = ref(false)
 const sortError = ref('')
 const draggedId = ref(null)

@@ -78,6 +78,9 @@
 - List/Detail открываются.
 - Create/Edit/Delete (или archive) тестового suite.
 - Sections/cases внутри suite: add/remove/rename.
+- Sections filter: accessible name search finds nested sections and keeps each matching section's ancestors in tree order; keyboard users can focus/select rows.
+- Filtering never changes the selected section. When selection is filtered out, the UI says so and offers “Show selection”; clearing restores the full list.
+- No-match state is explicit and can be cleared; long section names remain readable through wrapping or their full accessible name. Verify at desktop and mobile widths.
 
 5. Tech Docs
 - Tree загружается.

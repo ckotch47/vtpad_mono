@@ -57,7 +57,7 @@
 ## 🚧 In Progress / Planned
 
 ### Test Execution Time
-All five time-tracking items (TE1–TE5) are implemented in code under approved plan r2. The timer is shared across the run, and case duration is entered manually. Timer values are computed by the server from stored interval boundaries when requested; no cron, background loop, or client-side ticking is used. Automated tests, database migration, and Docker runtime checks remain outstanding.
+All five time-tracking items (TE1–TE5) are implemented and runtime-verified under approved plan r2. The timer is shared across the run, and case duration is entered manually. Timer values are computed by the server from stored interval boundaries when requested; no cron, background loop, or client-side ticking is used. Manual REST and MCP checks passed against a disposable database restored from the pre-apply backup: startup applied v13/v14, estimates and actual durations distinguish `NULL`, `0`, and positive values, negative values are rejected, run snapshots remain stable, history/aggregates reconcile, and pause/resume excludes paused time. Concurrent Resume requests left one open interval. The timing UI was not browser-smoke-tested; there is no automated test suite.
 
 ### Run Navigation
 RN1 and RN2 are verified under approved plan r1. Frontend lint/build and browser desktop/mobile checks passed, including focusable result navigation, sticky left group list through a long scroll, result deep-link, and no page-wide horizontal overflow. The summary now separates progress/status, measured case duration, and the shared timer without changing values.

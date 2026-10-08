@@ -43,4 +43,14 @@
 
 ## Состояние реализации
 
-Код и документация подготовлены; независимый backend/API review пройден после исправления замечаний по совместимости. `git diff --check`, `py_compile` backend-модулей, проверка JSON-миграции и ESLint изменённых frontend-файлов прошли. Автоматические тесты не запускались. Миграция не запускалась; Docker не перезапускался.
+Код и документация подготовлены; независимый backend/API review пройден после исправления замечаний по совместимости. Первичные статические проверки (`git diff --check`, `py_compile`, JSON-миграция, ESLint) прошли.
+
+## Runtime evidence — 2026-10-08
+
+- Restored the verified pre-apply backup to a disposable PostgreSQL database and started the current backend image against that clone. Startup applied v13 and v14; the working database was not used for mutations.
+- REST passed: estimate `0` and positive values persist; negative estimates and actual durations return 422; a run keeps the estimate snapshot after the source case changes.
+- REST passed: actual `NULL`, `0`, and positive durations remain distinct in run detail, aggregate counts, and case history. The total sums measured values and counts unmeasured results.
+- REST passed: start → pause → resume → complete closes both intervals correctly; paused seconds do not accrue to active time. Two concurrent Resume requests produced one new open interval. The final state and timing remained available through detail and history reads.
+- MCP passed: tool discovery and start/pause/resume/complete, result duration update, and run-result reads operated on the same state as REST.
+- No automated test suite exists. Browser verification of the timing controls was not performed. The production-like backend/frontend containers remained running; v13/v14 were confirmed present in the target migration ledger by read-only query.
+- The disposable backend container, database, and temporary script were removed after validation; the verified backup was retained.

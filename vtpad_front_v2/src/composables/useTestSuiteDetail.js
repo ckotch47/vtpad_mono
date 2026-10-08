@@ -30,6 +30,11 @@ export function useTestSuiteDetail() {
   const existingSearchDebounce = ref(null)
   const newCase = ref({ title: '', type: 'manual', steps: '' })
   const creatingCase = ref(false)
+  const moveCaseOpen = ref(false)
+  const moveCaseItem = ref(null)
+  const moveCaseTargetSectionId = ref(null)
+  const movingCase = ref(false)
+  const moveCaseError = ref('')
   const sectionDialog = ref({
     open: false,
     isRename: false,
@@ -300,16 +305,30 @@ export function useTestSuiteDetail() {
     })
   }
 
-  function removeCaseFromSection(id) {
-    testCaseService.update(id, {
-      section_id: null,
-      suite_id: suiteId.value
-    }).then(() => {
+  function openMoveCaseDialog(testCase) {
+    moveCaseItem.value = testCase
+    moveCaseTargetSectionId.value = testCase.section_id ?? null
+    moveCaseError.value = ''
+    moveCaseOpen.value = true
+  }
+
+  async function moveCaseToSection(targetSectionId) {
+    if (!moveCaseItem.value || movingCase.value) return
+    movingCase.value = true
+    moveCaseError.value = ''
+    try {
+      await testCaseService.move(moveCaseItem.value.id, suiteId.value, targetSectionId)
+      moveCaseOpen.value = false
+      moveCaseItem.value = null
+      loadSections()
       loadAllCases()
-      if (!selectedSection.value?.isDefault) {
-        loadTestCases(selectedSection.value.id)
-      }
-    })
+      if (targetSectionId == null) onDefaultSectionSelect()
+      else onSectionSelect(targetSectionId)
+    } catch (error) {
+      moveCaseError.value = error?.response?.data?.detail || 'Could not move this test case. Please try again.'
+    } finally {
+      movingCase.value = false
+    }
   }
 
   function loadExistingCases(search = '') {
@@ -447,6 +466,11 @@ export function useTestSuiteDetail() {
     existingCaseSearch,
     newCase,
     creatingCase,
+    moveCaseOpen,
+    moveCaseItem,
+    moveCaseTargetSectionId,
+    movingCase,
+    moveCaseError,
     sectionDialog,
     caseDialogOpen,
     selectedCase,
@@ -469,7 +493,8 @@ export function useTestSuiteDetail() {
     openRenameDialog,
     saveSection,
     deleteSection,
-    removeCaseFromSection,
+    openMoveCaseDialog,
+    moveCaseToSection,
     loadExistingCases,
     addExistingCases,
     addTestCase,

@@ -48,13 +48,12 @@
           </v-list-item-subtitle>
           <template #append>
             <v-btn
-              v-if="!selectedSection.isDefault"
-              icon="mdi-link-off"
+              icon="mdi-folder-move-outline"
               size="x-small"
               variant="text"
-              color="grey"
-              title="Move to Default"
-              @click.prevent="$emit('remove-case', tc.id)"
+              :aria-label="`Move ${tc.title} to another section`"
+              title="Move to another section"
+              @click.stop="$emit('open-move-case', tc)"
             />
           </template>
         </v-list-item>
@@ -142,9 +141,44 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <v-dialog :model-value="moveCaseOpen" max-width="520" @update:model-value="$emit('update:moveCaseOpen', $event)">
+    <v-card>
+      <v-card-title>Move test case</v-card-title>
+      <v-card-text>
+        <p v-if="moveCaseItem" class="mb-4">{{ moveCaseItem.title }}</p>
+        <v-select
+          :model-value="moveCaseTargetSectionId"
+          :items="moveSectionOptions"
+          item-title="title"
+          item-value="value"
+          label="Destination section"
+          :disabled="movingCase"
+          @update:model-value="$emit('update:moveCaseTargetSectionId', $event)"
+        />
+        <v-alert v-if="moveCaseError" type="error" density="compact" role="alert">
+          {{ moveCaseError }}
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" :disabled="movingCase" @click="$emit('update:moveCaseOpen', false)">Cancel</v-btn>
+        <v-btn
+          color="primary"
+          :loading="movingCase"
+          :disabled="movingCase || moveCaseTargetSectionId === (moveCaseItem?.section_id ?? null)"
+          @click="$emit('move-case', moveCaseTargetSectionId)"
+        >
+          Move
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   selectedSection: { type: Object, default: null },
   filteredTestCases: { type: Array, default: () => [] },
@@ -158,15 +192,27 @@ const props = defineProps({
   existingCaseSearch: { type: String, default: '' },
   newCase: { type: Object, default: () => ({ title: '', type: 'manual', steps: '' }) },
   creatingCase: { type: Boolean, default: false },
-  filteredExistingCases: { type: Array, default: () => [] }
+  filteredExistingCases: { type: Array, default: () => [] },
+  sections: { type: Array, default: () => [] },
+  moveCaseOpen: { type: Boolean, default: false },
+  moveCaseItem: { type: Object, default: null },
+  moveCaseTargetSectionId: { type: [String, Number], default: null },
+  movingCase: { type: Boolean, default: false },
+  moveCaseError: { type: String, default: '' }
 })
 
 const emit = defineEmits([
-  'update:caseSearch', 'view-case', 'remove-case', 'retry-test-cases',
+  'update:caseSearch', 'view-case', 'retry-test-cases',
   'update:openAddCase', 'open-add-new',
   'update:openAddExistingCase', 'open-add-existing',
   'update:selectedExistingCases', 'update:existingCaseSearch', 'add-existing-cases',
-  'update:newCase', 'add-new-case'
+  'update:newCase', 'add-new-case', 'open-move-case', 'update:moveCaseOpen',
+  'update:moveCaseTargetSectionId', 'move-case'
+])
+
+const moveSectionOptions = computed(() => [
+  { title: 'Default', value: null },
+  ...props.sections.map(section => ({ title: section.name, value: section.id }))
 ])
 
 function updateNewCase(key, value) {

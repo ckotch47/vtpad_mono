@@ -82,6 +82,7 @@
 - Filtering never changes the selected section. When selection is filtered out, the UI says so and offers “Show selection”; clearing restores the full list.
 - No-match state is explicit and can be cleared; long section names remain readable through wrapping or their full accessible name. Verify at desktop and mobile widths.
 - SU5 read-only desktop smoke passed on 2026-10-09: matching query, hidden selected section with “Show selection”, no-match message, and clear restored all 5 sections. Nested sections, keyboard focus, long-name layout, and mobile viewport still need manual verification.
+- SU6 dialog read-only desktop smoke passed on 2026-10-09: action opens for a case, `Default` and each suite section appear, another destination can be selected, and Cancel closes without changing data. Submit, refresh/counts after success, same-space errors, MCP, keyboard, and mobile behavior remain to verify on a disposable database.
 
 5. Tech Docs
 - Tree загружается.

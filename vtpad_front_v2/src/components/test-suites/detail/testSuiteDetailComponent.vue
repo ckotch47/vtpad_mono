@@ -100,10 +100,19 @@
             :new-case="newCase"
             :creating-case="creatingCase"
             :filtered-existing-cases="filteredExistingCases"
+            :sections="flatSections"
+            :move-case-open="moveCaseOpen"
+            :move-case-item="moveCaseItem"
+            :move-case-target-section-id="moveCaseTargetSectionId"
+            :moving-case="movingCase"
+            :move-case-error="moveCaseError"
             @update:case-search="caseSearch = String($event ?? '')"
             @retry-test-cases="retrySelectedSection"
             @view-case="openCaseDialog"
-            @remove-case="removeCaseFromSection"
+            @open-move-case="openMoveCaseDialog"
+            @update:move-case-open="moveCaseOpen = $event"
+            @update:move-case-target-section-id="moveCaseTargetSectionId = $event"
+            @move-case="moveCaseToSection"
             @update:open-add-case="openAddCase = $event"
             @open-add-new="openAddCase = true"
             @update:open-add-existing-case="openAddExistingCase = $event"
@@ -159,6 +168,11 @@ const {
   existingCaseSearch,
   newCase,
   creatingCase,
+  moveCaseOpen,
+  moveCaseItem,
+  moveCaseTargetSectionId,
+  movingCase,
+  moveCaseError,
   sectionDialog,
   caseDialogOpen,
   selectedCase,
@@ -173,7 +187,8 @@ const {
   openRenameDialog,
   saveSection,
   deleteSection,
-  removeCaseFromSection,
+  openMoveCaseDialog,
+  moveCaseToSection,
   retrySelectedSection,
   loadExistingCases,
   addExistingCases,

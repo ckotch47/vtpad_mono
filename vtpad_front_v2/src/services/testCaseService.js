@@ -7,6 +7,10 @@ export const testCaseService = {
   getById: (id) => api.get(`/api/v2/test-case/${id}`),
   create: (data) => api.post('/api/v2/test-case/', data),
   update: (id, data) => api.patch(`/api/v2/test-case/${id}`, data),
+  move: (id, suiteId, sectionId) => api.post(`/api/v2/test-case/${id}/move`, {
+    suite_id: suiteId,
+    section_id: sectionId
+  }),
   delete: (id) => api.delete(`/api/v2/test-case/${id}`),
   sort: (id) => api.patch(`/api/v2/test-case/sort/${id}`),
   getRuns: (id, params) => api.get(`/api/v2/test-case/${id}/runs`, { params }),

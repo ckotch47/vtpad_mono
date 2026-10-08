@@ -21,6 +21,10 @@
 - [x] **Step-level results** — mark pass/fail/skip per individual step
 - [x] **Run History** tab on Test Case page
 - [x] **Bug modal on failed result** — quick bug creation with pre-filled data
+- [x] Estimated execution time on test cases; estimate is versioned and snapshotted into runs
+- [x] Actual case duration is editable in run results; `NULL` means unmeasured and `0` is valid
+- [x] Run stats show the sum of measured case durations and measured/unmeasured counts
+- [x] Shared run timer with pause/resume; active, paused, and calendar duration appear in run details and case history
 
 ### AI Integration (Completed)
 - [x] MCP Server — embedded in FastAPI
@@ -48,11 +52,7 @@
 ## 🚧 In Progress / Planned
 
 ### Test Execution Time
-- [ ] Add an estimated execution time field to test cases and make it editable in the case editor
-- [ ] Record actual execution time for each case in a run and show it in run results
-- [ ] Show the total execution time for a run as the sum of its case times
-- [ ] Add a run timer with pause/resume; paused time should not count toward the tester's active execution time
-- [ ] Show run duration and timing details in run history
+All five time-tracking items (TE1–TE5) are implemented in code under approved plan r2. The timer is shared across the run, and case duration is entered manually. Timer values are computed by the server from stored interval boundaries when requested; no cron, background loop, or client-side ticking is used. Automated tests, database migration, and Docker runtime checks remain outstanding.
 
 ### Run Navigation
 - [ ] Group run cases by folders/sections

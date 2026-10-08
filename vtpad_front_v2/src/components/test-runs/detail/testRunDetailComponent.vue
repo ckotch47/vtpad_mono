@@ -22,7 +22,34 @@
       </v-row>
     </v-container>
 
-    <run-stats-panel :stats="stats" />
+    <run-stats-panel :stats="stats" :timer="run.timer" />
+
+    <v-container v-if="run.timer" fluid class="py-0">
+      <v-alert
+        v-if="run.timer.state === 'untracked'"
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mb-2"
+      >This run predates timer tracking. Active and paused time are unavailable.</v-alert>
+      <div class="d-flex align-center ga-2 mb-2" role="status" aria-live="polite">
+        <span class="text-body-2">Run timer:</span>
+        <v-chip size="small" :color="timerStateColor(run.timer.state)" class="text-capitalize">
+          {{ timerStateLabel(run.timer.state) }}
+        </v-chip>
+        <span v-if="run.timer.interval_count != null" class="text-caption text-medium-emphasis">
+          {{ run.timer.interval_count }} timer interval{{ run.timer.interval_count === 1 ? '' : 's' }}
+        </span>
+        <v-spacer />
+        <v-btn
+          size="small"
+          variant="text"
+          prepend-icon="mdi-refresh"
+          :loading="timerRefreshLoading"
+          @click="refreshTimer"
+        >Refresh time</v-btn>
+      </div>
+    </v-container>
 
     <!-- Actions -->
     <v-container fluid class="py-0">
@@ -34,6 +61,22 @@
           <v-btn v-if="run.status === 'active'" color="success" prepend-icon="mdi-check" class="mr-2" @click="completeRun">
             Complete Run
           </v-btn>
+          <v-btn
+            v-if="run.status === 'active' && run.timer?.state === 'running'"
+            color="warning"
+            prepend-icon="mdi-pause"
+            :loading="timerActionLoading"
+            class="mr-2"
+            @click="changeTimerState('pause')"
+          >Pause</v-btn>
+          <v-btn
+            v-if="run.status === 'active' && run.timer?.state === 'paused'"
+            color="success"
+            prepend-icon="mdi-play"
+            :loading="timerActionLoading"
+            class="mr-2"
+            @click="changeTimerState('resume')"
+          >Resume</v-btn>
         </v-col>
       </v-row>
     </v-container>
@@ -107,7 +150,7 @@
                     </v-chip>
                     <span v-if="result.comment" class="text-medium-emphasis">{{ result.comment }}</span>
                     <span v-else class="text-grey">No comment</span>
-                    <span v-if="result.duration_seconds" class="ml-2 text-caption">({{ result.duration_seconds }}s)</span>
+                    <span v-if="hasDuration(result.duration_seconds)" class="ml-2 text-caption">({{ formatDuration(result.duration_seconds) }})</span>
                   </v-list-item-subtitle>
                   <template #append>
                     <v-tooltip v-if="result.testcase_id" text="Open test case in a new tab" location="top">
@@ -215,6 +258,8 @@ const bulkStatus = ref('passed')
 const bulkUpdating = ref(false)
 const bulkStatuses = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
 const resultStatusCycle = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
+const timerActionLoading = ref(false)
+const timerRefreshLoading = ref(false)
 
 const groupedResults = computed(() => {
   const map = {}
@@ -234,15 +279,27 @@ const groupedResults = computed(() => {
 
 const nextNotRunResult = computed(() => results.value.find((result) => result.status === 'not_run'))
 
-async function loadRun() {
-  loader.value = true
+async function loadRun({ showLoader = true } = {}) {
+  if (showLoader) loader.value = true
   try {
     const res = await testRunService.getDetail(runId.value)
     run.value = res.data.run
     stats.value = res.data.stats
     results.value = res.data.results
     selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((result) => result.id === id))
-  } finally { loader.value = false }
+  } finally {
+    if (showLoader) loader.value = false
+  }
+}
+
+async function refreshTimer() {
+  if (timerRefreshLoading.value) return
+  timerRefreshLoading.value = true
+  try {
+    await loadRun({ showLoader: false })
+  } finally {
+    timerRefreshLoading.value = false
+  }
 }
 
 function loadBugs() {
@@ -263,6 +320,48 @@ function startRun() {
 
 function completeRun() {
   testRunService.complete(runId.value).then(() => loadRun())
+}
+
+async function changeTimerState(action) {
+  if (timerActionLoading.value) return
+  timerActionLoading.value = true
+  try {
+    await testRunService[action](runId.value)
+    await loadRun()
+  } catch (error) {
+    log.error(`failed to ${action} run timer`, error)
+  } finally {
+    timerActionLoading.value = false
+  }
+}
+
+function hasDuration(value) {
+  return value !== null && value !== undefined
+}
+
+function formatDuration(seconds) {
+  if (!hasDuration(seconds)) return 'No data'
+  const total = Math.max(0, Math.floor(seconds))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const remainder = total % 60
+  return hours > 0
+    ? `${hours}h ${String(minutes).padStart(2, '0')}m ${String(remainder).padStart(2, '0')}s`
+    : `${minutes}m ${String(remainder).padStart(2, '0')}s`
+}
+
+function timerStateLabel(state) {
+  return {
+    not_started: 'not started',
+    running: 'running',
+    paused: 'paused',
+    stopped: 'stopped',
+    untracked: 'untracked'
+  }[state] || state || 'unavailable'
+}
+
+function timerStateColor(state) {
+  return { running: 'success', paused: 'warning', stopped: 'grey', untracked: 'info' }[state] || 'default'
 }
 
 function openResultModal(result) {
@@ -301,7 +400,8 @@ function statusLabel(status) {
 }
 
 function applyResultUpdate(updatedResult) {
-  const { originalStatus, ...resultChanges } = updatedResult
+  const resultChanges = { ...updatedResult }
+  delete resultChanges.originalStatus
   const result = results.value.find((item) => item.id === resultChanges.id)
   if (!result) return
   const previousStatus = result.status
@@ -366,6 +466,7 @@ async function saveResult() {
     await testRunService.updateResult(editingResult.value.id, payload)
     applyResultUpdate(editingResult.value)
     editModal.value = false
+    await loadRun()
   } catch (error) {
     log.error('failed to update test result', error)
   }

@@ -55,9 +55,40 @@ async def get_by_id(run_id: str, request: Request):
             'id': str(run.environment.id),
             'name': run.environment.name,
         } if run.environment else None,
+        'created_by_id': str(run.created_by_id) if run.created_by_id else None,
         'created_at': run.created_at.isoformat() if run.created_at else None,
         'started_at': run.started_at.isoformat() if run.started_at else None,
         'completed_at': run.completed_at.isoformat() if run.completed_at else None,
+        'timer': await TestRunService.get_timer(run_id),
+    }
+
+
+async def _timer_transition_response(run_id: str, run):
+    return {
+        'id': str(run.id),
+        'name': run.name,
+        'description': run.description,
+        'status': run.status,
+        'space_id': str(run.space_id),
+        'suite_id': str(run.suite_id) if run.suite_id else None,
+        'plan_id': str(run.plan_id) if run.plan_id else None,
+        'milestone_id': str(run.milestone_id) if run.milestone_id else None,
+        'milestone': {
+            'id': str(run.milestone.id),
+            'title': run.milestone.title,
+            'status': run.milestone.status,
+        } if run.milestone else None,
+        'environment_id': str(run.environment_id) if run.environment_id else None,
+        'environment': {
+            'id': str(run.environment.id),
+            'name': run.environment.name,
+        } if run.environment else None,
+        'created_by_id': str(run.created_by_id) if run.created_by_id else None,
+        'created_at': run.created_at.isoformat() if run.created_at else None,
+        'started_at': run.started_at.isoformat() if run.started_at else None,
+        'completed_at': run.completed_at.isoformat() if run.completed_at else None,
+        'source_snapshot': run.source_snapshot,
+        'timer': await TestRunService.get_timer(run_id),
     }
 
 
@@ -87,15 +118,31 @@ async def update(run_id: str, dto: TestRunUpdateDto, request: Request):
 
 
 @router.post('/{run_id}/start', dependencies=[Depends(bearer)])
-async def start(run_id: str, request: Request):
+async def start(run_id: str, request: Request, token: str = Depends(bearer)):
     await _require_run_access(run_id, request)
-    return await TestRunService.start(run_id)
+    run = await TestRunService.start(run_id, token)
+    return await _timer_transition_response(run_id, run)
+
+
+@router.post('/{run_id}/pause', dependencies=[Depends(bearer)])
+async def pause(run_id: str, request: Request, token: str = Depends(bearer)):
+    await _require_run_access(run_id, request)
+    run = await TestRunService.pause(run_id, token)
+    return await _timer_transition_response(run_id, run)
+
+
+@router.post('/{run_id}/resume', dependencies=[Depends(bearer)])
+async def resume(run_id: str, request: Request, token: str = Depends(bearer)):
+    await _require_run_access(run_id, request)
+    run = await TestRunService.resume(run_id, token)
+    return await _timer_transition_response(run_id, run)
 
 
 @router.post('/{run_id}/complete', dependencies=[Depends(bearer)])
-async def complete(run_id: str, request: Request):
+async def complete(run_id: str, request: Request, token: str = Depends(bearer)):
     await _require_run_access(run_id, request)
-    return await TestRunService.complete(run_id)
+    run = await TestRunService.complete(run_id, token)
+    return await _timer_transition_response(run_id, run)
 
 
 @router.delete('/{run_id}', dependencies=[Depends(bearer)])

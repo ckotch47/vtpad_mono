@@ -46,6 +46,7 @@ class TestCaseService:
             short_name=dto.short_name,
             link=dto.link,
             external_id=dto.external_id,
+            estimated_duration_seconds=dto.estimated_duration_seconds,
             created_by_id=user_id,
         )
 
@@ -59,6 +60,7 @@ class TestCaseService:
             expected_results=dto.expected_results,
             preconditions=dto.preconditions,
             postconditions=dto.postconditions,
+            estimated_duration_seconds=dto.estimated_duration_seconds,
             created_by_id=user_id,
         )
 
@@ -129,6 +131,7 @@ class TestCaseService:
                     'type': testcase.type,
                     'status': testcase.status,
                     'external_id': testcase.external_id,
+                    'estimated_duration_seconds': testcase.estimated_duration_seconds,
                     'space_id': str(testcase.space_id),
                     'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
                     'suite': {
@@ -182,6 +185,7 @@ class TestCaseService:
             'type': testcase.type,
             'status': testcase.status,
             'external_id': testcase.external_id,
+            'estimated_duration_seconds': testcase.estimated_duration_seconds,
             'space_id': str(testcase.space_id),
             'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
             'section_id': str(testcase.section_id) if testcase.section_id else None,
@@ -205,7 +209,7 @@ class TestCaseService:
         data = {
             key: value
             for key, value in data.items()
-            if value is not None or key == 'section_id'
+            if value is not None or key in ('section_id', 'estimated_duration_seconds')
         }
         user_id = await get_user_id_by_token(token) if token else None
         async with in_transaction() as connection:
@@ -268,21 +272,33 @@ class TestCaseService:
 
     @staticmethod
     async def get_run_history(testcase_id: str, page: int = 1, page_size: int = 25) -> dict:
-        from ..test_run.model import TestResultModel, TestRunModel
+        from ..test_run.model import TestResultModel
+        from ..test_run.service import TestRunService
 
         q = TestResultModel.filter(testcase_id=testcase_id).prefetch_related('run').order_by('-created_at')
         result = await paginate(q, page, page_size)
         items = result['items']
+        timers_by_run = await TestRunService.get_timers([
+            str(r.run_id) for r in items if r.run_id
+        ])
 
         results = []
         for r in items:
             run = r.run
+            duration_seconds = r.duration_seconds
+            if duration_seconds is not None and duration_seconds < 0:
+                duration_seconds = None
             results.append({
                 'id': str(r.id),
                 'run_id': str(run.id) if run else None,
                 'run_name': run.name if run else None,
                 'status': r.status,
-                'duration_seconds': r.duration_seconds,
+                'duration_seconds': duration_seconds,
+                'estimated_duration_seconds': (
+                    (r.testcase_snapshot or {}).get('estimated_duration_seconds')
+                    if r.testcase_snapshot else None
+                ),
+                'run_timer': timers_by_run.get(str(run.id)) if run else None,
                 'comment': r.comment,
                 'executed_at': r.executed_at.isoformat() if r.executed_at else None,
                 'created_at': r.created_at.isoformat() if r.created_at else None,
@@ -326,6 +342,7 @@ class TestCaseService:
             'expected_results': testcase.expected_results,
             'preconditions': testcase.preconditions,
             'postconditions': testcase.postconditions,
+            'estimated_duration_seconds': testcase.estimated_duration_seconds,
             'created_by_id': user_id,
         }
         if connection is not None:
@@ -361,6 +378,7 @@ class TestCaseService:
             expected_results=original.expected_results,
             preconditions=original.preconditions,
             postconditions=original.postconditions,
+            estimated_duration_seconds=original.estimated_duration_seconds,
             type=original.type,
             status=original.status,
             sort=sort,
@@ -390,6 +408,7 @@ class TestCaseService:
             'expected_results': version.expected_results,
             'preconditions': version.preconditions,
             'postconditions': version.postconditions,
+            'estimated_duration_seconds': version.estimated_duration_seconds,
             'created_by_id': str(version.created_by_id) if version.created_by_id else None,
             'created_at': version.created_at.isoformat() if version.created_at else None,
         }
@@ -411,7 +430,7 @@ class TestCaseService:
     async def diff_versions(testcase_id: str, from_version_id: str, to_version_id: str) -> dict:
         from_version = await TestCaseService.get_version(testcase_id, from_version_id)
         to_version = await TestCaseService.get_version(testcase_id, to_version_id)
-        fields = ('title', 'text', 'steps', 'expected_results', 'preconditions', 'postconditions')
+        fields = ('title', 'text', 'steps', 'expected_results', 'preconditions', 'postconditions', 'estimated_duration_seconds')
         changes = {
             field: {'from': from_version[field], 'to': to_version[field]}
             for field in fields
@@ -443,6 +462,7 @@ class TestCaseService:
                 expected_results=version.expected_results,
                 preconditions=version.preconditions,
                 postconditions=version.postconditions,
+                estimated_duration_seconds=version.estimated_duration_seconds,
             )
             restored = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
             await TestCaseService._create_test_case_version(

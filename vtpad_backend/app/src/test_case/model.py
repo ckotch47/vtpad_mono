@@ -24,6 +24,7 @@ class TestCaseModel(Model):
     expected_results = fields.TextField(null=True)
     preconditions = fields.TextField(null=True)
     postconditions = fields.TextField(null=True)
+    estimated_duration_seconds = fields.IntField(null=True)
 
     sort = fields.IntField(default=0)
     short_name = fields.CharField(null=True, max_length=255)
@@ -55,6 +56,7 @@ class TestCaseVersionModel(Model):
     expected_results = fields.TextField(null=True)
     preconditions = fields.TextField(null=True)
     postconditions = fields.TextField(null=True)
+    estimated_duration_seconds = fields.IntField(null=True)
 
     testcase = fields.ForeignKeyField('models.TestCaseModel', related_name='versions')
     created_by = fields.ForeignKeyField('models.UserModel', related_name='created_test_case_versions', null=True)

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
-from .model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from .model import TestRunModel, TestResultModel, TestRunTimerIntervalModel, TestRunStatus, TestResultStatus
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 from ..common.pagination import paginate
@@ -86,6 +86,7 @@ class TestRunService:
             'expected_results': fields_source.expected_results,
             'preconditions': fields_source.preconditions,
             'postconditions': fields_source.postconditions,
+            'estimated_duration_seconds': fields_source.estimated_duration_seconds,
             'type': testcase.type.value if hasattr(testcase.type, 'value') else testcase.type,
             'status': testcase.status.value if hasattr(testcase.status, 'value') else testcase.status,
             'short_name': testcase.short_name,
@@ -113,6 +114,7 @@ class TestRunService:
                     'expected_results': snapshot['expected_results'],
                     'preconditions': snapshot['preconditions'],
                     'postconditions': snapshot['postconditions'],
+                    'estimated_duration_seconds': snapshot['estimated_duration_seconds'],
                     'type': snapshot['type'],
                     'status': snapshot['status'],
                     'suite_id': snapshot['suite_id'],
@@ -158,6 +160,7 @@ class TestRunService:
                     'version_number': snapshot['version_number'],
                     'title': snapshot['title'],
                     'section': snapshot['section'],
+                    'estimated_duration_seconds': snapshot['estimated_duration_seconds'],
                 }
                 for snapshot in snapshots
             ],
@@ -279,6 +282,11 @@ class TestRunService:
 
     @staticmethod
     def _compute_result_stats(results):
+        known_durations = [
+            r.duration_seconds
+            for r in results
+            if r.duration_seconds is not None and r.duration_seconds >= 0
+        ]
         return {
             'total': len(results),
             'not_run': sum(1 for r in results if r.status == TestResultStatus.not_run),
@@ -286,6 +294,9 @@ class TestRunService:
             'failed': sum(1 for r in results if r.status == TestResultStatus.failed),
             'blocked': sum(1 for r in results if r.status == TestResultStatus.blocked),
             'skipped': sum(1 for r in results if r.status == TestResultStatus.skipped),
+            'duration_seconds_total': sum(known_durations),
+            'duration_measured_count': len(known_durations),
+            'duration_unmeasured_count': len(results) - len(known_durations),
         }
 
     @staticmethod
@@ -305,6 +316,7 @@ class TestRunService:
                 'expected_results': snapshot.get('expected_results'),
                 'preconditions': snapshot.get('preconditions'),
                 'postconditions': snapshot.get('postconditions'),
+                'estimated_duration_seconds': snapshot.get('estimated_duration_seconds'),
                 'is_snapshot': True,
             }
         else:
@@ -316,12 +328,15 @@ class TestRunService:
                     'id': str(testcase.section.id),
                     'name': testcase.section.name,
                 } if testcase.section else None,
+                'estimated_duration_seconds': None,
                 'is_snapshot': False,
             } if testcase else None
         return {
             'id': str(r.id),
             'status': r.status,
-            'duration_seconds': r.duration_seconds,
+            'duration_seconds': (
+                r.duration_seconds if r.duration_seconds is not None and r.duration_seconds >= 0 else None
+            ),
             'comment': r.comment,
             'linked_bug_ids': r.linked_bug_ids or [],
             'testcase_id': str(r.testcase_id),
@@ -359,6 +374,7 @@ class TestRunService:
                 'started_at': run.started_at.isoformat() if run.started_at else None,
                 'completed_at': run.completed_at.isoformat() if run.completed_at else None,
                 'source_snapshot': run.source_snapshot,
+                'timer': await TestRunService.get_timer(run.id),
             },
             'stats': stats,
             'results': results_data,
@@ -379,26 +395,157 @@ class TestRunService:
         return await TestRunService.get_by_id(run_id)
 
     @staticmethod
-    async def start(run_id: str) -> TestRunModel:
-        run = await TestRunService.get_by_id(run_id)
-        if run.status != TestRunStatus.draft:
-            raise HTTPException(status_code=400, detail="Run is not in draft status")
-        await TestRunModel.filter(id=run_id).update(status=TestRunStatus.active, started_at=datetime.now(timezone.utc))
+    def _timer_summary(run: TestRunModel, intervals: list[TestRunTimerIntervalModel], now: datetime) -> dict:
+        if not intervals:
+            state = 'not_started' if run.status == TestRunStatus.draft else 'untracked'
+            if run.status == TestRunStatus.completed:
+                state = 'untracked'
+            calendar_seconds = None
+            if run.started_at:
+                end_at = run.completed_at or now
+                calendar_seconds = max(0, int((end_at - run.started_at).total_seconds()))
+            return {
+                'state': state,
+                'calendar_seconds': calendar_seconds,
+                'active_seconds': None,
+                'paused_seconds': None,
+                'interval_count': 0,
+            }
+
+        active_seconds = sum(
+            max(0, int(((interval.ended_at or now) - interval.started_at).total_seconds()))
+            for interval in intervals
+        )
+        calendar_seconds = None
+        if run.started_at:
+            end_at = run.completed_at or now
+            calendar_seconds = max(0, int((end_at - run.started_at).total_seconds()))
+        paused_seconds = (
+            max(0, calendar_seconds - active_seconds)
+            if calendar_seconds is not None else None
+        )
+        if run.status == TestRunStatus.completed:
+            state = 'stopped'
+        elif intervals[-1].ended_at is None:
+            state = 'running'
+        else:
+            state = 'paused'
+        return {
+            'state': state,
+            'calendar_seconds': calendar_seconds,
+            'active_seconds': active_seconds,
+            'paused_seconds': paused_seconds,
+            'interval_count': len(intervals),
+        }
+
+    @staticmethod
+    async def get_timer(run_id: str) -> dict:
+        timers = await TestRunService.get_timers([run_id])
+        if run_id not in timers:
+            raise HTTPException(status_code=404, detail="Test run not found")
+        return timers[run_id]
+
+    @staticmethod
+    async def get_timers(run_ids: list[str]) -> dict[str, dict]:
+        unique_ids = list(dict.fromkeys(str(run_id) for run_id in run_ids if run_id))
+        if not unique_ids:
+            return {}
+
+        async with in_transaction() as connection:
+            await connection.execute_query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            runs = await TestRunModel.filter(id__in=unique_ids).using_db(connection)
+            intervals = await TestRunTimerIntervalModel.filter(
+                run_id__in=unique_ids
+            ).using_db(connection).order_by('run_id', 'started_at')
+
+        intervals_by_run: dict[str, list[TestRunTimerIntervalModel]] = {}
+        for interval in intervals:
+            intervals_by_run.setdefault(str(interval.run_id), []).append(interval)
+
+        now = datetime.now(timezone.utc)
+        return {
+            str(run.id): TestRunService._timer_summary(
+                run, intervals_by_run.get(str(run.id), []), now
+            )
+            for run in runs
+        }
+
+    @staticmethod
+    async def _transition_timer(run_id: str, token: str, action: str) -> TestRunModel:
+        actor_id = await get_user_id_by_token(token)
+        async with in_transaction() as connection:
+            run = await TestRunModel.filter(id=run_id).using_db(connection).select_for_update().first()
+            if not run:
+                raise HTTPException(status_code=404, detail="Test run not found")
+            now = datetime.now(timezone.utc)
+            open_interval = await TestRunTimerIntervalModel.filter(
+                run_id=run_id, ended_at__isnull=True
+            ).using_db(connection).first()
+
+            if action == 'start':
+                if run.status != TestRunStatus.draft:
+                    raise HTTPException(status_code=400, detail="Run is not in draft status")
+                await TestRunModel.filter(id=run_id).using_db(connection).update(
+                    status=TestRunStatus.active, started_at=now
+                )
+                await TestRunTimerIntervalModel.create(
+                    run_id=run_id, started_at=now, actor_id=actor_id, using_db=connection
+                )
+            elif action == 'pause':
+                if run.status != TestRunStatus.active:
+                    raise HTTPException(status_code=409, detail="Run is not active")
+                if open_interval:
+                    await TestRunTimerIntervalModel.filter(id=open_interval.id).using_db(connection).update(
+                        ended_at=now
+                    )
+                elif not await TestRunTimerIntervalModel.filter(run_id=run_id).using_db(connection).exists():
+                    raise HTTPException(status_code=409, detail="Timer is not tracked for this legacy run")
+            elif action == 'resume':
+                if run.status != TestRunStatus.active:
+                    raise HTTPException(status_code=409, detail="Run is not active")
+                if not open_interval:
+                    if not await TestRunTimerIntervalModel.filter(run_id=run_id).using_db(connection).exists():
+                        raise HTTPException(status_code=409, detail="Timer is not tracked for this legacy run")
+                    await TestRunTimerIntervalModel.create(
+                        run_id=run_id, started_at=now, actor_id=actor_id, using_db=connection
+                    )
+            elif action == 'complete':
+                if run.status != TestRunStatus.active:
+                    raise HTTPException(status_code=400, detail="Run is not active")
+                if open_interval:
+                    await TestRunTimerIntervalModel.filter(id=open_interval.id).using_db(connection).update(
+                        ended_at=now
+                    )
+                await TestRunModel.filter(id=run_id).using_db(connection).update(
+                    status=TestRunStatus.completed, completed_at=now
+                )
         return await TestRunService.get_by_id(run_id)
 
     @staticmethod
-    async def complete(run_id: str) -> TestRunModel:
-        run = await TestRunService.get_by_id(run_id)
-        if run.status != TestRunStatus.active:
-            raise HTTPException(status_code=400, detail="Run is not active")
-        await TestRunModel.filter(id=run_id).update(status=TestRunStatus.completed, completed_at=datetime.now(timezone.utc))
-        return await TestRunService.get_by_id(run_id)
+    async def start(run_id: str, token: str) -> TestRunModel:
+        return await TestRunService._transition_timer(run_id, token, 'start')
+
+    @staticmethod
+    async def pause(run_id: str, token: str) -> TestRunModel:
+        return await TestRunService._transition_timer(run_id, token, 'pause')
+
+    @staticmethod
+    async def resume(run_id: str, token: str) -> TestRunModel:
+        return await TestRunService._transition_timer(run_id, token, 'resume')
+
+    @staticmethod
+    async def complete(run_id: str, token: str) -> TestRunModel:
+        return await TestRunService._transition_timer(run_id, token, 'complete')
 
     @staticmethod
     async def delete(run_id: str) -> bool:
-        await TestRunService.get_by_id(run_id)
-        await TestResultModel.filter(run_id=run_id).delete()
-        await TestRunModel.filter(id=run_id).delete()
+        async with in_transaction() as connection:
+            run = await TestRunModel.filter(id=run_id).using_db(connection).select_for_update().first()
+            if not run:
+                raise HTTPException(status_code=404, detail="Test run not found")
+            await TestRunTimerIntervalModel.filter(run_id=run_id).using_db(connection).delete()
+            await TestResultModel.filter(run_id=run_id).using_db(connection).delete()
+            await TestRunModel.filter(id=run_id).using_db(connection).delete()
         return True
 
 
@@ -414,12 +561,15 @@ class TestResultService:
     async def update_result(result_id: str, dto: TestResultUpdateDto, token: str, request: Request) -> TestResultModel:
         user_id = await get_user_id_by_token(token)
         async with in_transaction() as connection:
+            result_ref = await TestResultModel.filter(id=result_id).using_db(connection).first()
+            if not result_ref:
+                raise HTTPException(status_code=404, detail="Test result not found")
+            run = await TestRunModel.filter(id=result_ref.run_id).using_db(connection).select_for_update().first()
+            if not run:
+                raise HTTPException(status_code=404, detail="Test run not found")
             result = await TestResultModel.filter(id=result_id).using_db(connection).select_for_update().first()
             if not result:
                 raise HTTPException(status_code=404, detail="Test result not found")
-            run = await TestRunModel.filter(id=result.run_id).using_db(connection).select_for_update().first()
-            if not run:
-                raise HTTPException(status_code=404, detail="Test run not found")
             await check_user_into_space(str(run.space_id), request)
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
@@ -449,15 +599,18 @@ class TestResultService:
             raise HTTPException(status_code=422, detail="At least one result is required")
 
         async with in_transaction() as connection:
-            results = await TestResultModel.filter(id__in=result_ids).using_db(connection).select_for_update()
-            if len(results) != len(result_ids):
+            result_refs = await TestResultModel.filter(id__in=result_ids).using_db(connection)
+            if len(result_refs) != len(result_ids):
                 raise HTTPException(status_code=404, detail="One or more test results were not found")
-            run_ids = {str(result.run_id) for result in results}
+            run_ids = {str(result.run_id) for result in result_refs}
             if len(run_ids) != 1:
                 raise HTTPException(status_code=422, detail="Bulk update accepts results from exactly one run")
             run = await TestRunModel.filter(id=next(iter(run_ids))).using_db(connection).select_for_update().first()
             if not run:
                 raise HTTPException(status_code=404, detail="Test run not found")
+            results = await TestResultModel.filter(id__in=result_ids).using_db(connection).order_by('id').select_for_update()
+            if len(results) != len(result_ids):
+                raise HTTPException(status_code=404, detail="One or more test results were not found")
             await check_user_into_space(str(run.space_id), request)
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")

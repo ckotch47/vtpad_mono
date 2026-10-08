@@ -62,6 +62,18 @@
               </v-col>
             </v-row>
 
+            <v-text-field
+              v-model="form.estimated_duration_seconds"
+              label="Estimated duration (seconds)"
+              type="number"
+              min="0"
+              step="1"
+              clearable
+              hint="Leave empty when no estimate is available. Zero is a valid estimate."
+              persistent-hint
+              class="mb-4"
+            />
+
             <div class="text-subtitle-1 mb-2">Description</div>
             <editor-component
               :text="form.text || ''"
@@ -197,7 +209,14 @@ function saveDraft() {
 }
 
 function save() {
-  api.patch(`/api/v2/test-case/${caseId}`, form.value).then(() => {
+  const estimatedDuration = form.value.estimated_duration_seconds
+  const payload = {
+    ...form.value,
+    estimated_duration_seconds: estimatedDuration === '' || estimatedDuration === null || estimatedDuration === undefined
+      ? null
+      : Number(estimatedDuration)
+  }
+  api.patch(`/api/v2/test-case/${caseId}`, payload).then(() => {
     localStorage.removeItem(draftKey)
     router.push(`/space/${spaceId.value}/test-cases/${caseId}`)
   })

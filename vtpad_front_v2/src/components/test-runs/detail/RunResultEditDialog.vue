@@ -22,6 +22,11 @@
           :model-value="result.duration_seconds"
           label="Duration (seconds)"
           type="number"
+          min="0"
+          step="1"
+          clearable
+          hint="Leave empty when unmeasured. Zero is a valid duration."
+          persistent-hint
           class="mb-2"
           @update:model-value="updateField('duration_seconds', $event)"
         />

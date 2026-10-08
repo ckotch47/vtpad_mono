@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
@@ -26,7 +26,7 @@ class TestRunUpdateDto(BaseModel):
 
 class TestResultUpdateDto(BaseModel):
     status: Optional[str] = None
-    duration_seconds: Optional[int] = None
+    duration_seconds: Optional[int] = Field(default=None, ge=0)
     comment: Optional[str] = None
     linked_bug_ids: Optional[List[str]] = None
 
@@ -34,4 +34,3 @@ class TestResultUpdateDto(BaseModel):
 class TestResultBulkUpdateDto(BaseModel):
     result_ids: List[str]
     status: str
-

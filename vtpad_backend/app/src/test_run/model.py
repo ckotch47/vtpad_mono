@@ -69,3 +69,14 @@ class TestResultModel(Model):
         table = "test_result"
 
 
+class TestRunTimerIntervalModel(Model):
+    id = fields.UUIDField(pk=True, index=True)
+    run = fields.ForeignKeyField(
+        'models.TestRunModel', related_name='timer_intervals', on_delete=fields.CASCADE
+    )
+    started_at = fields.DatetimeField(null=False)
+    ended_at = fields.DatetimeField(null=True)
+    actor_id = fields.UUIDField(null=True)
+
+    class Meta:
+        table = "test_run_timer_interval"

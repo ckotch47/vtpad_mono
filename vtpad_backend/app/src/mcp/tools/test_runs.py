@@ -27,6 +27,46 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+async def _transition_run(run_id: str, action: str) -> dict:
+    request = get_http_request()
+    run = await TestRunService.get_by_id(run_id)
+    await check_user_into_space(str(run.space_id), request)
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    transition = getattr(TestRunService, action)
+    updated = await transition(run_id, token)
+    return {
+        'id': str(updated.id),
+        'status': updated.status.value if hasattr(updated.status, 'value') else updated.status,
+        'started_at': updated.started_at.isoformat() if updated.started_at else None,
+        'completed_at': updated.completed_at.isoformat() if updated.completed_at else None,
+        'timer': await TestRunService.get_timer(run_id),
+    }
+
+
+@mcp.tool()
+async def start_test_run(run_id: str) -> dict:
+    """Start a draft run and its shared timer."""
+    return await _transition_run(run_id, 'start')
+
+
+@mcp.tool()
+async def pause_test_run(run_id: str) -> dict:
+    """Pause the shared timer for an active run."""
+    return await _transition_run(run_id, 'pause')
+
+
+@mcp.tool()
+async def resume_test_run(run_id: str) -> dict:
+    """Resume the shared timer for a paused run."""
+    return await _transition_run(run_id, 'resume')
+
+
+@mcp.tool()
+async def complete_test_run(run_id: str) -> dict:
+    """Complete an active run and close its timer interval."""
+    return await _transition_run(run_id, 'complete')
+
+
 @mcp.tool()
 async def create_test_run(
     space_id: str,
@@ -92,7 +132,7 @@ async def get_run_results(run_id: str) -> dict | None:
 @mcp.tool()
 async def update_test_result(
     result_id: str,
-    status: str,
+    status: str | None = None,
     comment: str | None = None,
     duration_seconds: int | None = None,
 ) -> dict:
@@ -100,7 +140,7 @@ async def update_test_result(
 
     Args:
         result_id: UUID of the test result
-        status: New status: passed | failed | skipped | blocked | not_run
+        status: Optional new status: passed | failed | skipped | blocked | not_run
         comment: Optional comment
         duration_seconds: Optional duration in seconds
 

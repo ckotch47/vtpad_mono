@@ -165,16 +165,28 @@
                 item-value="id"
                 @update:options="loadRunHistory"
               >
-                <template v-slot:item.status="{ item }">
+                <template v-slot:[`item.status`]="{ item }">
                   <v-chip size="small" :color="resultStatusColor(item.status)">{{ item.status }}</v-chip>
                 </template>
-                <template v-slot:item.run_name="{ item }">
+                <template v-slot:[`item.run_name`]="{ item }">
                   <router-link :to="`/space/${spaceId}/test-runs/${item.run_id}`">
                     {{ item.run_name }}
                   </router-link>
                 </template>
-                <template v-slot:item.executed_at="{ item }">
+                <template v-slot:[`item.executed_at`]="{ item }">
                   {{ formatDate(item.executed_at) }}
+                </template>
+                <template v-slot:[`item.duration_seconds`]="{ item }">
+                  {{ formatDuration(item.duration_seconds) }}
+                </template>
+                <template v-slot:[`item.run_timer.calendar_seconds`]="{ item }">
+                  {{ formatDuration(item.run_timer?.calendar_seconds) }}
+                </template>
+                <template v-slot:[`item.run_timer.active_seconds`]="{ item }">
+                  {{ formatDuration(item.run_timer?.active_seconds) }}
+                </template>
+                <template v-slot:[`item.run_timer.paused_seconds`]="{ item }">
+                  {{ formatDuration(item.run_timer?.paused_seconds) }}
                 </template>
               </v-data-table-server>
             </v-card-text>
@@ -231,7 +243,10 @@ const restoringVersion = ref(false)
 const historyHeaders = computed(() => [
   { title: 'Run', key: 'run_name', sortable: false },
   { title: 'Status', key: 'status', sortable: false },
-  { title: 'Duration (s)', key: 'duration_seconds', sortable: false },
+  { title: 'Case duration', key: 'duration_seconds', sortable: false },
+  { title: 'Run calendar time', key: 'run_timer.calendar_seconds', sortable: false },
+  { title: 'Run active time', key: 'run_timer.active_seconds', sortable: false },
+  { title: 'Run paused time', key: 'run_timer.paused_seconds', sortable: false },
   { title: 'Comment', key: 'comment', sortable: false },
   { title: 'Executed', key: 'executed_at', sortable: false }
 ])
@@ -301,6 +316,17 @@ function resultStatusColor(status) {
 
 function formatDate(date) {
   return date ? new Date(date).toLocaleDateString() : ''
+}
+
+function formatDuration(seconds) {
+  if (seconds === null || seconds === undefined) return 'No data'
+  const total = Math.max(0, Math.floor(seconds))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const remainder = total % 60
+  return hours > 0
+    ? `${hours}h ${String(minutes).padStart(2, '0')}m ${String(remainder).padStart(2, '0')}s`
+    : `${minutes}m ${String(remainder).padStart(2, '0')}s`
 }
 
 onMounted(() => {

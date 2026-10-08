@@ -1,0 +1,11 @@
+{
+  "data": [
+    "ALTER TABLE test_case ADD COLUMN IF NOT EXISTS estimated_duration_seconds INTEGER NULL",
+    "ALTER TABLE test_case_version ADD COLUMN IF NOT EXISTS estimated_duration_seconds INTEGER NULL",
+    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_test_case_estimated_duration_nonnegative' AND conrelid = 'test_case'::regclass) THEN ALTER TABLE test_case ADD CONSTRAINT chk_test_case_estimated_duration_nonnegative CHECK (estimated_duration_seconds IS NULL OR estimated_duration_seconds >= 0) NOT VALID; END IF; END $$",
+    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_test_case_version_estimated_duration_nonnegative' AND conrelid = 'test_case_version'::regclass) THEN ALTER TABLE test_case_version ADD CONSTRAINT chk_test_case_version_estimated_duration_nonnegative CHECK (estimated_duration_seconds IS NULL OR estimated_duration_seconds >= 0) NOT VALID; END IF; END $$",
+    "CREATE TABLE IF NOT EXISTS test_run_timer_interval (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), run_id UUID NOT NULL REFERENCES test_run(id) ON DELETE CASCADE, started_at TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ NULL, actor_id UUID NULL, CONSTRAINT chk_test_run_timer_interval_order CHECK (ended_at IS NULL OR ended_at >= started_at))",
+    "CREATE INDEX IF NOT EXISTS ix_test_run_timer_interval_run_started ON test_run_timer_interval (run_id, started_at)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_test_run_timer_interval_open ON test_run_timer_interval (run_id) WHERE ended_at IS NULL"
+  ]
+}

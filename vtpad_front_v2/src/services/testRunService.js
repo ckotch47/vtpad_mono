@@ -11,6 +11,8 @@ export const testRunService = {
   create: (data) => api.post('/api/v2/test-run/', data),
   update: (id, data) => api.patch(`/api/v2/test-run/${id}`, data),
   start: (id) => api.post(`/api/v2/test-run/${id}/start`),
+  pause: (id) => api.post(`/api/v2/test-run/${id}/pause`),
+  resume: (id) => api.post(`/api/v2/test-run/${id}/resume`),
   complete: (id) => api.post(`/api/v2/test-run/${id}/complete`),
   delete: (id) => api.delete(`/api/v2/test-run/${id}`),
 

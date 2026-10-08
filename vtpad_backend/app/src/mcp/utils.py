@@ -10,22 +10,31 @@ def _get_user_id() -> str:
 
 
 def _case_to_dict(case: TestCaseModel) -> dict:
+    value = case.get if isinstance(case, dict) else lambda key: getattr(case, key, None)
+    case_type = value('type')
+    case_status = value('status')
+    space_id = value('space_id')
+    suite_id = value('suite_id')
+    section_id = value('section_id')
+    created_at = value('created_at')
+    updated_at = value('updated_at')
     return {
-        "id": str(case.id),
-        "title": case.title,
-        "type": case.type.value if hasattr(case.type, "value") else case.type,
-        "status": case.status.value if hasattr(case.status, "value") else case.status,
-        "description": case.text,
-        "preconditions": case.preconditions,
-        "steps": case.steps,
-        "expected_results": case.expected_results,
-        "postconditions": case.postconditions,
-        "short_name": case.short_name,
-        "external_id": case.external_id,
-        "space_id": str(case.space_id) if case.space_id else None,
-        "suite_id": str(case.suite_id) if case.suite_id else None,
-        "section_id": str(case.section_id) if case.section_id else None,
-        "sort": case.sort,
-        "created_at": case.created_at.isoformat() if case.created_at else None,
-        "updated_at": case.updated_at.isoformat() if case.updated_at else None,
+        "id": str(value('id')),
+        "title": value('title'),
+        "type": case_type.value if hasattr(case_type, "value") else case_type,
+        "status": case_status.value if hasattr(case_status, "value") else case_status,
+        "description": value('text'),
+        "preconditions": value('preconditions'),
+        "steps": value('steps'),
+        "expected_results": value('expected_results'),
+        "postconditions": value('postconditions'),
+        "estimated_duration_seconds": value('estimated_duration_seconds'),
+        "short_name": value('short_name'),
+        "external_id": value('external_id'),
+        "space_id": str(space_id) if space_id else None,
+        "suite_id": str(suite_id) if suite_id else None,
+        "section_id": str(section_id) if section_id else None,
+        "sort": value('sort'),
+        "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
+        "updated_at": updated_at.isoformat() if hasattr(updated_at, 'isoformat') else updated_at,
     }

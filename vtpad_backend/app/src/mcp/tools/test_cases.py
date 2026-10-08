@@ -101,6 +101,7 @@ async def create_test_case(
     postconditions: str | None = None,
     short_name: str | None = None,
     external_id: str | None = None,
+    estimated_duration_seconds: int | None = None,
 ) -> dict:
     """Create a new test case.
 
@@ -117,6 +118,7 @@ async def create_test_case(
         postconditions: Optional postconditions
         short_name: Optional short identifier
         external_id: Optional external ID (for automated tests)
+        estimated_duration_seconds: Optional time estimate in seconds
 
     Returns:
         Created test case details
@@ -139,6 +141,7 @@ async def create_test_case(
         postconditions=postconditions,
         short_name=short_name,
         external_id=external_id,
+        estimated_duration_seconds=estimated_duration_seconds,
     )
     case = await TestCaseService.create(dto, token)
     return _case_to_dict(case)
@@ -158,6 +161,8 @@ async def update_test_case(
     suite_id: str | None = None,
     short_name: str | None = None,
     external_id: str | None = None,
+    estimated_duration_seconds: int | None = None,
+    clear_estimated_duration: bool = False,
 ) -> dict:
     """Update a test case.
 
@@ -175,6 +180,8 @@ async def update_test_case(
         suite_id: New suite UUID
         short_name: New short identifier
         external_id: New external ID
+        estimated_duration_seconds: New estimate in seconds
+        clear_estimated_duration: Clear a previously saved estimate
 
     Returns:
         Updated test case details
@@ -193,11 +200,14 @@ async def update_test_case(
         'suite_id': suite_id,
         'short_name': short_name,
         'external_id': external_id,
+        'estimated_duration_seconds': estimated_duration_seconds,
     }
     # MCP optional arguments are materialized as None even when absent. Keep
     # that legacy omit behavior; only the REST PATCH can explicitly detach a
     # case by sending JSON `section_id: null`.
     dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
+    if clear_estimated_duration:
+        dto = TestCaseUpdateDto(**{**dto.model_dump(exclude_unset=True), 'estimated_duration_seconds': None})
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.update(case_id, dto, token)
     return _case_to_dict(case)
@@ -298,19 +308,23 @@ async def get_case_history(case_id: str, limit: int = 20) -> list[dict]:
         List of test results for this case
     """
     await _require_case_access(case_id)
-    results = await TestResultModel.filter(testcase_id=case_id).prefetch_related("run").order_by("-created_at").limit(limit)
-    items = []
-    for r in results:
-        items.append({
-            "id": str(r.id),
-            "run_id": str(r.run_id),
-            "run_name": r.run.name if r.run else None,
-            "status": r.status.value if hasattr(r.status, "value") else r.status,
-            "duration_seconds": r.duration_seconds,
-            "comment": r.comment,
-            "executed_at": r.executed_at.isoformat() if r.executed_at else None,
-        })
-    return items
+    history = await TestCaseService.get_run_history(
+        case_id, page=1, page_size=max(1, min(limit, 100))
+    )
+    return [
+        {
+            "id": item["id"],
+            "run_id": item["run_id"],
+            "run_name": item["run_name"],
+            "status": item["status"].value if hasattr(item["status"], "value") else item["status"],
+            "duration_seconds": item["duration_seconds"],
+            "estimated_duration_seconds": item["estimated_duration_seconds"],
+            "run_timer": item["run_timer"],
+            "comment": item["comment"],
+            "executed_at": item["executed_at"],
+        }
+        for item in history["items"]
+    ]
 
 @mcp.tool()
 async def find_similar_cases(

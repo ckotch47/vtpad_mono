@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from pydantic import Field
 from typing import List, Optional
 
 
@@ -16,6 +17,7 @@ class TestCaseCreateDto(BaseModel):
     short_name: Optional[str] = None
     link: Optional[str] = None
     external_id: Optional[str] = None
+    estimated_duration_seconds: Optional[int] = Field(default=None, ge=0)
 
 
 class TestCaseUpdateDto(BaseModel):
@@ -32,6 +34,7 @@ class TestCaseUpdateDto(BaseModel):
     short_name: Optional[str] = None
     link: Optional[str] = None
     external_id: Optional[str] = None
+    estimated_duration_seconds: Optional[int] = Field(default=None, ge=0)
     sort: Optional[int] = None
 
 

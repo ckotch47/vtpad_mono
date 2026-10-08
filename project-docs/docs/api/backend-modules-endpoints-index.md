@@ -233,7 +233,7 @@ All REST routes require JWT and space access. Create/update reject a parent docu
 ### `app/src/test_case`
 - `GET /api/v2/test-case/space/{space_id}` and `GET /api/v2/test-case/{testcase_id}` expose `estimated_duration_seconds`.
 - `POST /api/v2/test-case/` and `PATCH /api/v2/test-case/{testcase_id}` accept a non-negative nullable estimate; version, restore, duplicate, and run snapshot paths preserve it.
-- `POST /api/v2/test-case/{testcase_id}/move` accepts required `{suite_id, section_id}`; nullable `section_id: null` targets the suite's virtual Default section. The shared move service validates same-space suite/section placement and does not create a content version. MCP `move_test_case` uses the same contract and service.
+- `POST /api/v2/test-case/{testcase_id}/move` accepts required `{suite_id, section_id}`; nullable `section_id: null` targets the suite's virtual Default section. The shared move service validates same-space suite/section placement and does not create a content version.
 - `GET /api/v2/test-case/{testcase_id}/runs` includes linked run timing when available.
 - `GET /api/v2/test-case/{testcase_id}/versions`
 - `GET /api/v2/test-case/{testcase_id}/versions/{version_id}`
@@ -241,7 +241,7 @@ All REST routes require JWT and space access. Create/update reject a parent docu
 - `POST /api/v2/test-case/{testcase_id}/versions/{version_id}/restore`
 - `GET/PUT /api/v2/test-case/{testcase_id}/tech-docs`
 
-MCP `move_test_case(case_id, suite_id, section_id)` requires an explicit destination; `section_id: null` means the destination suite's Default section. Both REST and MCP use the same placement validation and return the moved case/location.
+MCP preserves the legacy `move_test_case(case_id, suite_id=None, section_id=None)` signature, partial-update behavior, and testcase response shape for existing callers. New integrations should use `move_test_case_to_location(case_id, suite_id, section_id)` for explicit placement; both destination arguments are required, and callers must pass `section_id: null` to target the destination suite's virtual Default section. This new tool shares placement validation with the REST move endpoint and does not create a content version.
 
 ### `app/src/traceability`
 - `GET/PUT /api/v2/tech-doc/{tech_doc_id}/test-cases`

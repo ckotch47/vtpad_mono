@@ -262,10 +262,34 @@ async def duplicate_test_case(case_id: str) -> dict:
 @mcp.tool()
 async def move_test_case(
     case_id: str,
+    suite_id: str | None = None,
+    section_id: str | None = None,
+) -> dict:
+    """Legacy partial update of a test case's suite and/or section.
+
+    Args:
+        case_id: UUID of the test case
+        suite_id: Optional new suite UUID
+        section_id: Optional new section UUID
+
+    Returns:
+        Updated test case
+    """
+    await _require_case_access(case_id)
+    values = {'suite_id': suite_id, 'section_id': section_id}
+    dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
+    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    case = await TestCaseService.update(case_id, dto, token)
+    return _case_to_dict(case)
+
+
+@mcp.tool()
+async def move_test_case_to_location(
+    case_id: str,
     suite_id: str,
     section_id: str | None,
 ) -> dict:
-    """Move a test case to another suite or section.
+    """Move a test case to an explicit suite location; null section means Default.
 
     Args:
         case_id: UUID of the test case

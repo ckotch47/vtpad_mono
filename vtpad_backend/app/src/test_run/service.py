@@ -71,11 +71,12 @@ class TestRunService:
         return source, testcases
 
     @staticmethod
-    def _build_case_snapshot(testcase, version=None):
+    def _build_case_snapshot(testcase, version=None, location=None):
         # The run snapshot always reflects the case at selection time.  Some
         # legacy version rows were written before the corresponding update, so
         # they are useful as identifiers but must not replace current content.
         fields_source = testcase
+        location = location or {}
         return {
             'testcase_id': str(testcase.id),
             'testcase_version_id': str(version.id) if version else None,
@@ -91,13 +92,91 @@ class TestRunService:
             'status': testcase.status.value if hasattr(testcase.status, 'value') else testcase.status,
             'short_name': testcase.short_name,
             'link': testcase.link,
-            'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
-            'section': {
-                'id': str(testcase.section.id),
-                'name': testcase.section.name,
-            } if getattr(testcase, 'section', None) else None,
+            'suite_id': location.get('suite_id'),
+            'suite_name': location.get('suite_name'),
+            'section_path': location.get('section_path', []),
+            'section': location.get('section'),
             'captured_at': datetime.now(timezone.utc).isoformat(),
         }
+
+    @staticmethod
+    async def _resolve_case_locations(testcases):
+        """Return only suite/section labels proven to belong to each testcase space."""
+        from ..section.model import SectionModel
+        from ..test_suite.model import TestSuiteModel
+
+        direct_section_ids = {
+            str(testcase.section_id)
+            for testcase in testcases
+            if getattr(testcase, 'section_id', None)
+        }
+        direct_sections = await SectionModel.filter(id__in=list(direct_section_ids)).all() if direct_section_ids else []
+        direct_by_id = {str(section.id): section for section in direct_sections}
+        candidate_suite_ids = {
+            str(testcase.suite_id)
+            for testcase in testcases
+            if getattr(testcase, 'suite_id', None)
+        }
+        candidate_suite_ids.update(
+            str(section.suite_id) for section in direct_sections if section.suite_id
+        )
+        suites = await TestSuiteModel.filter(id__in=list(candidate_suite_ids)).all() if candidate_suite_ids else []
+        suites_by_id = {str(suite.id): suite for suite in suites}
+        all_sections = await SectionModel.filter(suite_id__in=list(candidate_suite_ids)).all() if candidate_suite_ids else []
+        sections_by_id = {str(section.id): section for section in all_sections}
+        sections_by_id.update(direct_by_id)
+
+        locations = {}
+        for testcase in testcases:
+            direct = direct_by_id.get(str(testcase.section_id)) if testcase.section_id else None
+            suite_id = str(testcase.suite_id) if testcase.suite_id else (
+                str(direct.suite_id) if direct and direct.suite_id else None
+            )
+            suite = suites_by_id.get(suite_id) if suite_id else None
+            if not suite or str(suite.space_id) != str(testcase.space_id):
+                locations[str(testcase.id)] = {
+                    'suite_id': None,
+                    'suite_name': None,
+                    'section_path': [],
+                    'section': None,
+                }
+                continue
+
+            path = []
+            current = direct
+            visited = set()
+            valid_path = True
+            while current:
+                current_id = str(current.id)
+                if current_id in visited or str(current.suite_id) != suite_id:
+                    valid_path = False
+                    break
+                visited.add(current_id)
+                path.append({'id': current_id, 'name': current.name, 'sort': current.sort})
+                parent_id = str(current.parent_id) if current.parent_id else None
+                if not parent_id:
+                    break
+                current = sections_by_id.get(parent_id)
+                if current is None:
+                    valid_path = False
+                    break
+            if not valid_path:
+                locations[str(testcase.id)] = {
+                    'suite_id': None,
+                    'suite_name': None,
+                    'section_path': [],
+                    'section': None,
+                }
+                continue
+
+            path.reverse()
+            locations[str(testcase.id)] = {
+                'suite_id': suite_id,
+                'suite_name': suite.name,
+                'section_path': path,
+                'section': {'id': str(direct.id), 'name': direct.name} if direct else None,
+            }
+        return locations
 
     @staticmethod
     def _selection_hash(source: dict, snapshots: list[dict]) -> str:
@@ -119,6 +198,8 @@ class TestRunService:
                     'status': snapshot['status'],
                     'suite_id': snapshot['suite_id'],
                     'section': snapshot['section'],
+                    'suite_name': snapshot['suite_name'],
+                    'section_path': snapshot['section_path'],
                 }
                 for snapshot in snapshots
             ],
@@ -138,12 +219,14 @@ class TestRunService:
         latest_versions = {}
         for version in versions:
             latest_versions.setdefault(str(version.testcase_id), version)
-        snapshots = [
-            TestRunService._build_case_snapshot(
-                testcase, latest_versions.get(str(testcase.id))
-            )
-            for testcase in testcases
-        ]
+        locations = await TestRunService._resolve_case_locations(testcases)
+        snapshots = []
+        for testcase in testcases:
+            snapshots.append(TestRunService._build_case_snapshot(
+                testcase,
+                latest_versions.get(str(testcase.id)),
+                location=locations.get(str(testcase.id)),
+            ))
         return source, testcases, snapshots, TestRunService._selection_hash(source, snapshots)
 
     @staticmethod
@@ -160,6 +243,9 @@ class TestRunService:
                     'version_number': snapshot['version_number'],
                     'title': snapshot['title'],
                     'section': snapshot['section'],
+                    'suite_id': snapshot['suite_id'],
+                    'suite_name': snapshot['suite_name'],
+                    'section_path': snapshot['section_path'],
                     'estimated_duration_seconds': snapshot['estimated_duration_seconds'],
                 }
                 for snapshot in snapshots
@@ -300,7 +386,7 @@ class TestRunService:
         }
 
     @staticmethod
-    def _serialize_result(r):
+    def _serialize_result(r, legacy_location=None):
         testcase = r.testcase
         snapshot = r.testcase_snapshot
         if snapshot:
@@ -309,6 +395,9 @@ class TestRunService:
                 'title': snapshot['title'],
                 'type': snapshot.get('type'),
                 'section': snapshot.get('section'),
+                'suite_id': snapshot.get('suite_id'),
+                'suite_name': snapshot.get('suite_name'),
+                'section_path': snapshot.get('section_path') or [],
                 'version_id': snapshot.get('testcase_version_id'),
                 'version_number': snapshot.get('version_number'),
                 'text': snapshot.get('text'),
@@ -320,14 +409,15 @@ class TestRunService:
                 'is_snapshot': True,
             }
         else:
+            legacy_location = legacy_location or {}
             testcase_data = {
                 'id': str(testcase.id),
                 'title': testcase.title,
                 'type': testcase.type,
-                'section': {
-                    'id': str(testcase.section.id),
-                    'name': testcase.section.name,
-                } if testcase.section else None,
+                'section': legacy_location.get('section'),
+                'suite_id': legacy_location.get('suite_id'),
+                'suite_name': legacy_location.get('suite_name'),
+                'section_path': legacy_location.get('section_path', []),
                 'estimated_duration_seconds': None,
                 'is_snapshot': False,
             } if testcase else None
@@ -350,7 +440,15 @@ class TestRunService:
         run = await TestRunService.get_by_id(run_id)
         results = await TestResultModel.filter(run_id=run_id).prefetch_related('testcase', 'testcase__section').order_by('testcase__section__sort', 'testcase__sort')
         stats = TestRunService._compute_result_stats(results)
-        results_data = [TestRunService._serialize_result(r) for r in results]
+        legacy_cases = [
+            result.testcase for result in results
+            if not result.testcase_snapshot and result.testcase
+        ]
+        legacy_locations = await TestRunService._resolve_case_locations(legacy_cases) if legacy_cases else {}
+        results_data = []
+        for result in results:
+            location = legacy_locations.get(str(result.testcase.id)) if not result.testcase_snapshot and result.testcase else None
+            results_data.append(TestRunService._serialize_result(result, location))
         return {
             'run': {
                 'id': str(run.id),

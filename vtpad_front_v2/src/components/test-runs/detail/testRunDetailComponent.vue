@@ -99,12 +99,51 @@
           <v-btn size="small" color="primary" :loading="bulkUpdating" :disabled="run.status !== 'active' || !selectedResultIds.length" @click="bulkUpdateResults">Apply</v-btn>
         </v-col>
       </v-row>
-      <v-row>
-        <v-col>
-          <v-card v-for="group in groupedResults" :key="group.sectionId || 'no-section'" class="mb-4">
+      <v-row v-if="groupedResults.length" class="align-start">
+        <v-col cols="12" md="3" lg="2" class="py-0">
+          <nav aria-label="Run result groups" class="group-navigation-desktop d-none d-md-block">
+            <div class="text-subtitle-2 font-weight-bold mb-2">Groups</div>
+            <v-list density="compact" nav class="pa-0">
+              <v-list-item
+                v-for="group in groupedResults"
+                :key="group.id"
+                :href="`#${group.headingId}`"
+                :aria-label="`${group.accessibleName}, ${group.results.length} visible results`"
+                @click.prevent="goToGroup(group)"
+              >
+                <v-list-item-title class="text-body-2 text-wrap">{{ group.navigationName }}</v-list-item-title>
+                <template #append>
+                  <v-chip size="x-small" color="primary">{{ group.results.length }}</v-chip>
+                </template>
+              </v-list-item>
+            </v-list>
+          </nav>
+        </v-col>
+        <v-col cols="12" md="9" lg="10" class="py-0">
+          <nav aria-label="Run result groups" class="group-navigation-mobile d-md-none mb-3">
+            <div class="d-flex ga-2 overflow-x-auto pb-2">
+              <v-btn
+                v-for="group in groupedResults"
+                :key="group.id"
+                :href="`#${group.headingId}`"
+                variant="outlined"
+                size="small"
+                :aria-label="`${group.accessibleName}, ${group.results.length} visible results`"
+                @click.prevent="goToGroup(group)"
+              >
+                <span class="text-truncate">{{ group.navigationName }}</span>
+                <v-chip size="x-small" color="primary" class="ml-2">{{ group.results.length }}</v-chip>
+              </v-btn>
+            </div>
+          </nav>
+
+          <v-card v-for="group in groupedResults" :id="group.headingId" :key="group.id" class="mb-4">
             <v-card-title class="d-flex align-center py-3">
               <v-icon class="mr-2">mdi-folder-outline</v-icon>
-              {{ group.sectionName }}
+              <h2 :id="`${group.headingId}-title`" tabindex="-1" class="text-subtitle-1 font-weight-medium group-heading mb-0">
+                <span v-if="group.suiteDisplayName" class="text-medium-emphasis">{{ group.suiteDisplayName }} / </span>
+                {{ group.pathName }}
+              </h2>
               <v-chip size="small" class="ml-2" color="primary">{{ group.results.length }}</v-chip>
             </v-card-title>
             <v-divider />
@@ -196,9 +235,15 @@
             </v-card-text>
           </v-card>
 
-          <v-card v-if="groupedResults.length === 0" class="text-center pa-10" variant="outlined">
+        </v-col>
+      </v-row>
+      <v-row v-else>
+        <v-col>
+          <v-card class="text-center pa-10" variant="outlined">
             <v-icon size="64" color="grey-lighten-1">mdi-playlist-remove</v-icon>
-            <div class="text-h6 text-grey mt-4">No test cases in this run</div>
+            <div class="text-h6 text-grey mt-4">
+              {{ results.length ? 'No test cases match this filter' : 'No test cases in this run' }}
+            </div>
           </v-card>
         </v-col>
       </v-row>
@@ -262,20 +307,80 @@ const timerActionLoading = ref(false)
 const timerRefreshLoading = ref(false)
 
 const groupedResults = computed(() => {
-  const map = {}
+  const groups = new Map()
   const visibleResults = resultFilter.value === 'all'
     ? results.value
     : results.value.filter((result) => result.status === resultFilter.value)
-  for (const r of visibleResults) {
-    const sectionId = r.testcase?.section?.id || 'no-section'
-    const sectionName = r.testcase?.section?.name || 'Default'
-    if (!map[sectionId]) {
-      map[sectionId] = { sectionId, sectionName, results: [] }
+  for (const result of visibleResults) {
+    const testcase = result.testcase || {}
+    const suiteId = testcase.suite_id ?? 'default-suite'
+    const suiteName = testcase.suite_name || ''
+    const suiteDisplayName = suiteName || (suiteId === 'default-suite' ? '' : `Suite ${String(suiteId).slice(0, 8)}`)
+    const sectionPath = getSectionPath(testcase)
+    const pathKey = sectionPath.map((section) => section.id ?? section.name)
+    const key = JSON.stringify([suiteId, suiteName, pathKey])
+    if (!groups.has(key)) {
+      const pathName = sectionPath.map((section) => section.name).filter(Boolean).join(' / ') || 'Default'
+      const headingId = `run-group-${encodeGroupKey(key)}`
+      groups.set(key, {
+        id: key,
+        headingId,
+        suiteId,
+        suiteName,
+        suiteDisplayName,
+        pathOrder: sectionPath,
+        pathName,
+        navigationName: suiteDisplayName ? `${suiteDisplayName} / ${pathName}` : pathName,
+        accessibleName: suiteDisplayName ? `${suiteDisplayName}, ${pathName}` : pathName,
+        results: []
+      })
     }
-    map[sectionId].results.push(r)
+    groups.get(key).results.push(result)
   }
-  return Object.values(map)
+  return [...groups.values()].sort(compareGroups)
 })
+
+function getSectionPath(testcase) {
+  if (Array.isArray(testcase.section_path)) {
+    const savedPath = testcase.section_path.filter((section) => section && typeof section === 'object')
+    if (savedPath.length) return savedPath
+  }
+  if (testcase.section && typeof testcase.section === 'object' && (testcase.section.id || testcase.section.name)) {
+    return [testcase.section]
+  }
+  return []
+}
+
+function encodeGroupKey(key) {
+  return Array.from(key).map((character) => character.codePointAt(0).toString(16)).join('-')
+}
+
+function compareGroups(left, right) {
+  const suiteNameOrder = left.suiteName.localeCompare(right.suiteName)
+  if (suiteNameOrder !== 0) return suiteNameOrder
+  const suiteIdOrder = String(left.suiteId).localeCompare(String(right.suiteId))
+  if (suiteIdOrder !== 0) return suiteIdOrder
+  const length = Math.max(left.pathOrder.length, right.pathOrder.length)
+  for (let index = 0; index < length; index += 1) {
+    const leftSection = left.pathOrder[index]
+    const rightSection = right.pathOrder[index]
+    if (!leftSection || !rightSection) return leftSection ? 1 : -1
+    const leftSort = getSectionSortOrder(leftSection.sort)
+    const rightSort = getSectionSortOrder(rightSection.sort)
+    if (leftSort !== rightSort) return leftSort - rightSort
+    const nameOrder = String(leftSection.name || '').localeCompare(String(rightSection.name || ''))
+    if (nameOrder !== 0) return nameOrder
+    const idOrder = String(leftSection.id || '').localeCompare(String(rightSection.id || ''))
+    if (idOrder !== 0) return idOrder
+  }
+  return 0
+}
+
+function getSectionSortOrder(sort) {
+  if (sort === null || sort === undefined || sort === '') return Number.MAX_SAFE_INTEGER
+  const numericSort = Number(sort)
+  return Number.isFinite(numericSort) ? numericSort : Number.MAX_SAFE_INTEGER
+}
 
 const nextNotRunResult = computed(() => results.value.find((result) => result.status === 'not_run'))
 
@@ -437,6 +542,16 @@ function goToNextNotRun() {
   requestAnimationFrame(() => document.getElementById(`result-${nextNotRunResult.value.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
 }
 
+function goToGroup(group) {
+  requestAnimationFrame(() => {
+    const heading = document.getElementById(`${group.headingId}-title`)
+    if (!heading) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    heading.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    heading.focus({ preventScroll: true })
+  })
+}
+
 async function bulkUpdateResults() {
   if (run.value.status !== 'active' || !selectedResultIds.value.length) return
   bulkUpdating.value = true
@@ -542,5 +657,18 @@ onMounted(() => {
 }
 .cursor-pointer {
   cursor: pointer;
+}
+.group-navigation-desktop {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.group-heading {
+  scroll-margin-top: 16px;
+}
+.group-heading:focus {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
 }
 </style>

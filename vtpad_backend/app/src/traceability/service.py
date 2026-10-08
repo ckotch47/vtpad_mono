@@ -42,6 +42,9 @@ class TraceabilityService:
 
     @staticmethod
     async def unlink(tech_doc_id: str, testcase_id: str) -> bool:
+        # Enforce the relation invariant in the service as well as at the HTTP
+        # boundary so MCP and future callers cannot remove cross-space links.
+        await TraceabilityService._get_same_space_pair(tech_doc_id, testcase_id)
         deleted = await TechDocTestCaseLinkModel.filter(
             tech_doc_id=tech_doc_id,
             testcase_id=testcase_id,

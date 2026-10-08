@@ -14,6 +14,18 @@ from ..space.model import SpaceModel
 
 class TechDocService:
     @staticmethod
+    async def _sanitize_parent_links(docs: list[TechDocModel]) -> None:
+        """Hide stale/cross-space parent IDs from read responses."""
+        parent_ids = {str(doc.parent_id) for doc in docs if doc.parent_id}
+        if not parent_ids:
+            return
+        parents = await TechDocModel.filter(id__in=parent_ids).values("id", "space_id")
+        valid_pairs = {(str(parent["id"]), str(parent["space_id"])) for parent in parents}
+        for doc in docs:
+            if doc.parent_id and (str(doc.parent_id), str(doc.space_id)) not in valid_pairs:
+                doc.parent_id = None
+
+    @staticmethod
     async def _validate_parent(
         parent_id: Optional[str],
         space_id: str,
@@ -93,6 +105,7 @@ class TechDocService:
         doc = await TechDocModel.get_or_none(id=doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Tech doc not found")
+        await TechDocService._sanitize_parent_links([doc])
         return doc
 
     @staticmethod
@@ -110,7 +123,9 @@ class TechDocService:
         if query:
             q = q.filter(Q(title__icontains=query) | Q(content__icontains=query))
 
-        return await paginate(q, page, page_size, sort_by="sort", sort_order="asc")
+        result = await paginate(q, page, page_size, sort_by="sort", sort_order="asc")
+        await TechDocService._sanitize_parent_links(result["items"])
+        return result
 
     @staticmethod
     async def get_tree(space_id: str) -> list[dict]:
@@ -127,6 +142,12 @@ class TechDocService:
                 "sort": d.sort,
                 "children": [],
             }
+
+        # A broken legacy cross-space parent is treated as a root. Do not expose
+        # the foreign document ID in REST or MCP tree responses.
+        for node in doc_map.values():
+            if node["parent_id"] and node["parent_id"] not in doc_map:
+                node["parent_id"] = None
 
         root = []
         for d_id, node in doc_map.items():

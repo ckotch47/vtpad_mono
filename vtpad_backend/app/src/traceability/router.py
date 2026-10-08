@@ -51,6 +51,7 @@ async def link_tech_doc_to_testcase(tech_doc_id: str, testcase_id: str, request:
 @router.delete('/tech-doc/{tech_doc_id}/test-case/{testcase_id}', dependencies=[Depends(bearer)])
 async def unlink_tech_doc_from_testcase(tech_doc_id: str, testcase_id: str, request: Request):
     await _require_tech_doc_access(tech_doc_id, request)
+    await _require_testcase_access(testcase_id, request)
     return await TraceabilityService.unlink(tech_doc_id, testcase_id)
 
 

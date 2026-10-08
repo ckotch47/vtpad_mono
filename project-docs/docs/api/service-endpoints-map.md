@@ -121,7 +121,7 @@
 | GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
 | GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |
 | POST | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | создаёт same-space связь Tech Doc и testcase |
-| DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | удаляет связь Tech Doc и testcase |
+| DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + access to both spaces | удаляет связь только для same-space пары; service повторяет проверку |
 
 ### V2 Sections
 

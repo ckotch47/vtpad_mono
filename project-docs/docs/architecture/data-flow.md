@@ -31,6 +31,7 @@
 - Frontend: `PATCH /runitems/{id}` -> backend -> update status (pass/fail/skip etc).
 
 ### Test Suite -> Test Case linking
+- Both `/space/:spaceId/test-suites` and `/space/:spaceId/test-suites/:suiteId` render the same workspace: a searchable, status-filtered, server-paginated flat suite navigator beside the selected suite detail. The route parameter is the selected suite; selecting a row pushes its URL, so direct links and browser Back/Forward restore selection. On narrow viewports the workspace shows the list or detail panel, and the detail provides a return-to-list link. The list query (page, page size, search, status and sort) stays in the URL. This is frontend navigation only; no REST/MCP or database contract changed.
 - Frontend: search and selection for "existing test cases" in suite detail -> `GET /api/v2/test-case/space/{space_id}?search=...` -> backend -> PostgreSQL -> JSON response with `items`.
 - Backend search for test cases matches `title`, `short_name`, `text`, `steps`, `expected_results`, `preconditions`, `postconditions`, `external_id`, and `link`.
 - Suite detail has a UI-only `Default` section when the suite has no persisted sections or contains cases without `section_id`. It is built from `GET /api/v2/test-case/suite/{suite_id}` and never calls a section endpoint with a synthetic identifier. Adding a case there keeps `suite_id` and sends `section_id: null`.

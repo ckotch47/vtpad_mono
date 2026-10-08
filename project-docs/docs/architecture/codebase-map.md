@@ -66,8 +66,8 @@ sequenceDiagram
 
 ## UI базовый стандарт (таблицы)
 
-- Для новых списков используем визуальный паттерн `test-suites`: `v-toolbar` + `v-data-table-server` без дополнительных глобальных оберток.
-- Для core QA-списков (`test-suites`, `test-runs`, `test-cases`) зафиксирован единый toolbar-паттерн: search-поле (`max-width: 320px`), компактные селекты фильтров (`max-width: 160px`), CTA справа.
+- Для новых списков используем соответствующий домену паттерн: серверные таблицы для табличных данных; `test-suites` использует workspace с плоской левой навигацией и detail справа.
+- Для core QA-списков (`test-runs`, `test-cases`) зафиксирован единый toolbar-паттерн: search-поле (`max-width: 320px`), компактные селекты фильтров (`max-width: 160px`), CTA справа.
 - В списке `test-cases` приоритет у Title: Suite остаётся фильтром, Short Name обрезается в одну строку с подсказкой полного значения, а Updated занимает компактную колонку.
 - Для остальных рабочих списков (`bugs`, `test-plans`) используем тот же верхний action-bar паттерн: title слева, filter/actions справа, без плавающих FAB-кнопок.
 - Для всех верхних tab-layout (`spaces`, `spacesSettings`, `spacesReport`, `company`, `profile`) active-tab синхронизируется через watch по `route.meta.tabValue`, чтобы визуальный state не рассинхронизировался при программной навигации.
@@ -78,6 +78,7 @@ sequenceDiagram
 - Для `tech-docs` используется тот же контейнер ширины; внутри отдельный split-layout (sidebar/content) с поиском по дереву и breadcrumbs текущей страницы.
 - Для `tech-docs` sidebar-tree при открытии без `doc` в query сбрасывает внутренний скролл к началу списка.
 - Для `tech-docs` sidebar-дерево рендерится как управляемый `v-list` (иерархия с отступами), чтобы список гарантированно начинался сразу под поиском без layout-сдвигов `v-treeview`.
+- Для `test-suites` обе route-страницы используют `testSuitesWorkspaceComponent.vue`: плоский серверно-пагинируемый список с URL-backed selection слева и переиспользуемый suite detail справа; на мобильной ширине показывается одна панель.
 - Для `tech-docs` просмотр контента выполняется через `editor-component` в режиме `readonly` (единый рендер с edit-режимом, без отдельного HTML/prose-рендера).
 - TipTap preset (`ProseMirror`) вынесен в общий `src/components/common/editor/editorComponent.vue` и используется на всех страницах редактора: типографика заголовков/списков, стили code/pre/table/blockquote/task-list, ограничение ширины чтения.
 - Композиция редактора: `editorComponent.vue` (контейнер + extensions), `editorMenuComponent.vue` (группированная тулбар-панель с tooltips, диалогом ссылки, загрузкой изображений, управлением таблицами), `editorSlashExtension.js` + `editorSlashMenu.vue` (slash-команды `/` для вставки блоков).

@@ -62,9 +62,11 @@ All five time-tracking items (TE1–TE5) are implemented in code under approved 
 RN1 and RN2 are implemented in code under approved plan r1. Static checks and production build passed; browser interaction and keyboard/mobile runtime checks remain outstanding.
 
 ### Suite and Case UX
-- [ ] Redesign the suites screen to keep the suite list on the left and show the selected suite on the same page
+SU1 and SU3 are implemented in code under approved plan r1: suite list/detail share a URL-backed split workspace with a flat searchable navigation list. Frontend lint/build and independent review passed; browser history and mobile interaction checks remain outstanding.
+
+- [x] Redesign the suites screen to keep the suite list on the left and show the selected suite on the same page
 - [ ] Fix the case filter in suites (it currently does not work)
-- [ ] Explore a Tech Docs-style tree structure for browsing test suites
+- [x] Explore a Tech Docs-style tree structure for browsing test suites; use a flat searchable list because suites have no parent hierarchy
 - [ ] Add drag-and-drop reordering for sections
 - [ ] Add search/filter for sections in the tree
 - [ ] Move cases between sections by drag-and-drop or from a dialog

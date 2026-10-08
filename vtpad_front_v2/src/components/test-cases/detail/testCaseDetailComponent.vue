@@ -170,20 +170,6 @@
               </v-card>
 
               <v-card class="mt-4">
-                <v-card-title>Versions</v-card-title>
-                <v-card-text>
-                  <v-list density="compact">
-                    <v-list-item v-for="ver in versions" :key="ver.id" :active="selectedVersion?.id === ver.id" @click="selectVersion(ver)">
-                      <v-list-item-title>v{{ ver.version_number }}</v-list-item-title>
-                      <v-list-item-subtitle>{{ formatDate(ver.created_at) }}</v-list-item-subtitle>
-                      <template #append><v-btn icon="mdi-compare" size="x-small" variant="text" @click.stop="selectVersion(ver)" /></template>
-                    </v-list-item>
-                    <v-list-item v-if="!versions.length" title="No saved versions" />
-                  </v-list>
-                </v-card-text>
-              </v-card>
-
-              <v-card class="mt-4">
                 <v-card-title>Linked Tech Docs</v-card-title>
                 <v-card-text>
                   <v-chip v-for="doc in techDocs" :key="doc.id" class="mr-1 mb-1" :to="`/space/${spaceId}/tech-docs?doc=${doc.id}`">{{ doc.title }}</v-chip>
@@ -192,6 +178,105 @@
               </v-card>
             </v-col>
           </v-row>
+
+          <v-card class="mt-4">
+            <v-card-title>Compare versions</v-card-title>
+            <v-card-text>
+              <div v-if="versions.length < 2" class="text-medium-emphasis">At least two saved versions are required for comparison.</div>
+              <template v-else>
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="versionAId"
+                      :items="versions"
+                      item-title="version_number"
+                      item-value="id"
+                      label="Version A"
+                      density="comfortable"
+                      aria-label="Select first version to compare"
+                    >
+                      <template #item="{ props, item }">
+                        <v-list-item v-bind="props" :subtitle="formatDate(item.raw.created_at)" />
+                      </template>
+                    </v-select>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="versionBId"
+                      :items="versions"
+                      item-title="version_number"
+                      item-value="id"
+                      label="Version B"
+                      density="comfortable"
+                      aria-label="Select second version to compare"
+                    >
+                      <template #item="{ props, item }">
+                        <v-list-item v-bind="props" :subtitle="formatDate(item.raw.created_at)" />
+                      </template>
+                    </v-select>
+                  </v-col>
+                </v-row>
+
+                <v-alert v-if="sameVersionsSelected" type="info" variant="tonal" density="compact" class="mb-3">
+                  Select two different versions to compare.
+                </v-alert>
+                <v-alert v-else-if="versionA?.legacy || versionB?.legacy" type="info" variant="tonal" density="compact" class="mb-3">
+                  Some older snapshots do not contain type, priority, or tag history. Those values are shown as unknown.
+                </v-alert>
+
+                <template v-if="versionA && versionB && !sameVersionsSelected">
+                  <div class="version-columns text-caption text-medium-emphasis mb-2">
+                    <span />
+                    <span>v{{ versionA.version_number }} · {{ formatDate(versionA.created_at) }}</span>
+                    <span>v{{ versionB.version_number }} · {{ formatDate(versionB.created_at) }}</span>
+                  </div>
+                  <v-table density="compact" class="version-comparison">
+                    <thead>
+                      <tr>
+                        <th scope="col">Field</th>
+                        <th scope="col">Version {{ versionA.version_number }}</th>
+                        <th scope="col">Version {{ versionB.version_number }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in versionComparisonRows" :key="row.key">
+                        <th scope="row">
+                          {{ row.label }}
+                          <span class="text-caption d-block">{{ row.changed ? 'Changed' : 'Unchanged' }}</span>
+                        </th>
+                        <td :class="{ 'version-changed': row.changed }">
+                          <template v-if="row.rich">
+                            <div class="version-rich" v-html="row.a" />
+                          </template>
+                          <template v-else>{{ row.a }}</template>
+                        </td>
+                        <td :class="{ 'version-changed': row.changed }">
+                          <template v-if="row.rich">
+                            <div class="version-rich" v-html="row.b" />
+                          </template>
+                          <template v-else>{{ row.b }}</template>
+                        </td>
+                      </tr>
+                      <tr v-for="step in stepComparisonRows" :key="`step-${step.index}`">
+                        <th scope="row">Step {{ step.index + 1 }}<span class="text-caption d-block">{{ step.change }}</span></th>
+                        <td :class="{ 'version-changed': step.change !== 'Unchanged' }">
+                          <div class="version-rich" v-html="step.a || '—'" />
+                        </td>
+                        <td :class="{ 'version-changed': step.change !== 'Unchanged' }">
+                          <div class="version-rich" v-html="step.b || '—'" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                  <div class="d-flex justify-end mt-3">
+                    <v-btn color="primary" variant="tonal" :loading="restoringVersion" @click="restoreVersionB">
+                      Restore v{{ versionB.version_number }} as new version
+                    </v-btn>
+                  </div>
+                </template>
+              </template>
+            </v-card-text>
+          </v-card>
         </v-window-item>
 
         <v-window-item value="history">
@@ -237,18 +322,6 @@
       </v-window>
     </v-container>
 
-    <v-dialog v-model="versionDialog" max-width="900">
-      <v-card v-if="selectedVersion">
-        <v-card-title class="d-flex align-center">Version {{ selectedVersion.version_number }}<v-spacer /><v-btn color="primary" :loading="restoringVersion" @click="restoreSelectedVersion">Restore as new version</v-btn></v-card-title>
-        <v-card-text>
-          <v-alert v-if="selectedVersion.legacy" type="info" variant="tonal" density="compact" class="mb-3">This historical record does not contain a complete snapshot.</v-alert>
-          <v-row>
-            <v-col cols="12" md="6"><div class="text-subtitle-2 mb-2">Current</div><pre class="version-diff">{{ comparableCase(testcase) }}</pre></v-col>
-            <v-col cols="12" md="6"><div class="text-subtitle-2 mb-2">Selected version</div><pre class="version-diff">{{ comparableCase(selectedVersion) }}</pre></v-col>
-          </v-row>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
@@ -260,6 +333,7 @@ import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
 import { testCaseService } from '@/services'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const log = useLogger('app')
 const route = useRoute()
@@ -278,9 +352,43 @@ const historyPageSize = ref(25)
 const historyLoading = ref(false)
 const breadcrumbItems = ref([])
 const techDocs = ref([])
-const selectedVersion = ref(null)
-const versionDialog = ref(false)
+const versionAId = ref(null)
+const versionBId = ref(null)
 const restoringVersion = ref(false)
+
+const versionA = computed(() => versions.value.find((version) => version.id === versionAId.value) || null)
+const versionB = computed(() => versions.value.find((version) => version.id === versionBId.value) || null)
+const sameVersionsSelected = computed(() => Boolean(versionAId.value && versionAId.value === versionBId.value))
+
+const versionComparisonRows = computed(() => {
+  if (!versionA.value || !versionB.value || sameVersionsSelected.value) return []
+  const textRows = [
+    { key: 'title', label: 'Title', a: versionA.value.title, b: versionB.value.title },
+    { key: 'type', label: 'Type', a: legacyValue(versionA.value.type), b: legacyValue(versionB.value.type) },
+    { key: 'priority', label: 'Priority', a: legacyValue(versionA.value.priority), b: legacyValue(versionB.value.priority) },
+    { key: 'tags', label: 'Tags', a: formatTags(versionA.value.tags), b: formatTags(versionB.value.tags) }
+  ]
+  const richRows = [
+    { key: 'description', label: 'Description', field: 'text' },
+    { key: 'preconditions', label: 'Preconditions', field: 'preconditions' },
+    { key: 'expected-results', label: 'Expected results', field: 'expected_results' }
+  ].map((row) => {
+    const a = sanitizeHtml(versionA.value[row.field] || '')
+    const b = sanitizeHtml(versionB.value[row.field] || '')
+    return { ...row, a: a || '—', b: b || '—', rich: true, changed: a !== b }
+  })
+  return [
+    ...textRows.map((row) => ({ ...row, changed: row.a !== row.b })),
+    ...richRows
+  ]
+})
+
+const stepComparisonRows = computed(() => {
+  if (!versionA.value || !versionB.value || sameVersionsSelected.value) return []
+  const stepsA = extractSteps(versionA.value.steps)
+  const stepsB = extractSteps(versionB.value.steps)
+  return alignSteps(stepsA, stepsB)
+})
 
 const historyHeaders = computed(() => [
   { title: 'Run', key: 'run_name', sortable: false },
@@ -297,6 +405,8 @@ function loadCase() {
   api.get(`/api/v2/test-case/${caseId}`).then(res => {
     testcase.value = res.data
     versions.value = res.data.versions || []
+    versionAId.value = versions.value[0]?.id || null
+    versionBId.value = versions.value[1]?.id || versions.value[0]?.id || null
     breadcrumbItems.value = [
       { title: 'Test Cases', to: `/space/${spaceId.value}/test-cases` },
       { title: res.data.title }
@@ -306,24 +416,60 @@ function loadCase() {
   testCaseService.getTechDocs(caseId).then((res) => { techDocs.value = res.data.items || res.data || [] }).catch(() => { techDocs.value = [] })
 }
 
-async function selectVersion(version) {
-  selectedVersion.value = version
-  versionDialog.value = true
-  try {
-    const response = await testCaseService.getVersion(caseId, version.id)
-    selectedVersion.value = { ...version, ...(response.data || {}) }
-  } catch (_) { /* list response is still useful on older deployments */ }
+function legacyValue(value) {
+  return value === null || value === undefined ? 'Unknown (legacy snapshot)' : value
 }
 
-function comparableCase(value) {
-  const fields = ['title', 'preconditions', 'steps', 'expected_results', 'text']
-  return fields.map((field) => `${field}: ${value?.[field] || '—'}`).join('\n\n')
+function formatTags(tags) {
+  if (tags === null || tags === undefined) return 'Unknown (legacy snapshot)'
+  return tags.length ? [...tags].sort((a, b) => a.localeCompare(b)).join(', ') : 'No tags'
 }
 
-async function restoreSelectedVersion() {
-  if (!selectedVersion.value || !confirm(`Restore version ${selectedVersion.value.version_number} as a new version?`)) return
+function extractSteps(value) {
+  const sanitized = sanitizeHtml(value || '')
+  if (!sanitized) return []
+  const document = new DOMParser().parseFromString(sanitized, 'text/html')
+  const listItems = [...document.querySelectorAll('ol > li, ul > li')]
+  if (listItems.length) return listItems.map((item) => sanitizeHtml(item.innerHTML).trim()).filter(Boolean)
+  const blockItems = [...document.body.children]
+  if (blockItems.length > 1) return blockItems.map((item) => sanitizeHtml(item.innerHTML).trim()).filter(Boolean)
+  const text = document.body.textContent || ''
+  return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => sanitizeHtml(line))
+}
+
+function alignSteps(stepsA, stepsB) {
+  const lengths = Array.from({ length: stepsA.length + 1 }, () => Array(stepsB.length + 1).fill(0))
+  for (let a = stepsA.length - 1; a >= 0; a -= 1) {
+    for (let b = stepsB.length - 1; b >= 0; b -= 1) {
+      lengths[a][b] = stepsA[a] === stepsB[b]
+        ? lengths[a + 1][b + 1] + 1
+        : Math.max(lengths[a + 1][b], lengths[a][b + 1])
+    }
+  }
+
+  const rows = []
+  let a = 0
+  let b = 0
+  while (a < stepsA.length || b < stepsB.length) {
+    if (a < stepsA.length && b < stepsB.length && stepsA[a] === stepsB[b]) {
+      rows.push({ a: stepsA[a], b: stepsB[b], change: 'Unchanged' })
+      a += 1
+      b += 1
+    } else if (b < stepsB.length && (a === stepsA.length || lengths[a][b + 1] >= lengths[a + 1][b])) {
+      rows.push({ a: '', b: stepsB[b], change: 'Added' })
+      b += 1
+    } else {
+      rows.push({ a: stepsA[a], b: '', change: 'Removed' })
+      a += 1
+    }
+  }
+  return rows.map((row, index) => ({ ...row, index }))
+}
+
+async function restoreVersionB() {
+  if (!versionB.value || !confirm(`Restore version ${versionB.value.version_number} as a new version?`)) return
   restoringVersion.value = true
-  try { await testCaseService.restoreVersion(caseId, selectedVersion.value.id); versionDialog.value = false; loadCase() } catch (error) { log.error('failed to restore test case version', error) } finally { restoringVersion.value = false }
+  try { await testCaseService.restoreVersion(caseId, versionB.value.id); loadCase() } catch (error) { log.error('failed to restore test case version', error) } finally { restoringVersion.value = false }
 }
 
 async function loadRunHistory({ page, itemsPerPage }) {
@@ -386,5 +532,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.version-diff { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: .8rem; }
+.version-columns { display: grid; grid-template-columns: 10rem repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.version-comparison th { width: 10rem; min-width: 10rem; text-align: left; vertical-align: top; font-weight: 600; }
+.version-comparison td { width: 50%; vertical-align: top; overflow-wrap: anywhere; }
+.version-comparison .version-changed { background: rgba(var(--v-theme-warning), .12); }
+.version-rich { min-height: 1rem; white-space: normal; overflow-wrap: anywhere; }
+.version-rich :deep(p:first-child) { margin-top: 0; }
+.version-rich :deep(p:last-child) { margin-bottom: 0; }
 </style>

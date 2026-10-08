@@ -14,6 +14,7 @@
       <v-toolbar-title>{{ testcase.title }}</v-toolbar-title>
       <v-spacer />
       <v-chip size="small" :color="typeColor(testcase.type)" class="mr-2">{{ testcase.type }}</v-chip>
+      <v-chip size="small" :color="priorityColor(testcase.priority)" class="mr-2">{{ priorityLabel(testcase.priority) }}</v-chip>
       <v-chip size="small" :color="statusColor(testcase.status)">{{ testcase.status }}</v-chip>
       <v-btn
         icon
@@ -129,6 +130,17 @@
                     <v-list-item>
                       <v-list-item-title>Short Name</v-list-item-title>
                       <v-list-item-subtitle>{{ testcase.short_name || '-' }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>Priority</v-list-item-title>
+                      <v-list-item-subtitle>{{ priorityLabel(testcase.priority) }}</v-list-item-subtitle>
+                    </v-list-item>
+                    <v-list-item>
+                      <v-list-item-title>Tags</v-list-item-title>
+                      <v-list-item-subtitle>
+                        <span v-if="!testcase.tags?.length">—</span>
+                        <v-chip v-for="tag in testcase.tags || []" :key="tag" size="x-small" class="mr-1 mb-1" variant="tonal">{{ tag }}</v-chip>
+                      </v-list-item-subtitle>
                     </v-list-item>
                     <v-list-item>
                       <v-list-item-title>External ID</v-list-item-title>
@@ -337,6 +349,15 @@ function typeColor(type) {
 function statusColor(status) {
   const map = { active: 'success', draft: 'grey', deprecated: 'error' }
   return map[status] || 'grey'
+}
+
+function priorityLabel(priority) {
+  const labels = { P0: 'P0 · Blocker', P1: 'P1 · High', P2: 'P2 · Normal', P3: 'P3 · Low' }
+  return labels[priority] || labels.P2
+}
+
+function priorityColor(priority) {
+  return ({ P0: 'error', P1: 'warning', P2: 'primary', P3: 'grey' })[priority] || 'primary'
 }
 
 function resultStatusColor(status) {

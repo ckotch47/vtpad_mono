@@ -1,5 +1,5 @@
 from ..core import mcp
-from ..utils import _get_user_id, _case_to_dict
+from ..utils import _get_user_id, _cases_to_dict_with_metadata
 from fastmcp.server.dependencies import get_http_request
 
 from ...api_token.service import ApiTokenService
@@ -22,6 +22,7 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
 
@@ -159,5 +160,7 @@ async def get_test_plan_cases(plan_id: str) -> list[dict]:
     Returns:
         List of test cases in plan order
     """
+    plan = await TestPlanService.get_by_id(plan_id)
+    await check_user_into_space(str(plan.space_id), get_http_request())
     cases = await TestPlanService.get_cases(plan_id)
-    return [_case_to_dict(c) for c in cases]
+    return await _cases_to_dict_with_metadata(cases)

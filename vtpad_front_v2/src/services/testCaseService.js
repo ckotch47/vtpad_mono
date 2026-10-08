@@ -1,7 +1,21 @@
 import api from '@/plugins/axios'
 
 export const testCaseService = {
-  listBySpace: (spaceId, params) => api.get(`/api/v2/test-case/space/${spaceId}`, { params }),
+  listBySpace: (spaceId, params) => api.get(`/api/v2/test-case/space/${spaceId}`, {
+    params,
+    paramsSerializer: {
+      serialize: (values) => {
+        const query = new URLSearchParams()
+        Object.entries(values || {}).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === '') return
+          const entries = Array.isArray(value) ? value : [value]
+          entries.forEach((entry) => query.append(key, String(entry)))
+        })
+        return query.toString()
+      }
+    }
+  }),
+  listTagsBySpace: (spaceId) => api.get(`/api/v2/test-case/space/${spaceId}/tags`),
   listBySuite: (suiteId) => api.get(`/api/v2/test-case/suite/${suiteId}`),
   listBySection: (sectionId) => api.get(`/api/v2/test-case/section/${sectionId}`),
   getById: (id) => api.get(`/api/v2/test-case/${id}`),

@@ -37,6 +37,13 @@ async def _require_space_access(space_id: str):
     await check_user_into_space(space_id, get_http_request())
 
 
+async def _serialize_case(case: TestCaseModel) -> dict:
+    value = _case_to_dict(case)
+    value['priority'] = case.priority
+    value['tags'] = await TestCaseService.get_tags(str(case.id))
+    return value
+
+
 @mcp.tool()
 async def search_test_cases(
     query: str,
@@ -44,6 +51,8 @@ async def search_test_cases(
     limit: int = 10,
     type_filter: str | None = None,
     status_filter: str | None = None,
+    priority_filter: str | None = None,
+    tags: list[str] | None = None,
 ) -> list[dict]:
     """Search test cases by text query (title, short_name) in a space.
 
@@ -62,6 +71,8 @@ async def search_test_cases(
         space_id=space_id,
         type_filter=type_filter,
         status_filter=status_filter,
+        priority_filter=priority_filter,
+        tag_filters=tags,
         page=1,
         page_size=limit,
         search=query,
@@ -82,7 +93,9 @@ async def get_test_case(case_id: str) -> dict | None:
     """
     try:
         case = await _require_case_access(case_id)
-        return _case_to_dict(case)
+        value = await _serialize_case(case)
+        value['versions'] = await TestCaseService.get_versions(case_id)
+        return value
     except Exception as e:
         logger.error('Unexpected error: %s', e, exc_info=True)
         return None
@@ -102,6 +115,8 @@ async def create_test_case(
     short_name: str | None = None,
     external_id: str | None = None,
     estimated_duration_seconds: int | None = None,
+    priority: str = "P2",
+    tags: list[str] | None = None,
 ) -> dict:
     """Create a new test case.
 
@@ -142,9 +157,11 @@ async def create_test_case(
         short_name=short_name,
         external_id=external_id,
         estimated_duration_seconds=estimated_duration_seconds,
+        priority=priority,
+        tags=tags or [],
     )
     case = await TestCaseService.create(dto, token)
-    return _case_to_dict(case)
+    return await _serialize_case(case)
 
 @mcp.tool()
 async def update_test_case(
@@ -163,6 +180,8 @@ async def update_test_case(
     external_id: str | None = None,
     estimated_duration_seconds: int | None = None,
     clear_estimated_duration: bool = False,
+    priority: str | None = None,
+    tags: list[str] | None = None,
 ) -> dict:
     """Update a test case.
 
@@ -201,6 +220,8 @@ async def update_test_case(
         'short_name': short_name,
         'external_id': external_id,
         'estimated_duration_seconds': estimated_duration_seconds,
+        'priority': priority,
+        'tags': tags,
     }
     # MCP optional arguments are materialized as None even when absent. Keep
     # that legacy omit behavior; only the REST PATCH can explicitly detach a
@@ -210,7 +231,7 @@ async def update_test_case(
         dto = TestCaseUpdateDto(**{**dto.model_dump(exclude_unset=True), 'estimated_duration_seconds': None})
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.update(case_id, dto, token)
-    return _case_to_dict(case)
+    return await _serialize_case(case)
 
 @mcp.tool()
 async def delete_test_case(case_id: str) -> dict:
@@ -257,7 +278,23 @@ async def duplicate_test_case(case_id: str) -> dict:
     await _require_case_access(case_id)
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.duplicate(case_id, token)
-    return _case_to_dict(case)
+    return await _serialize_case(case)
+
+
+@mcp.tool()
+async def restore_test_case_version(case_id: str, version_id: str) -> dict:
+    """Restore a test-case version, preserving unknown fields from legacy snapshots."""
+    await _require_case_access(case_id)
+    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    case = await TestCaseService.restore_version(case_id, version_id, token)
+    return await _serialize_case(case)
+
+
+@mcp.tool()
+async def list_test_case_tags(space_id: str) -> list[str]:
+    """List the case tag labels used in a space."""
+    await _require_space_access(space_id)
+    return await TestCaseService.get_tag_options(space_id)
 
 @mcp.tool()
 async def move_test_case(
@@ -280,7 +317,7 @@ async def move_test_case(
     dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.update(case_id, dto, token)
-    return _case_to_dict(case)
+    return await _serialize_case(case)
 
 
 @mcp.tool()
@@ -304,7 +341,7 @@ async def move_test_case_to_location(
 
     dto = TestCaseMoveDto(suite_id=suite_id, section_id=section_id)
     case = await TestCaseService.move(case_id, dto)
-    return _case_to_dict(case)
+    return await _serialize_case(case)
 
 
 async def _delete_case_cascade(case_id: str) -> None:

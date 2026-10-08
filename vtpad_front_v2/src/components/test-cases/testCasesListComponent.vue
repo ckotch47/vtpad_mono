@@ -37,6 +37,37 @@
         @update:model-value="onFilterChange"
       />
       <v-select
+        v-model="filterPriority"
+        :items="priorityOptions"
+        item-title="title"
+        item-value="value"
+        label="Priority"
+        density="compact"
+        hide-details
+        variant="solo"
+        class="mx-2 list-filter-sm"
+        @update:model-value="onFilterChange"
+      />
+      <v-select
+        v-model="filterTags"
+        :items="availableTagOptions"
+        :loading="tagOptionsLoading"
+        label="Tags (all)"
+        multiple
+        chips
+        closable-chips
+        density="compact"
+        hide-details
+        variant="solo"
+        class="mx-2 list-filter-tags"
+        @update:model-value="onFilterChange"
+      />
+      <v-tooltip v-if="tagOptionsError" text="Existing tags could not be loaded. Tag filtering may be incomplete.">
+        <template #activator="{ props }">
+          <v-icon v-bind="props" color="warning" aria-label="Tag options could not be loaded">mdi-alert-circle-outline</v-icon>
+        </template>
+      </v-tooltip>
+      <v-select
         v-model="filterSuite"
         :items="[{title:'All Suites', value:''}, {title:'No Suite', value:'none'}]"
         item-title="title"
@@ -60,6 +91,11 @@
       </v-btn>
     </v-toolbar>
 
+    <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
+      Test cases could not be loaded. Change a filter or try again.
+      <v-btn size="small" variant="text" @click="loadCases({ page: page, itemsPerPage: itemsPerPage, sortBy: sortBy })">Retry</v-btn>
+    </v-alert>
+
     <v-data-table-server
       v-model="selectedCases"
       v-model:items-per-page="itemsPerPage"
@@ -80,6 +116,15 @@
       </template>
       <template v-slot:item.status="{ item }">
         <v-chip size="small" :color="statusColor(item.status)">{{ item.status }}</v-chip>
+      </template>
+      <template v-slot:item.priority="{ item }">
+        <v-chip size="small" :color="priorityColor(item.priority)">{{ priorityLabel(item.priority) }}</v-chip>
+      </template>
+      <template v-slot:item.tags="{ item }">
+        <div class="d-flex flex-wrap ga-1">
+          <v-chip v-for="tag in item.tags || []" :key="tag" size="x-small" variant="tonal">{{ tag }}</v-chip>
+          <span v-if="!item.tags?.length" class="text-medium-emphasis">—</span>
+        </div>
       </template>
       <template v-slot:item.short_name="{ item }">
         <v-tooltip v-if="item.short_name" :text="item.short_name" location="top">
@@ -112,8 +157,20 @@
       <v-card>
         <v-card-title>Create Test Case</v-card-title>
         <v-card-text>
+          <v-alert v-if="createError" type="error" variant="tonal" density="compact" class="mb-4" role="alert">
+            The test case could not be created. Check the fields and try again.
+          </v-alert>
           <v-text-field v-model="newCase.title" label="Title" required />
           <v-select v-model="newCase.type" :items="['manual','checklist','automated']" label="Type" />
+          <v-row>
+            <v-col cols="4">
+              <v-select v-model="newCase.priority" :items="priorityOptions" item-title="title" item-value="value" label="Priority" />
+            </v-col>
+            <v-col cols="8">
+              <v-combobox v-model="newCase.tags" :items="tagOptions" :loading="tagOptionsLoading" label="Tags" multiple chips closable-chips clearable hint="Choose an existing tag or enter a new one" persistent-hint />
+              <div v-if="tagOptionsError" class="text-caption text-warning">Existing tags could not be loaded. You can still enter tag labels.</div>
+            </v-col>
+          </v-row>
           <div class="text-subtitle-1 mb-2">Description</div>
           <editor-component
             :text="newCase.text"
@@ -190,7 +247,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testCaseService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
@@ -207,15 +264,30 @@ const itemsPerPage = ref(25)
 const sortBy = ref([{ key: 'created_at', order: 'desc' }])
 const tableLoading = ref(false)
 const creating = ref(false)
+const createError = ref(false)
 const firstLoad = ref(true)
 const search = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 const filterSuite = ref('')
+const priorityOptions = [
+  { title: 'All priorities', value: '' },
+  { title: 'P0 · Blocker', value: 'P0' },
+  { title: 'P1 · High', value: 'P1' },
+  { title: 'P2 · Normal', value: 'P2' },
+  { title: 'P3 · Low', value: 'P3' }
+]
+const filterPriority = ref('')
+const filterTags = ref([])
+const tagOptions = ref([])
+const tagOptionsLoading = ref(false)
+const tagOptionsError = ref(false)
+const loadError = ref(false)
+const availableTagOptions = computed(() => [...new Set([...tagOptions.value, ...filterTags.value])])
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
-const emptyCase = () => ({ title: '', type: 'manual', text: '', steps: '', expected_results: '', preconditions: '' })
+const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '' })
 const newCase = ref(emptyCase())
 const selectedCases = ref([])
 const bulkStatusDialog = ref(false)
@@ -224,6 +296,8 @@ const bulkStatus = ref('active')
 const headers = [
   { title: 'Title', key: 'title', sortable: true },
   { title: 'Type', key: 'type', width: '120px', sortable: true },
+  { title: 'Priority', key: 'priority', width: '125px', sortable: true },
+  { title: 'Tags', key: 'tags', sortable: false },
   { title: 'Status', key: 'status', width: '120px', sortable: true },
   { title: 'Short Name', key: 'short_name', width: '150px', sortable: true },
   { title: 'Create', key: 'created_by', width: '180px', sortable: false },
@@ -237,6 +311,9 @@ itemsPerPage.value = parseInt(q.page_size) || 25
 search.value = q.search || ''
 filterType.value = q.type || ''
 filterStatus.value = q.status || ''
+filterSuite.value = q.suite_id || ''
+filterPriority.value = q.priority || ''
+filterTags.value = (Array.isArray(q.tags) ? q.tags : q.tags ? [q.tags] : []).map(String)
 if (q.sort_by && q.sort_order) {
   sortBy.value = [{ key: q.sort_by, order: q.sort_order }]
 }
@@ -249,8 +326,14 @@ function loadCases(options) {
 }
 
 function doLoadCases(options) {
-  if (!spaceId.value || tableLoading.value) return
+  if (!spaceId.value) return
+  if (tableLoading.value) {
+    clearTimeout(optionsDebounce.value)
+    optionsDebounce.value = setTimeout(() => doLoadCases(options), 150)
+    return
+  }
   tableLoading.value = true
+  loadError.value = false
   const p = firstLoad.value ? page.value : (options?.page || page.value)
   const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
   firstLoad.value = false
@@ -263,6 +346,8 @@ function doLoadCases(options) {
   if (filterType.value) query.type = filterType.value
   if (filterStatus.value) query.status = filterStatus.value
   if (filterSuite.value) query.suite_id = filterSuite.value
+  if (filterPriority.value) query.priority = filterPriority.value
+  if (filterTags.value.length) query.tags = [...filterTags.value]
   if (sortKey !== 'created_at' || sortOrder !== 'desc') {
     query.sort_by = sortKey
     query.sort_order = sortOrder
@@ -277,15 +362,35 @@ function doLoadCases(options) {
     search: search.value || undefined,
     type: filterType.value || undefined,
     status: filterStatus.value || undefined,
-    suite_id: filterSuite.value || undefined
+    suite_id: filterSuite.value || undefined,
+    priority: filterPriority.value || undefined,
+    tags: filterTags.value.length ? [...filterTags.value] : undefined
   }).then(res => {
     cases.value = res.data.items || res.data
     totalCases.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     itemsPerPage.value = res.data.page_size || itemsPerPage.value
     tableLoading.value = false
   }).catch(() => {
+    loadError.value = true
+    cases.value = []
+    totalCases.value = 0
     tableLoading.value = false
   })
+}
+
+async function loadTagOptions() {
+  if (!spaceId.value) return
+  tagOptionsLoading.value = true
+  tagOptionsError.value = false
+  try {
+    const response = await testCaseService.listTagsBySpace(spaceId.value)
+    const tags = Array.isArray(response.data) ? response.data : response.data?.items
+    tagOptions.value = Array.isArray(tags) ? tags.filter(tag => typeof tag === 'string') : []
+  } catch (_) {
+    tagOptionsError.value = true
+  } finally {
+    tagOptionsLoading.value = false
+  }
 }
 
 function onSearch() {
@@ -303,13 +408,19 @@ function onFilterChange() {
 
 function createCase() {
   creating.value = true
+  createError.value = false
   testCaseService.create({
     ...newCase.value,
+    priority: newCase.value.priority || 'P2',
+    tags: normalizeTags(newCase.value.tags),
     space_id: spaceId.value
   }).then(() => {
     openCreate.value = false
     newCase.value = emptyCase()
+    loadTagOptions()
     loadCases({ page: page.value, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+  }).catch(() => {
+    createError.value = true
   }).finally(() => {
     creating.value = false
   })
@@ -353,6 +464,66 @@ function statusColor(status) {
 function formatDate(date) {
   return date ? new Date(date).toLocaleDateString() : ''
 }
+
+function priorityLabel(priority) {
+  return priorityOptions.find(option => option.value === priority)?.title || 'P2 · Normal'
+}
+
+function priorityColor(priority) {
+  return ({ P0: 'error', P1: 'warning', P2: 'primary', P3: 'grey' })[priority] || 'primary'
+}
+
+function normalizeTags(tags) {
+  const seen = new Set()
+  return (Array.isArray(tags) ? tags : []).reduce((result, tag) => {
+    if (typeof tag !== 'string') return result
+    const label = tag.trim()
+    const key = label.toLocaleLowerCase()
+    if (label && !seen.has(key)) {
+      seen.add(key)
+      result.push(label)
+    }
+    return result
+  }, [])
+}
+
+onMounted(loadTagOptions)
+
+watch(() => route.query, (query) => {
+  const nextPage = parseInt(query.page) || 1
+  const nextPageSize = parseInt(query.page_size) || 25
+  const nextSearch = query.search || ''
+  const nextType = query.type || ''
+  const nextStatus = query.status || ''
+  const nextSuite = query.suite_id || ''
+  const nextPriority = query.priority || ''
+  const nextTags = (Array.isArray(query.tags) ? query.tags : query.tags ? [query.tags] : []).map(String)
+  const nextSortBy = query.sort_by && query.sort_order
+    ? [{ key: query.sort_by, order: query.sort_order }]
+    : [{ key: 'created_at', order: 'desc' }]
+  const changed = page.value !== nextPage || itemsPerPage.value !== nextPageSize || search.value !== nextSearch ||
+    filterType.value !== nextType || filterStatus.value !== nextStatus || filterSuite.value !== nextSuite ||
+    filterPriority.value !== nextPriority || JSON.stringify(filterTags.value) !== JSON.stringify(nextTags) ||
+    JSON.stringify(sortBy.value) !== JSON.stringify(nextSortBy)
+  if (!changed) return
+  page.value = nextPage
+  itemsPerPage.value = nextPageSize
+  search.value = nextSearch
+  filterType.value = nextType
+  filterStatus.value = nextStatus
+  filterSuite.value = nextSuite
+  filterPriority.value = nextPriority
+  filterTags.value = nextTags
+  sortBy.value = nextSortBy
+  selectedCases.value = []
+  loadCases({ page: nextPage, itemsPerPage: nextPageSize, sortBy: nextSortBy })
+}, { deep: true })
+
+watch(spaceId, () => {
+  loadTagOptions()
+  page.value = 1
+  loadCases({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+})
 </script>
 
 <style scoped>
@@ -366,6 +537,10 @@ function formatDate(date) {
 
 .list-filter-sm {
   max-width: 160px;
+}
+
+.list-filter-tags {
+  max-width: 230px;
 }
 
 .creator-cell {

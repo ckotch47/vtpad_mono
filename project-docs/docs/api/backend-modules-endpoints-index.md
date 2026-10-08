@@ -231,7 +231,13 @@ MCP keeps `link_bug_to_result` and `unlink_bug_from_result` data semantics: they
 All REST routes require JWT and space access. Create/update reject a parent document from another space and serialize parent changes per space to prevent concurrent cycles. MCP exposes the same list, tree, get-by-id, create, update, and delete operations; its list tool supports the REST filters and pagination. MCP also provides text and semantic search, plus link/unlink and list/replace operations for Tech Doc/testcase relationships from either side. Each operation checks access to the requested space or document. Space access allows an active space member or an active company admin in that space's company.
 
 ### `app/src/test_case`
-- `GET /api/v2/test-case/space/{space_id}` and `GET /api/v2/test-case/{testcase_id}` expose `estimated_duration_seconds`.
+- `GET /api/v2/test-case/space/{space_id}` supports `priority` and repeated `tags` filters (AND semantics) and returns priority and tag labels.
+- `GET /api/v2/test-case/space/{space_id}/tags` returns tag options scoped to the space.
+- `GET /api/v2/test-case/suite/{suite_id}` and `/section/{section_id}` require access to the owning suite's space and return cases with priority and tags.
+- `GET /api/v2/test-case/{testcase_id}` and case create/update responses expose `priority` and `tags`.
+- Create/update accept priority `P0`–`P3` and up to 50 tag labels; create defaults to `P2`. PATCH omission retains tags and `tags: []` clears them.
+- New version snapshots record type, priority, and immutable tag labels; legacy version rows remain `NULL` for unknown fields. Restore preserves current values for unknown legacy fields.
+- New test-run snapshots include priority and tag labels; pre-SU8 snapshots remain readable with those values unknown.
 - `POST /api/v2/test-case/` and `PATCH /api/v2/test-case/{testcase_id}` accept a non-negative nullable estimate; version, restore, duplicate, and run snapshot paths preserve it.
 - `POST /api/v2/test-case/{testcase_id}/move` accepts required `{suite_id, section_id}`; nullable `section_id: null` targets the suite's virtual Default section. The shared move service validates same-space suite/section placement and does not create a content version.
 - `GET /api/v2/test-case/{testcase_id}/runs` includes linked run timing when available.

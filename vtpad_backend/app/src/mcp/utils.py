@@ -29,6 +29,8 @@ def _case_to_dict(case: TestCaseModel) -> dict:
         "expected_results": value('expected_results'),
         "postconditions": value('postconditions'),
         "estimated_duration_seconds": value('estimated_duration_seconds'),
+        "priority": value('priority'),
+        "tags": value('tags'),
         "short_name": value('short_name'),
         "external_id": value('external_id'),
         "space_id": str(space_id) if space_id else None,
@@ -38,3 +40,16 @@ def _case_to_dict(case: TestCaseModel) -> dict:
         "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
         "updated_at": updated_at.isoformat() if hasattr(updated_at, 'isoformat') else updated_at,
     }
+
+
+async def _cases_to_dict_with_metadata(cases: list[TestCaseModel]) -> list[dict]:
+    """Serialize a collection of cases and fetch tag relations in one batch."""
+    values = [_case_to_dict(case) for case in cases]
+    missing_tag_ids = [value["id"] for value in values if value.get("tags") is None]
+    if missing_tag_ids:
+        from ..test_case.service import TestCaseService
+        tags_by_case = await TestCaseService.get_tags_for_cases(missing_tag_ids)
+        for value in values:
+            if value.get("tags") is None:
+                value["tags"] = tags_by_case.get(value["id"], [])
+    return values

@@ -1,5 +1,5 @@
 from ..core import mcp
-from ..utils import _get_user_id, _case_to_dict
+from ..utils import _get_user_id, _cases_to_dict_with_metadata
 from fastmcp.server.dependencies import get_http_request
 
 from ...api_token.service import ApiTokenService
@@ -23,6 +23,7 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,13 @@ async def get_suite_tree(suite_id: str) -> dict | None:
     """
     try:
         suite = await TestSuiteService.get_by_id(suite_id)
+        await check_user_into_space(str(suite.space_id), get_http_request())
         sections = await SectionModel.filter(suite_id=suite_id).order_by("sort").all()
         cases = await TestCaseService.get_by_suite(suite_id)
+        cases_by_id = {
+            value["id"]: value
+            for value in await _cases_to_dict_with_metadata(cases)
+        }
 
         # Build section tree
         section_map = {}
@@ -58,7 +64,7 @@ async def get_suite_tree(suite_id: str) -> dict | None:
         for c in cases:
             sid = str(c.section_id) if c.section_id else None
             if sid and sid in section_map:
-                section_map[sid]["cases"].append(_case_to_dict(c))
+                section_map[sid]["cases"].append(cases_by_id[str(c.id)])
 
         # Build hierarchy
         root_sections = []
@@ -76,7 +82,7 @@ async def get_suite_tree(suite_id: str) -> dict | None:
             "status": suite.status.value if hasattr(suite.status, "value") else suite.status,
             "space_id": str(suite.space_id) if suite.space_id else None,
             "sections": root_sections,
-            "uncategorized_cases": [_case_to_dict(c) for c in cases if not c.section_id],
+            "uncategorized_cases": [cases_by_id[str(c.id)] for c in cases if not c.section_id],
         }
     except Exception as e:
         return {"error": str(e)}

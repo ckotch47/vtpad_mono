@@ -99,6 +99,8 @@ class TestRunService:
             'postconditions': fields_source.postconditions,
             'estimated_duration_seconds': fields_source.estimated_duration_seconds,
             'type': testcase.type.value if hasattr(testcase.type, 'value') else testcase.type,
+            'priority': testcase.priority,
+            'tags': [],
             'status': testcase.status.value if hasattr(testcase.status, 'value') else testcase.status,
             'short_name': testcase.short_name,
             'link': testcase.link,
@@ -205,6 +207,8 @@ class TestRunService:
                     'postconditions': snapshot['postconditions'],
                     'estimated_duration_seconds': snapshot['estimated_duration_seconds'],
                     'type': snapshot['type'],
+                    'priority': snapshot['priority'],
+                    'tags': snapshot['tags'],
                     'status': snapshot['status'],
                     'suite_id': snapshot['suite_id'],
                     'section': snapshot['section'],
@@ -230,6 +234,8 @@ class TestRunService:
         for version in versions:
             latest_versions.setdefault(str(version.testcase_id), version)
         locations = await TestRunService._resolve_case_locations(testcases)
+        from ..test_case.service import TestCaseService
+        tags_by_case = await TestCaseService.get_tags_for_cases([str(case.id) for case in testcases])
         snapshots = []
         for testcase in testcases:
             snapshots.append(TestRunService._build_case_snapshot(
@@ -237,6 +243,7 @@ class TestRunService:
                 latest_versions.get(str(testcase.id)),
                 location=locations.get(str(testcase.id)),
             ))
+            snapshots[-1]['tags'] = tags_by_case.get(str(testcase.id), [])
         return source, testcases, snapshots, TestRunService._selection_hash(source, snapshots)
 
     @staticmethod
@@ -257,6 +264,8 @@ class TestRunService:
                     'suite_name': snapshot['suite_name'],
                     'section_path': snapshot['section_path'],
                     'estimated_duration_seconds': snapshot['estimated_duration_seconds'],
+                    'priority': snapshot['priority'],
+                    'tags': snapshot['tags'],
                 }
                 for snapshot in snapshots
             ],
@@ -416,6 +425,8 @@ class TestRunService:
                 'preconditions': snapshot.get('preconditions'),
                 'postconditions': snapshot.get('postconditions'),
                 'estimated_duration_seconds': snapshot.get('estimated_duration_seconds'),
+                'priority': snapshot.get('priority'),
+                'tags': snapshot.get('tags'),
                 'is_snapshot': True,
             }
         else:

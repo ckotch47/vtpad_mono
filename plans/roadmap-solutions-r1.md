@@ -71,9 +71,9 @@
 
 **Основание:** `testCaseDetailComponent.vue` показывает current и одну выбранную историческую версию. **Решение:** два независимых селектора версий, структурное сравнение полей и шагов через имеющийся version/diff API после проверки контракта; rich text показывать безопасно. **Приёмка:** две произвольные версии, одинаковые версии, старые неполные snapshots и длинные поля читаются и дают правильный diff.
 
-### SU8. Теги и приоритет кейсов с поиском/фильтрами — нет
+### SU8. Теги и приоритет кейсов с поиском/фильтрами — реализовано (код, runtime acceptance)
 
-**Основание:** `TestCaseModel`/DTO не имеют priority/tags, а list UI фильтрует type/status/suite. **Решение:** определить enum/справочник приоритетов и space-scoped теги; добавить миграцию, API, версионирование, индекс/поиск, редактор и URL-синхронизированные фильтры. **Приёмка:** комбинации тегов и приоритета, очистка, пагинация, старые кейсы и права дают стабильный результат. Этот пункт — предпосылка FI1.
+**Реализация:** приоритет `P0`–`P3` (default `P2`), нормализуемые space-scoped теги, фильтр AND по повторяющимся `tags`, комбинируемые search/priority/tags/page filters с query-параметрами URL. REST и MCP покрывают list/detail/create/update/duplicate/restore/tags, а plan/suite projections включают значения. Версии и новые run snapshots сохраняют labels; старые snapshots остаются `NULL`/unknown. **Проверено:** v15 миграция на disposable clone (включая повторный startup без повторного применения), значения legacy cases не backfilled, REST create/filter/PATCH/versions/restore/duplicate/clear и MCP filtered search/tag options прошли; временные cases и API token удалены. Frontend ESLint и production build прошли.
 
 ## 4. Test Cases and Checklists
 

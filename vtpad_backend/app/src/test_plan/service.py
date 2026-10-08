@@ -96,7 +96,9 @@ class TestPlanService:
         # Cases from suites
         suite_ids = plan.suite_ids or []
         if suite_ids:
-            suite_cases = await TestCaseModel.filter(suite_id__in=suite_ids).prefetch_related('suite', 'section')
+            suite_cases = await TestCaseModel.filter(
+                suite_id__in=suite_ids, space_id=str(plan.space_id)
+            ).prefetch_related('suite', 'section')
             for c in suite_cases:
                 cid = str(c.id)
                 if cid not in seen:
@@ -106,7 +108,9 @@ class TestPlanService:
         # Explicit case_ids
         explicit_ids = plan.case_ids or []
         if explicit_ids:
-            explicit_cases = await TestCaseModel.filter(id__in=explicit_ids).prefetch_related('suite', 'section')
+            explicit_cases = await TestCaseModel.filter(
+                id__in=explicit_ids, space_id=str(plan.space_id)
+            ).prefetch_related('suite', 'section')
             case_map = {str(c.id): c for c in explicit_cases}
             for cid in explicit_ids:
                 if cid in case_map and cid not in seen:

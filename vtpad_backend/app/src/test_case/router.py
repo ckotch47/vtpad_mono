@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from typing import Optional
 
 from .service import TestCaseService
 from .dto import *
 from ..common.crypto import bearer
 from ..common.right_guard import check_user_into_space
+from ..test_suite.model import TestSuiteModel
+from ..section.model import SectionModel
 
 router = APIRouter(
     prefix='/v2/test-case',
@@ -30,20 +32,47 @@ async def get_by_space(
     page_size: int = 25,
     sort_by: Optional[str] = 'created_at',
     sort_order: Optional[str] = 'desc',
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    priority: Optional[str] = None,
+    tags: Optional[list[str]] = Query(default=None),
 ):
     await check_user_into_space(space_id, request)
-    return await TestCaseService.get_by_space(space_id, type, status, suite_id, page, page_size, sort_by, sort_order, search)
+    return await TestCaseService.get_by_space(
+        space_id, type, status, suite_id, page, page_size, sort_by, sort_order,
+        search, priority, tags,
+    )
+
+
+@router.get('/space/{space_id}/tags', dependencies=[Depends(bearer)])
+async def get_tag_options(space_id: str, request: Request):
+    await check_user_into_space(space_id, request)
+    return await TestCaseService.get_tag_options(space_id)
 
 
 @router.get('/suite/{suite_id}', dependencies=[Depends(bearer)])
-async def get_by_suite(suite_id: str):
-    return await TestCaseService.get_by_suite(suite_id)
+async def get_by_suite(suite_id: str, request: Request):
+    suite = await TestSuiteModel.get_or_none(id=suite_id)
+    if not suite:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Test suite not found")
+    await check_user_into_space(str(suite.space_id), request)
+    cases = await TestCaseService.get_by_suite(suite_id)
+    return await TestCaseService.serialize_cases(cases)
 
 
 @router.get('/section/{section_id}', dependencies=[Depends(bearer)])
-async def get_by_section(section_id: str):
-    return await TestCaseService.get_by_section(section_id)
+async def get_by_section(section_id: str, request: Request):
+    section = await SectionModel.get_or_none(id=section_id)
+    if not section:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Section not found")
+    suite = await TestSuiteModel.get_or_none(id=section.suite_id)
+    if not suite:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Section not found")
+    await check_user_into_space(str(suite.space_id), request)
+    cases = await TestCaseService.get_by_section(section_id)
+    return await TestCaseService.serialize_cases(cases)
 
 
 @router.get('/{testcase_id}', dependencies=[Depends(bearer)])
@@ -55,13 +84,15 @@ async def get_by_id(testcase_id: str, request: Request):
 @router.post('/', dependencies=[Depends(bearer)])
 async def create(dto: TestCaseCreateDto, request: Request, token: str = Depends(bearer)):
     await check_user_into_space(dto.space_id, request)
-    return await TestCaseService.create(dto, token)
+    case = await TestCaseService.create(dto, token)
+    return await TestCaseService.serialize_case(case)
 
 
 @router.patch('/{testcase_id}', dependencies=[Depends(bearer)])
 async def update(testcase_id: str, dto: TestCaseUpdateDto, request: Request, token: str = Depends(bearer)):
     await _require_testcase_access(testcase_id, request)
-    return await TestCaseService.update(testcase_id, dto, token)
+    case = await TestCaseService.update(testcase_id, dto, token)
+    return await TestCaseService.serialize_case(case)
 
 
 @router.post('/{testcase_id}/move', dependencies=[Depends(bearer)])
@@ -134,10 +165,12 @@ async def get_version(testcase_id: str, version_id: str, request: Request):
 @router.post('/{testcase_id}/versions/{version_id}/restore', dependencies=[Depends(bearer)])
 async def restore_version(testcase_id: str, version_id: str, request: Request, token: str = Depends(bearer)):
     await _require_testcase_access(testcase_id, request)
-    return await TestCaseService.restore_version(testcase_id, version_id, token)
+    case = await TestCaseService.restore_version(testcase_id, version_id, token)
+    return await TestCaseService.serialize_case(case)
 
 
 @router.post('/{testcase_id}/duplicate', dependencies=[Depends(bearer)])
 async def duplicate_testcase(testcase_id: str, request: Request, token: str = Depends(bearer)):
     await _require_testcase_access(testcase_id, request)
-    return await TestCaseService.duplicate(testcase_id, token)
+    case = await TestCaseService.duplicate(testcase_id, token)
+    return await TestCaseService.serialize_case(case)

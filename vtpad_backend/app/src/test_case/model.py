@@ -16,6 +16,13 @@ class TestCaseStatus(str, Enum):
     deprecated = "deprecated"
 
 
+class TestCasePriority(str, Enum):
+    P0 = "P0"
+    P1 = "P1"
+    P2 = "P2"
+    P3 = "P3"
+
+
 class TestCaseModel(Model):
     id = fields.UUIDField(pk=True, index=True)
     title = fields.TextField(null=False)
@@ -25,6 +32,7 @@ class TestCaseModel(Model):
     preconditions = fields.TextField(null=True)
     postconditions = fields.TextField(null=True)
     estimated_duration_seconds = fields.IntField(null=True)
+    priority = fields.CharEnumField(TestCasePriority, default=TestCasePriority.P2, max_length=2)
 
     sort = fields.IntField(default=0)
     short_name = fields.CharField(null=True, max_length=255)
@@ -57,6 +65,10 @@ class TestCaseVersionModel(Model):
     preconditions = fields.TextField(null=True)
     postconditions = fields.TextField(null=True)
     estimated_duration_seconds = fields.IntField(null=True)
+    # NULL on rows predating SU8 means the historical value is unknown.
+    type = fields.CharEnumField(TestCaseType, null=True, max_length=20)
+    priority = fields.CharField(null=True, max_length=2)
+    tag_labels = fields.JSONField(null=True)
 
     testcase = fields.ForeignKeyField('models.TestCaseModel', related_name='versions')
     created_by = fields.ForeignKeyField('models.UserModel', related_name='created_test_case_versions', null=True)
@@ -65,3 +77,25 @@ class TestCaseVersionModel(Model):
 
     class Meta:
         table = "test_case_version"
+
+
+class TestCaseTagModel(Model):
+    id = fields.UUIDField(pk=True, index=True)
+    space = fields.ForeignKeyField('models.SpaceModel', related_name='test_case_tags', on_delete=fields.CASCADE)
+    name = fields.CharField(max_length=255)
+    normalized_name = fields.CharField(max_length=255)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "test_case_tag"
+        unique_together = (("space", "normalized_name"),)
+
+
+class TestCaseTagLinkModel(Model):
+    id = fields.UUIDField(pk=True, index=True)
+    testcase = fields.ForeignKeyField('models.TestCaseModel', related_name='tag_links', on_delete=fields.CASCADE)
+    tag = fields.ForeignKeyField('models.TestCaseTagModel', related_name='case_links', on_delete=fields.CASCADE)
+
+    class Meta:
+        table = "test_case_tag_link"
+        unique_together = (("testcase", "tag"),)

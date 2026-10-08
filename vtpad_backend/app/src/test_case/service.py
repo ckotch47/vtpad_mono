@@ -2,9 +2,13 @@ from fastapi import HTTPException
 from typing import Optional
 
 from tortoise.expressions import Q
+from tortoise import Tortoise
 from tortoise.transactions import in_transaction
 
-from .model import TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseStatus
+from .model import (
+    TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseStatus,
+    TestCasePriority, TestCaseTagModel, TestCaseTagLinkModel,
+)
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 from ..embedding.service import EmbeddingService
@@ -12,6 +16,112 @@ from ..common.pagination import paginate
 
 
 class TestCaseService:
+    @staticmethod
+    def _normalize_tags(tags: Optional[list[str]]) -> list[str]:
+        distinct: dict[str, str] = {}
+        for value in tags or []:
+            if not isinstance(value, str) or not value.strip() or len(value.strip()) > 255:
+                raise HTTPException(status_code=422, detail="tag names must contain 1 to 255 characters")
+            name = value.strip()
+            if len(name.casefold()) > 255:
+                raise HTTPException(status_code=422, detail="normalized tag names cannot exceed 255 characters")
+            if name:
+                distinct.setdefault(name.casefold(), name)
+        return list(distinct.values())
+
+    @staticmethod
+    async def _replace_tags(testcase_id: str, space_id: str, tags: list[str], connection=None) -> None:
+        conn = connection or Tortoise.get_connection('default')
+        await TestCaseTagLinkModel.filter(testcase_id=testcase_id).using_db(conn).delete()
+        for name in TestCaseService._normalize_tags(tags):
+            normalized = name.casefold()
+            rows = await conn.execute_query_dict(
+                "INSERT INTO test_case_tag (space_id, name, normalized_name) "
+                "VALUES ($1, $2, $3) ON CONFLICT (space_id, normalized_name) "
+                "DO UPDATE SET normalized_name = EXCLUDED.normalized_name RETURNING id",
+                [space_id, name, normalized],
+            )
+            tag_id = str(rows[0]['id'])
+            await TestCaseTagLinkModel.create(
+                testcase_id=testcase_id, tag_id=tag_id, using_db=conn
+            )
+
+    @staticmethod
+    async def get_tags(testcase_id: str) -> list[str]:
+        links = await TestCaseTagLinkModel.filter(testcase_id=testcase_id).prefetch_related('tag')
+        return sorted((link.tag.name for link in links), key=str.casefold)
+
+    @staticmethod
+    async def get_tags_for_cases(testcase_ids: list[str]) -> dict[str, list[str]]:
+        if not testcase_ids:
+            return {}
+        links = await TestCaseTagLinkModel.filter(testcase_id__in=testcase_ids).prefetch_related('tag')
+        result: dict[str, list[str]] = {str(case_id): [] for case_id in testcase_ids}
+        for link in links:
+            result.setdefault(str(link.testcase_id), []).append(link.tag.name)
+        for names in result.values():
+            names.sort(key=str.casefold)
+        return result
+
+    @staticmethod
+    async def get_tag_options(space_id: str) -> list[str]:
+        tags = await TestCaseTagModel.filter(space_id=space_id).order_by('normalized_name')
+        return [tag.name for tag in tags]
+
+    @staticmethod
+    async def _filter_ids_by_all_tags(space_id: str, tags: Optional[list[str]]) -> Optional[set[str]]:
+        names = TestCaseService._normalize_tags(tags)
+        if not names:
+            return None
+        normalized_names = [name.casefold() for name in names]
+        name_placeholders = ', '.join(
+            f'${index}' for index in range(2, len(normalized_names) + 2)
+        )
+        count_parameter = len(normalized_names) + 2
+        rows = await Tortoise.get_connection('default').execute_query_dict(
+            "SELECT link.testcase_id "
+            "FROM test_case_tag_link AS link "
+            "JOIN test_case_tag AS tag ON tag.id = link.tag_id "
+            f"WHERE tag.space_id = $1 AND tag.normalized_name IN ({name_placeholders}) "
+            "GROUP BY link.testcase_id "
+            f"HAVING COUNT(DISTINCT tag.normalized_name) = ${count_parameter}",
+            [space_id, *normalized_names, len(normalized_names)],
+        )
+        return {str(row['testcase_id']) for row in rows}
+
+    @staticmethod
+    async def serialize_case(testcase: TestCaseModel, tags: Optional[list[str]] = None) -> dict:
+        if tags is None:
+            tags = await TestCaseService.get_tags(str(testcase.id))
+        return {
+            'id': str(testcase.id), 'title': testcase.title, 'text': testcase.text,
+            'steps': testcase.steps, 'expected_results': testcase.expected_results,
+            'preconditions': testcase.preconditions, 'postconditions': testcase.postconditions,
+            'sort': testcase.sort, 'short_name': testcase.short_name, 'link': testcase.link,
+            'type': testcase.type, 'status': testcase.status,
+            'priority': testcase.priority, 'tags': tags,
+            'external_id': testcase.external_id,
+            'estimated_duration_seconds': testcase.estimated_duration_seconds,
+            'space_id': str(testcase.space_id),
+            'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
+            'section_id': str(testcase.section_id) if testcase.section_id else None,
+            'created_by_id': str(testcase.created_by_id) if testcase.created_by_id else None,
+            'created_at': testcase.created_at.isoformat() if testcase.created_at else None,
+            'updated_at': testcase.updated_at.isoformat() if testcase.updated_at else None,
+        }
+
+    @staticmethod
+    async def serialize_cases(testcases: list[TestCaseModel]) -> list[dict]:
+        tags_by_case = await TestCaseService.get_tags_for_cases(
+            [str(testcase.id) for testcase in testcases]
+        )
+        return [
+            await TestCaseService.serialize_case(
+                testcase, tags=tags_by_case.get(str(testcase.id), [])
+            )
+            for testcase in testcases
+        ]
+
     @staticmethod
     async def create(dto: TestCaseCreateDto, token: str) -> TestCaseModel:
         user_id = await get_user_id_by_token(token)
@@ -31,38 +141,33 @@ class TestCaseService:
         ).order_by('-sort').first()
         sort = (last.sort + 10) if last else 10
 
-        testcase = await TestCaseModel.create(
-            title=dto.title,
-            text=dto.text,
-            steps=dto.steps,
-            expected_results=dto.expected_results,
-            preconditions=dto.preconditions,
-            postconditions=dto.postconditions,
-            type=dto.type,
-            sort=sort,
-            space_id=dto.space_id,
-            suite_id=suite_id,
-            section_id=section_id,
-            short_name=dto.short_name,
-            link=dto.link,
-            external_id=dto.external_id,
-            estimated_duration_seconds=dto.estimated_duration_seconds,
-            created_by_id=user_id,
-        )
-
-        # Create initial version snapshot
-        await TestCaseVersionModel.create(
-            testcase_id=str(testcase.id),
-            version_number=1,
-            title=dto.title,
-            text=dto.text,
-            steps=dto.steps,
-            expected_results=dto.expected_results,
-            preconditions=dto.preconditions,
-            postconditions=dto.postconditions,
-            estimated_duration_seconds=dto.estimated_duration_seconds,
-            created_by_id=user_id,
-        )
+        async with in_transaction() as connection:
+            testcase = await TestCaseModel.create(
+                title=dto.title,
+                text=dto.text,
+                steps=dto.steps,
+                expected_results=dto.expected_results,
+                preconditions=dto.preconditions,
+                postconditions=dto.postconditions,
+                type=dto.type,
+                sort=sort,
+                space_id=dto.space_id,
+                suite_id=suite_id,
+                section_id=section_id,
+                short_name=dto.short_name,
+                link=dto.link,
+                external_id=dto.external_id,
+                estimated_duration_seconds=dto.estimated_duration_seconds,
+                priority=dto.priority,
+                created_by_id=user_id,
+                using_db=connection,
+            )
+            await TestCaseService._replace_tags(
+                str(testcase.id), dto.space_id, dto.tags, connection=connection
+            )
+            await TestCaseService._create_test_case_version(
+                testcase, user_id, connection=connection
+            )
 
         # Index for semantic search
         await EmbeddingService.index_test_case(
@@ -86,13 +191,22 @@ class TestCaseService:
         page_size: int = 25,
         sort_by: Optional[str] = 'created_at',
         sort_order: Optional[str] = 'desc',
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        priority_filter: Optional[str] = None,
+        tag_filters: Optional[list[str]] = None,
     ) -> dict:
         q = TestCaseModel.filter(space_id=space_id)
         if type_filter:
             q = q.filter(type=type_filter)
         if status_filter:
             q = q.filter(status=status_filter)
+        if priority_filter:
+            if priority_filter not in {item.value for item in TestCasePriority}:
+                raise HTTPException(status_code=422, detail="priority must be P0, P1, P2, or P3")
+            q = q.filter(priority=priority_filter)
+        tag_case_ids = await TestCaseService._filter_ids_by_all_tags(space_id, tag_filters)
+        if tag_case_ids is not None:
+            q = q.filter(id__in=list(tag_case_ids))
         if suite_id == 'none':
             q = q.filter(suite_id__isnull=True)
         elif suite_id:
@@ -114,6 +228,7 @@ class TestCaseService:
         result = await paginate(
             q.prefetch_related('suite', 'created_by'), page, page_size, sort_by, sort_order
         )
+        tags_by_case = await TestCaseService.get_tags_for_cases([str(item.id) for item in result['items']])
         return {
             **result,
             'items': [
@@ -130,6 +245,8 @@ class TestCaseService:
                     'link': testcase.link,
                     'type': testcase.type,
                     'status': testcase.status,
+                    'priority': testcase.priority,
+                    'tags': tags_by_case.get(str(testcase.id), []),
                     'external_id': testcase.external_id,
                     'estimated_duration_seconds': testcase.estimated_duration_seconds,
                     'space_id': str(testcase.space_id),
@@ -153,11 +270,29 @@ class TestCaseService:
 
     @staticmethod
     async def get_by_suite(suite_id: str) -> list[TestCaseModel]:
-        return await TestCaseModel.filter(suite_id=suite_id).order_by('sort')
+        from ..test_suite.model import TestSuiteModel
+        suite = await TestSuiteModel.get_or_none(id=suite_id)
+        if not suite:
+            return []
+        return await TestCaseModel.filter(
+            suite_id=suite_id, space_id=str(suite.space_id)
+        ).order_by('sort')
 
     @staticmethod
     async def get_by_section(section_id: str) -> list[TestCaseModel]:
-        return await TestCaseModel.filter(section_id=section_id).order_by('sort')
+        from ..section.model import SectionModel
+        from ..test_suite.model import TestSuiteModel
+        section = await SectionModel.get_or_none(id=section_id)
+        if not section:
+            return []
+        suite = await TestSuiteModel.get_or_none(id=section.suite_id)
+        if not suite:
+            return []
+        return await TestCaseModel.filter(
+            section_id=section_id,
+            suite_id=str(suite.id),
+            space_id=str(suite.space_id),
+        ).order_by('sort')
 
     @staticmethod
     async def get_by_id(testcase_id: str) -> TestCaseModel:
@@ -184,6 +319,8 @@ class TestCaseService:
             'link': testcase.link,
             'type': testcase.type,
             'status': testcase.status,
+            'priority': testcase.priority,
+            'tags': await TestCaseService.get_tags(testcase_id),
             'external_id': testcase.external_id,
             'estimated_duration_seconds': testcase.estimated_duration_seconds,
             'space_id': str(testcase.space_id),
@@ -202,6 +339,7 @@ class TestCaseService:
     @staticmethod
     async def update(testcase_id: str, dto: TestCaseUpdateDto, token: Optional[str] = None) -> TestCaseModel:
         data = dto.model_dump(exclude_unset=True)
+        tag_values = data.pop('tags', None)
         # PATCH omits nullable fields by default.  `section_id: null` is the
         # one intentional exception: it moves a case to the suite's virtual
         # Default section without changing its suite.  Keep all other nulls
@@ -216,9 +354,14 @@ class TestCaseService:
             testcase = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()
             if not testcase:
                 raise HTTPException(status_code=404, detail="Test case not found")
-            if not data:
+            if not data and tag_values is None:
                 return testcase
-            await TestCaseModel.filter(id=testcase_id).using_db(connection).update(**data)
+            if data:
+                await TestCaseModel.filter(id=testcase_id).using_db(connection).update(**data)
+            if tag_values is not None:
+                await TestCaseService._replace_tags(
+                    testcase_id, str(testcase.space_id), tag_values, connection=connection
+                )
             updated = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
             await TestCaseService._create_test_case_version(
                 updated, user_id, next_version=True, connection=connection
@@ -378,6 +521,12 @@ class TestCaseService:
             query = query.using_db(connection)
         last_version = await query.order_by('-version_number').first()
         version_number = (last_version.version_number + 1) if last_version and next_version else 1
+        tag_query = await (connection or Tortoise.get_connection('default')).execute_query_dict(
+            "SELECT tag.name FROM test_case_tag_link link "
+            "JOIN test_case_tag tag ON tag.id = link.tag_id "
+            "WHERE link.testcase_id = $1 ORDER BY tag.normalized_name",
+            [str(testcase.id)],
+        )
         create_kwargs = {
             'testcase_id': str(testcase.id),
             'version_number': version_number,
@@ -388,6 +537,9 @@ class TestCaseService:
             'preconditions': testcase.preconditions,
             'postconditions': testcase.postconditions,
             'estimated_duration_seconds': testcase.estimated_duration_seconds,
+            'type': testcase.type,
+            'priority': testcase.priority,
+            'tag_labels': [row['name'] for row in tag_query],
             'created_by_id': user_id,
         }
         if connection is not None:
@@ -415,28 +567,36 @@ class TestCaseService:
 
         sort = await TestCaseService._compute_next_sort(original)
         new_short_name = TestCaseService._generate_copy_short_name(original.short_name)
+        original_tags = await TestCaseService.get_tags(str(original.id))
 
-        duplicated = await TestCaseModel.create(
-            title=f"{original.title} (Copy)",
-            text=original.text,
-            steps=original.steps,
-            expected_results=original.expected_results,
-            preconditions=original.preconditions,
-            postconditions=original.postconditions,
-            estimated_duration_seconds=original.estimated_duration_seconds,
-            type=original.type,
-            status=original.status,
-            sort=sort,
-            space_id=str(original.space_id),
-            suite_id=original.suite_id,
-            section_id=original.section_id,
-            short_name=new_short_name,
-            link=original.link,
-            external_id=original.external_id,
-            created_by_id=user_id,
-        )
-
-        await TestCaseService._create_test_case_version(duplicated, user_id)
+        async with in_transaction() as connection:
+            duplicated = await TestCaseModel.create(
+                title=f"{original.title} (Copy)",
+                text=original.text,
+                steps=original.steps,
+                expected_results=original.expected_results,
+                preconditions=original.preconditions,
+                postconditions=original.postconditions,
+                estimated_duration_seconds=original.estimated_duration_seconds,
+                priority=original.priority,
+                type=original.type,
+                status=original.status,
+                sort=sort,
+                space_id=str(original.space_id),
+                suite_id=original.suite_id,
+                section_id=original.section_id,
+                short_name=new_short_name,
+                link=original.link,
+                external_id=original.external_id,
+                created_by_id=user_id,
+                using_db=connection,
+            )
+            await TestCaseService._replace_tags(
+                str(duplicated.id), str(duplicated.space_id), original_tags, connection=connection
+            )
+            await TestCaseService._create_test_case_version(
+                duplicated, user_id, connection=connection
+            )
         await TestCaseService._index_test_case_for_search(duplicated)
 
         return duplicated
@@ -454,6 +614,9 @@ class TestCaseService:
             'preconditions': version.preconditions,
             'postconditions': version.postconditions,
             'estimated_duration_seconds': version.estimated_duration_seconds,
+            'type': version.type,
+            'priority': version.priority,
+            'tags': version.tag_labels,
             'created_by_id': str(version.created_by_id) if version.created_by_id else None,
             'created_at': version.created_at.isoformat() if version.created_at else None,
         }
@@ -475,7 +638,11 @@ class TestCaseService:
     async def diff_versions(testcase_id: str, from_version_id: str, to_version_id: str) -> dict:
         from_version = await TestCaseService.get_version(testcase_id, from_version_id)
         to_version = await TestCaseService.get_version(testcase_id, to_version_id)
-        fields = ('title', 'text', 'steps', 'expected_results', 'preconditions', 'postconditions', 'estimated_duration_seconds')
+        fields = (
+            'title', 'type', 'priority', 'tags', 'text', 'steps',
+            'expected_results', 'preconditions', 'postconditions',
+            'estimated_duration_seconds',
+        )
         changes = {
             field: {'from': from_version[field], 'to': to_version[field]}
             for field in fields
@@ -508,7 +675,13 @@ class TestCaseService:
                 preconditions=version.preconditions,
                 postconditions=version.postconditions,
                 estimated_duration_seconds=version.estimated_duration_seconds,
+                **({'type': version.type} if version.type is not None else {}),
+                **({'priority': version.priority} if version.priority is not None else {}),
             )
+            if version.tag_labels is not None:
+                await TestCaseService._replace_tags(
+                    testcase_id, str(restored.space_id), version.tag_labels, connection=connection
+                )
             restored = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
             await TestCaseService._create_test_case_version(
                 restored, user_id, next_version=True, connection=connection

@@ -22,10 +22,13 @@
             </v-btn>
             <span class="ml-2">Edit Test Case</span>
             <v-spacer />
-            <v-btn color="primary" @click="save">Save</v-btn>
+            <v-btn color="primary" :loading="saving" :disabled="saving" @click="save">Save</v-btn>
           </v-card-title>
 
           <v-card-text>
+            <v-alert v-if="saveError" type="error" variant="tonal" density="compact" class="mb-4" role="alert">
+              The test case could not be saved. Check the fields and try again.
+            </v-alert>
             <v-text-field
               v-model="form.title"
               label="Title"
@@ -50,6 +53,33 @@
               </v-col>
               <v-col cols="4">
                 <v-text-field v-model="form.short_name" label="Short Name" />
+              </v-col>
+            </v-row>
+
+            <v-row class="mb-4">
+              <v-col cols="4">
+                <v-select
+                  v-model="form.priority"
+                  :items="priorityOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Priority"
+                />
+              </v-col>
+              <v-col cols="8">
+                <v-combobox
+                  v-model="form.tags"
+                  :items="tagOptions"
+                  :loading="tagOptionsLoading"
+                  label="Tags"
+                  multiple
+                  chips
+                  closable-chips
+                  clearable
+                  hint="Choose an existing tag or enter a new one"
+                  persistent-hint
+                />
+                <div v-if="tagOptionsError" class="text-caption text-warning">Existing tags could not be loaded. You can still enter tag labels.</div>
               </v-col>
             </v-row>
 
@@ -177,6 +207,7 @@ import {ref, watch, onMounted, computed} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import { testCaseService } from '@/services'
 
 const route = useRoute()
 const router = useRouter()
@@ -190,6 +221,17 @@ const loader = ref(true)
 const testcase = ref({})
 const versions = ref([])
 const form = ref({})
+const tagOptions = ref([])
+const tagOptionsLoading = ref(false)
+const tagOptionsError = ref(false)
+const saving = ref(false)
+const saveError = ref(false)
+const priorityOptions = [
+  { title: 'P0 · Blocker', value: 'P0' },
+  { title: 'P1 · High', value: 'P1' },
+  { title: 'P2 · Normal', value: 'P2' },
+  { title: 'P3 · Low', value: 'P3' }
+]
 const hasDraft = ref(false)
 let autoSaveTimer = null
 
@@ -203,7 +245,7 @@ function loadCase() {
         const parsed = JSON.parse(draft)
         if (parsed._savedAt && new Date(parsed._savedAt) > new Date(res.data.updated_at)) {
           if (confirm('You have an unsaved draft. Restore it?')) {
-            form.value = parsed
+            form.value = { ...parsed, priority: parsed.priority || 'P2', tags: Array.isArray(parsed.tags) ? parsed.tags : [] }
             hasDraft.value = true
             loader.value = false
             return
@@ -213,9 +255,24 @@ function loadCase() {
         // ignore parse error
       }
     }
-    form.value = { ...res.data }
+    form.value = { ...res.data, priority: res.data.priority || 'P2', tags: Array.isArray(res.data.tags) ? [...res.data.tags] : [] }
     loader.value = false
   }).catch(() => { loader.value = false })
+  loadTagOptions()
+}
+
+async function loadTagOptions() {
+  tagOptionsLoading.value = true
+  tagOptionsError.value = false
+  try {
+    const response = await testCaseService.listTagsBySpace(spaceId.value)
+    const tags = Array.isArray(response.data) ? response.data : response.data?.items
+    tagOptions.value = Array.isArray(tags) ? tags.filter(tag => typeof tag === 'string') : []
+  } catch (_) {
+    tagOptionsError.value = true
+  } finally {
+    tagOptionsLoading.value = false
+  }
 }
 
 function scheduleAutoSave() {
@@ -231,9 +288,13 @@ function saveDraft() {
 }
 
 function save() {
+  saving.value = true
+  saveError.value = false
   const estimatedDuration = form.value.estimated_duration_seconds
   const payload = {
     ...form.value,
+    priority: form.value.priority || 'P2',
+    tags: normalizeTags(form.value.tags),
     estimated_duration_seconds: estimatedDuration === '' || estimatedDuration === null || estimatedDuration === undefined
       ? null
       : Number(estimatedDuration)
@@ -241,7 +302,25 @@ function save() {
   api.patch(`/api/v2/test-case/${caseId}`, payload).then(() => {
     localStorage.removeItem(draftKey)
     router.push(`/space/${spaceId.value}/test-cases/${caseId}`)
+  }).catch(() => {
+    saveError.value = true
+  }).finally(() => {
+    saving.value = false
   })
+}
+
+function normalizeTags(tags) {
+  const seen = new Set()
+  return (Array.isArray(tags) ? tags : []).reduce((result, tag) => {
+    if (typeof tag !== 'string') return result
+    const label = tag.trim()
+    const key = label.toLocaleLowerCase()
+    if (label && !seen.has(key)) {
+      seen.add(key)
+      result.push(label)
+    }
+    return result
+  }, [])
 }
 
 function formatDate(date) {

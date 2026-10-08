@@ -117,12 +117,17 @@
 | DELETE | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper с теми же active-run и ambiguity проверками |
 | POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + space check | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
-| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`; явный `section_id: null` снимает кейс с секции и оставляет его в указанном (или текущем) suite — UI показывает его в виртуальной секции `Default`; `null` остальных полей игнорируется. |
+| GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами `priority` и повторяющимся `tags`; несколько тегов работают как AND |
+| GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты меток кейсов в space |
+| GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом и метками |
+| GET | `/api/v2/test-case/section/{section_id}` | JWT + section suite space check | список кейсов section с приоритетом и метками |
+| POST | `/api/v2/test-case/` | JWT + space check | создаёт кейс с `priority` (`P0`–`P3`, default `P2`) и метками `tags` |
+| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`, priority и tags; omitted `tags` сохраняет метки, `tags: []` очищает их; явный `section_id: null` оставляет кейс в виртуальной секции `Default` |
 | POST | `/api/v2/test-case/{testcase_id}/move` | JWT + space check | явно перемещает кейс в тело `{suite_id, section_id}`; оба поля обязательны, `section_id: null` означает виртуальную секцию `Default` указанного suite. Suite и section проверяются в space кейса; чужая/несуществующая ссылка возвращает общий `404`, section другого suite в том же space — `422`. Ответ содержит `id`, `space_id`, `suite_id`, `section_id`; перемещение не создаёт content version. |
 | GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/{version_id}` | JWT + space check | конкретная версия testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/diff` | JWT + space check | сравнение двух версий |
-| POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной |
+| POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной; snapshot включает type, priority и значения меток |
 | GET | `/api/v2/test-case/{testcase_id}/runs` | JWT + space check | история результата кейса с фактическим временем и доступными timing полями связанного run |
 | GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
 | GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |

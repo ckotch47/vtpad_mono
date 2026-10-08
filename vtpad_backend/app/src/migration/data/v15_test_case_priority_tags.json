@@ -1,0 +1,14 @@
+{
+  "transactional": true,
+  "data": [
+    "ALTER TABLE test_case ADD COLUMN IF NOT EXISTS priority VARCHAR(2) NOT NULL DEFAULT 'P2'",
+    "ALTER TABLE test_case_version ADD COLUMN IF NOT EXISTS type VARCHAR(20) NULL",
+    "ALTER TABLE test_case_version ADD COLUMN IF NOT EXISTS priority VARCHAR(2) NULL",
+    "ALTER TABLE test_case_version ADD COLUMN IF NOT EXISTS tag_labels JSONB NULL",
+    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_test_case_priority' AND conrelid = 'test_case'::regclass) THEN ALTER TABLE test_case ADD CONSTRAINT chk_test_case_priority CHECK (priority IN ('P0', 'P1', 'P2', 'P3')) NOT VALID; END IF; END $$",
+    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_test_case_version_priority' AND conrelid = 'test_case_version'::regclass) THEN ALTER TABLE test_case_version ADD CONSTRAINT chk_test_case_version_priority CHECK (priority IS NULL OR priority IN ('P0', 'P1', 'P2', 'P3')) NOT VALID; END IF; END $$",
+    "CREATE TABLE IF NOT EXISTS test_case_tag (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), space_id UUID NOT NULL REFERENCES spacemodel(id) ON DELETE CASCADE, name VARCHAR(255) NOT NULL, normalized_name VARCHAR(255) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT uq_test_case_tag_space_normalized UNIQUE (space_id, normalized_name))",
+    "CREATE TABLE IF NOT EXISTS test_case_tag_link (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), testcase_id UUID NOT NULL REFERENCES test_case(id) ON DELETE CASCADE, tag_id UUID NOT NULL REFERENCES test_case_tag(id) ON DELETE CASCADE, CONSTRAINT uq_test_case_tag_link_pair UNIQUE (testcase_id, tag_id))",
+    "CREATE INDEX IF NOT EXISTS ix_test_case_tag_link_tag ON test_case_tag_link (tag_id, testcase_id)"
+  ]
+}

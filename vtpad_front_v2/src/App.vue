@@ -1,13 +1,13 @@
 <template>
   <v-app>
     <v-fab
-      v-if="authToken"
+      v-if="authToken && !drawer"
       id="spaces-navigation-toggle"
       class="me-4 menu-show--main"
       icon="mdi-menu"
-      aria-label="Toggle spaces navigation"
+      aria-label="Open spaces navigation"
       aria-controls="spaces-navigation"
-      title="Toggle spaces navigation"
+      title="Open spaces navigation"
       @click="drawer = !drawer"
     />
 

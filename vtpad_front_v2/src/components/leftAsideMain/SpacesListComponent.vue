@@ -2,7 +2,7 @@
   <div class="d-flex">
     <v-text-field
       class="hide-v-input__details"
-      label="Search"
+      label="Search spaces"
       @update:modelValue="updateFilterSpace"
     />
     <v-btn
@@ -24,8 +24,9 @@
       :key="item.id"
       :to="`/space/${item.id}/dashboard`"
       :value="item.id"
+      :aria-label="spaceName(item)"
     >
-      <v-list-item-title>{{ item.name }}</v-list-item-title>
+      <v-list-item-title>{{ spaceName(item) }}</v-list-item-title>
       <template #append>
         <v-btn
           v-if="item.role === 'OWNER' || company"
@@ -63,7 +64,6 @@ const props = defineProps({
 })
 
 const loading = ref(true)
-const filterValue = ref('')
 const resItems = ref([])
 const items = ref([])
 
@@ -79,7 +79,14 @@ onBeforeMount(() => {
 })
 
 function updateFilterSpace(event) {
-  resItems.value = items.value.filter(value => value.name.toLowerCase().includes(event.toLowerCase()))
+  const query = String(event ?? '').trim().toLocaleLowerCase()
+  resItems.value = items.value.filter(value => spaceName(value).toLocaleLowerCase().includes(query))
+}
+
+function spaceName(item) {
+  const name = typeof item?.name === 'string' ? item.name.trim() : ''
+  if (!name || ['null', 'undefined'].includes(name.toLocaleLowerCase())) return 'Unnamed space'
+  return name
 }
 
 async function createSpace() {

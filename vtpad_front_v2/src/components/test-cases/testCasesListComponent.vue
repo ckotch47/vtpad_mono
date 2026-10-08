@@ -161,7 +161,11 @@
     </v-data-table-server>
 
     <v-dialog v-model="openCreate" max-width="700">
-      <v-card>
+      <v-card
+        data-keyboard-save-scope
+        :data-keyboard-escape-confirm="isCreateDirty ? 'Discard unsaved test case changes?' : null"
+        :data-keyboard-escape-saving="creating ? 'true' : null"
+      >
         <v-card-title>Create Test Case</v-card-title>
         <v-card-text>
           <v-alert v-if="createError" type="error" variant="tonal" density="compact" class="mb-4" role="alert">
@@ -232,7 +236,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openCreate = false" :disabled="creating">Cancel</v-btn>
-          <v-btn color="primary" @click="createCase" :loading="creating" :disabled="creating">Create</v-btn>
+          <v-btn color="primary" data-keyboard-save-action @click="createCase" :loading="creating" :disabled="creating">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -296,6 +300,7 @@ const optionsDebounce = ref(null)
 const openCreate = ref(false)
 const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '' })
 const newCase = ref(emptyCase())
+const isCreateDirty = computed(() => JSON.stringify(newCase.value) !== JSON.stringify(emptyCase()))
 const selectedCases = ref([])
 const bulkStatusDialog = ref(false)
 const bulkStatus = ref('active')
@@ -530,6 +535,10 @@ watch(spaceId, () => {
   loadTagOptions()
   page.value = 1
   loadCases({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
+})
+
+watch(openCreate, (isOpen) => {
+  if (!isOpen && !creating.value) newCase.value = emptyCase()
 })
 </script>
 

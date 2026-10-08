@@ -104,12 +104,19 @@
   </v-card>
 
   <!-- Edit mode -->
-  <v-card v-else-if="editing" flat class="content-card">
+  <v-card
+    v-else-if="editing"
+    flat
+    class="content-card"
+    data-keyboard-save-scope
+    :data-keyboard-escape-confirm="hasUnsavedChanges ? 'Discard unsaved documentation changes?' : null"
+    :data-keyboard-escape-saving="saveLoading ? 'true' : null"
+  >
     <v-toolbar density="comfortable" color="surface">
       <v-btn icon="mdi-close" size="small" variant="text" aria-label="Cancel page editing" title="Cancel page editing" @click="$emit('cancel')" />
       <v-toolbar-title class="text-subtitle-1">{{ isCreating ? 'New Page' : 'Edit Page' }}</v-toolbar-title>
       <v-spacer />
-      <v-btn color="primary" size="small" :loading="saveLoading" @click="$emit('save')">Save</v-btn>
+      <v-btn color="primary" size="small" data-keyboard-save-action :loading="saveLoading" :disabled="saveLoading" @click="$emit('save')">Save</v-btn>
     </v-toolbar>
     <v-divider />
     <v-card-text class="content-body">
@@ -180,6 +187,7 @@ const props = defineProps({
   editing: { type: Boolean, default: false },
   isCreating: { type: Boolean, default: false },
   saveLoading: { type: Boolean, default: false },
+  hasUnsavedChanges: { type: Boolean, default: false },
   form: { type: Object, required: true },
   docTypes: { type: Array, default: () => [] },
   flatPages: { type: Array, default: () => [] },

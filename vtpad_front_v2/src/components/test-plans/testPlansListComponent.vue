@@ -29,16 +29,16 @@
       @update:options="loadPlans"
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-plans/${item.id}`)"
     >
-      <template v-slot:item.name="{ item }">
+      <template v-slot:[`item.name`]="{ item }">
         <span class="font-weight-medium">{{ item.name }}</span>
       </template>
-      <template v-slot:item.case_count="{ item }">
+      <template v-slot:[`item.case_count`]="{ item }">
         <v-chip size="small" color="primary">{{ (item.case_ids || []).length }}</v-chip>
       </template>
-      <template v-slot:item.description="{ item }">
+      <template v-slot:[`item.description`]="{ item }">
         <span class="text-medium-emphasis">{{ item.description || '—' }}</span>
       </template>
-      <template v-slot:item.created_by="{ item }">
+      <template v-slot:[`item.created_by`]="{ item }">
         <div v-if="item.created_by?.username" class="creator-cell">
           <v-avatar color="grey" size="24">
             <span class="text-body-2">{{ item.created_by.username[0]?.toUpperCase() }}</span>
@@ -47,10 +47,10 @@
         </div>
         <span v-else class="text-medium-emphasis">—</span>
       </template>
-      <template v-slot:item.created_at="{ item }">
+      <template v-slot:[`item.created_at`]="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
-      <template v-slot:item.actions="{ item }">
+      <template v-slot:[`item.actions`]="{ item }">
         <v-btn icon size="small" variant="text" @click.stop="deletePlan(item.id)">
           <v-icon color="error">mdi-delete</v-icon>
         </v-btn>
@@ -59,7 +59,11 @@
 
     <!-- Create Dialog -->
     <v-dialog v-model="openDialog" max-width="500">
-      <v-card>
+      <v-card
+        data-keyboard-save-scope
+        :data-keyboard-escape-confirm="isCreateDirty ? 'Discard unsaved test plan changes?' : null"
+        :data-keyboard-escape-saving="creating ? 'true' : null"
+      >
         <v-card-title>Create Test Plan</v-card-title>
         <v-card-text>
           <v-text-field v-model="newPlan.name" label="Name" required autofocus />
@@ -68,7 +72,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="openDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="createPlan">Create</v-btn>
+          <v-btn color="primary" data-keyboard-save-action :loading="creating" :disabled="creating" @click="createPlan">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -76,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { testPlanService } from '@/services'
@@ -95,6 +99,12 @@ const search = ref('')
 const searchDebounce = ref(null)
 const openDialog = ref(false)
 const newPlan = ref({ name: '', description: '' })
+const creating = ref(false)
+const isCreateDirty = computed(() => Boolean(newPlan.value.name || newPlan.value.description))
+
+watch(openDialog, (isOpen) => {
+  if (!isOpen && !creating.value) newPlan.value = { name: '', description: '' }
+})
 
 const headers = computed(() => [
   { title: 'Name', key: 'name', sortable: false },
@@ -133,6 +143,8 @@ function onSearch() {
 }
 
 async function createPlan() {
+  if (creating.value) return
+  creating.value = true
   try {
     await testPlanService.create({
       name: newPlan.value.name,
@@ -144,6 +156,8 @@ async function createPlan() {
     loadPlans({ page: page.value, itemsPerPage: pageSize.value })
   } catch (e) {
     log.error("request failed", e)
+  } finally {
+    creating.value = false
   }
 }
 

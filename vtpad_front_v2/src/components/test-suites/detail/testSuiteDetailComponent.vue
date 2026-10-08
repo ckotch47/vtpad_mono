@@ -132,6 +132,8 @@
       :is-rename="sectionDialog.isRename"
       v-model:name="sectionDialog.name"
       v-model:description="sectionDialog.description"
+      :saving="sectionSaving"
+      :is-dirty="sectionDialogDirty"
       @save="saveSection"
     />
 
@@ -174,6 +176,8 @@ const {
   movingCase,
   moveCaseError,
   sectionDialog,
+  sectionSaving,
+  sectionDialogDirty,
   caseDialogOpen,
   selectedCase,
   breadcrumbItems,

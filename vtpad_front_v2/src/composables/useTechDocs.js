@@ -28,6 +28,8 @@ export function useTechDocs() {
     version: '',
     parent_id: null,
   })
+  const editBaseline = ref(null)
+  const hasUnsavedChanges = computed(() => Boolean(editBaseline.value) && JSON.stringify(editForm.value) !== JSON.stringify(editBaseline.value))
   const docTypes = [
     { title: 'API Doc', value: 'api_doc' },
     { title: 'PRD', value: 'prd' },
@@ -117,6 +119,7 @@ export function useTechDocs() {
       version: selectedDoc.value.version || '',
       parent_id: selectedDoc.value.parent_id || null,
     }
+    editBaseline.value = { ...editForm.value }
     editing.value = true
   }
 
@@ -130,6 +133,7 @@ export function useTechDocs() {
       version: '',
       parent_id: null,
     }
+    editBaseline.value = { ...editForm.value }
     selectedDoc.value = null
     activeId.value = []
     editing.value = true
@@ -146,6 +150,7 @@ export function useTechDocs() {
       version: '',
       parent_id: parentId || selectedDoc.value?.id || null,
     }
+    editBaseline.value = { ...editForm.value }
     editing.value = true
   }
 
@@ -186,6 +191,7 @@ export function useTechDocs() {
   function cancelEdit() {
     if (!confirm('Discard unsaved changes?')) return
     editing.value = false
+    editBaseline.value = null
     if (route.query.doc) {
       loadDoc(route.query.doc)
     }
@@ -204,11 +210,13 @@ export function useTechDocs() {
           space_id: spaceId.value,
         })
         editing.value = false
+        editBaseline.value = null
         await loadTree()
         router.replace({ query: { doc: res.data.id } })
       } else {
         await techDocService.update(selectedDoc.value.id, editForm.value)
         editing.value = false
+        editBaseline.value = null
         await loadDoc(selectedDoc.value.id)
         await loadTree()
       }
@@ -323,6 +331,7 @@ export function useTechDocs() {
     isCreating,
     saveLoading,
     editForm,
+    hasUnsavedChanges,
     docTypes,
     flatPages,
     flatFilteredPages,

@@ -130,7 +130,11 @@
     </div>
 
     <v-dialog v-model="openCreate" max-width="500">
-      <v-card>
+      <v-card
+        data-keyboard-save-scope
+        :data-keyboard-escape-confirm="isCreateDirty ? 'Discard unsaved suite changes?' : null"
+        :data-keyboard-escape-saving="savingSuite ? 'true' : null"
+      >
         <v-card-title>Create Test Suite</v-card-title>
         <v-card-text>
           <v-text-field v-model="newSuite.name" label="Name" required autofocus />
@@ -139,13 +143,17 @@
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openCreate = false">Cancel</v-btn>
-          <v-btn color="primary" :disabled="!newSuite.name.trim()" @click="createSuite">Create</v-btn>
+          <v-btn color="primary" data-keyboard-save-action :disabled="!newSuite.name.trim() || savingSuite" :loading="savingSuite" @click="createSuite">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="openEdit" max-width="500">
-      <v-card>
+      <v-card
+        data-keyboard-save-scope
+        :data-keyboard-escape-confirm="isEditDirty ? 'Discard suite changes?' : null"
+        :data-keyboard-escape-saving="savingSuite ? 'true' : null"
+      >
         <v-card-title>Edit Test Suite</v-card-title>
         <v-card-text>
           <v-text-field v-model="editSuiteData.name" label="Name" required autofocus />
@@ -161,7 +169,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openEdit = false">Cancel</v-btn>
-          <v-btn color="primary" :disabled="!editSuiteData.name.trim()" @click="saveSuite">Save</v-btn>
+          <v-btn color="primary" data-keyboard-save-action :disabled="!editSuiteData.name.trim() || savingSuite" :loading="savingSuite" @click="saveSuite">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -195,6 +203,18 @@ const openCreate = ref(false)
 const openEdit = ref(false)
 const newSuite = ref({ name: '', description: '' })
 const editSuiteData = ref({ id: null, name: '', description: '', status: 'active' })
+const originalEditSuite = ref(null)
+const savingSuite = ref(false)
+const isCreateDirty = computed(() => Boolean(newSuite.value.name || newSuite.value.description))
+const isEditDirty = computed(() => Boolean(originalEditSuite.value) && JSON.stringify(editSuiteData.value) !== JSON.stringify(originalEditSuite.value))
+
+watch(openCreate, (isOpen) => {
+  if (!isOpen && !savingSuite.value) newSuite.value = { name: '', description: '' }
+})
+
+watch(openEdit, (isOpen) => {
+  if (!isOpen && !savingSuite.value) originalEditSuite.value = null
+})
 
 const pageCount = computed(() => Math.max(1, Math.ceil(totalSuites.value / pageSize.value)))
 const sortSelection = computed({
@@ -311,16 +331,21 @@ function suiteRoute(id) {
   return { path: `/space/${spaceId.value}/test-suites/${id}`, query: route.query }
 }
 
-function createSuite() {
-  testSuiteService.create({
-    name: newSuite.value.name.trim(),
-    description: newSuite.value.description,
-    space_id: spaceId.value
-  }).then(() => {
+async function createSuite() {
+  if (savingSuite.value) return
+  savingSuite.value = true
+  try {
+    await testSuiteService.create({
+      name: newSuite.value.name.trim(),
+      description: newSuite.value.description,
+      space_id: spaceId.value
+    })
     openCreate.value = false
     newSuite.value = { name: '', description: '' }
     loadSuites({ page: 1 })
-  })
+  } finally {
+    savingSuite.value = false
+  }
 }
 
 function editSuite(item) {
@@ -330,19 +355,26 @@ function editSuite(item) {
     description: item.description || '',
     status: item.status || 'active'
   }
+  originalEditSuite.value = { ...editSuiteData.value }
   openEdit.value = true
 }
 
-function saveSuite() {
-  testSuiteService.update(editSuiteData.value.id, {
-    name: editSuiteData.value.name.trim(),
-    description: editSuiteData.value.description,
-    status: editSuiteData.value.status
-  }).then(() => {
+async function saveSuite() {
+  if (savingSuite.value) return
+  savingSuite.value = true
+  try {
+    await testSuiteService.update(editSuiteData.value.id, {
+      name: editSuiteData.value.name.trim(),
+      description: editSuiteData.value.description,
+      status: editSuiteData.value.status
+    })
     openEdit.value = false
+    originalEditSuite.value = null
     emit('suite-changed')
     loadSuites()
-  })
+  } finally {
+    savingSuite.value = false
+  }
 }
 
 function deleteSuite(item) {

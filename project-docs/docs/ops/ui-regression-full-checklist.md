@@ -49,6 +49,9 @@
 - Spaces drawer открывается и закрывается без перекрытия первой строки; пустые имена отображаются как `Unnamed space`, поиск по ним не падает.
 - На desktop подписи фильтров Test Cases остаются читаемыми; поиск и фильтры продолжают менять выдачу.
 - Иконки-действия имеют доступные имена, а при клавиатурной навигации виден фокус.
+- Cmd/Ctrl+S сохраняет только активную форму; в поиске и вне формы не перехватывает браузерное действие.
+- Esc закрывает верхний диалог; при изменённых данных показывает подтверждение, а во время сохранения не закрывает форму.
+- UX1 browser spot-check 2026-10-09: on the desktop Test Cases list, opening a blank create form and pressing Ctrl+S left the form open without creating a record; Esc then closed it. Unsaved-change confirmation, active save on a valid form, in-flight save blocking, search/browser shortcut behavior, and nested-overlay targeting remain unverified. No record was saved.
 
 ### 2. Full Functional (основной регресс)
 

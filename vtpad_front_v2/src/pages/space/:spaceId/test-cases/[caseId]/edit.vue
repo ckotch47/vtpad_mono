@@ -15,14 +15,14 @@
   <v-container v-else fluid class="pa-6">
     <v-row>
       <v-col cols="12" md="9">
-        <v-card>
+        <v-card data-keyboard-save-scope>
           <v-card-title class="d-flex align-center">
             <v-btn icon variant="text" @click="$router.back()">
               <v-icon>mdi-arrow-left</v-icon>
             </v-btn>
             <span class="ml-2">Edit Test Case</span>
             <v-spacer />
-            <v-btn color="primary" :loading="saving" :disabled="saving" @click="save">Save</v-btn>
+            <v-btn color="primary" data-keyboard-save-action :loading="saving" :disabled="saving" @click="save">Save</v-btn>
           </v-card-title>
 
           <v-card-text>
@@ -203,6 +203,8 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'TestCaseEditPage' })
+
 import {ref, watch, onMounted, computed} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'

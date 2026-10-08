@@ -43,6 +43,12 @@ export function useTestSuiteDetail() {
     name: '',
     description: ''
   })
+  const sectionDialogBaseline = ref(null)
+  const sectionSaving = ref(false)
+  const sectionDialogDirty = computed(() => Boolean(sectionDialogBaseline.value) && (
+    sectionDialog.value.name !== sectionDialogBaseline.value.name ||
+    sectionDialog.value.description !== sectionDialogBaseline.value.description
+  ))
   const caseDialogOpen = ref(false)
   const selectedCase = ref(null)
   const breadcrumbItems = ref([])
@@ -258,6 +264,7 @@ export function useTestSuiteDetail() {
       name: '',
       description: ''
     }
+    sectionDialogBaseline.value = { name: '', description: '' }
   }
 
   function openRenameDialog(item) {
@@ -269,27 +276,31 @@ export function useTestSuiteDetail() {
       name: item.name,
       description: item.description || ''
     }
+    sectionDialogBaseline.value = { name: item.name || '', description: item.description || '' }
   }
 
-  function saveSection() {
-    if (sectionDialog.value.isRename) {
-      sectionService.update(sectionDialog.value.id, {
-        name: sectionDialog.value.name,
-        description: sectionDialog.value.description || null
-      }).then(() => {
-        sectionDialog.value.open = false
-        loadSections()
-      })
-    } else {
-      sectionService.create({
-        name: sectionDialog.value.name,
-        description: sectionDialog.value.description || null,
-        suite_id: suiteId.value,
-        parent_id: sectionDialog.value.parentId
-      }).then(() => {
-        sectionDialog.value.open = false
-        loadSections()
-      })
+  async function saveSection() {
+    if (sectionSaving.value || !sectionDialog.value.name.trim()) return
+    sectionSaving.value = true
+    try {
+      if (sectionDialog.value.isRename) {
+        await sectionService.update(sectionDialog.value.id, {
+          name: sectionDialog.value.name,
+          description: sectionDialog.value.description || null
+        })
+      } else {
+        await sectionService.create({
+          name: sectionDialog.value.name,
+          description: sectionDialog.value.description || null,
+          suite_id: suiteId.value,
+          parent_id: sectionDialog.value.parentId
+        })
+      }
+      sectionDialog.value.open = false
+      sectionDialogBaseline.value = null
+      loadSections()
+    } finally {
+      sectionSaving.value = false
     }
   }
 
@@ -472,6 +483,8 @@ export function useTestSuiteDetail() {
     movingCase,
     moveCaseError,
     sectionDialog,
+    sectionSaving,
+    sectionDialogDirty,
     caseDialogOpen,
     selectedCase,
     breadcrumbItems,

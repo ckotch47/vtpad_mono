@@ -34,6 +34,7 @@
           :editing="editing"
           :is-creating="isCreating"
           :save-loading="saveLoading"
+          :has-unsaved-changes="hasUnsavedChanges"
           v-model:form="editForm"
           :doc-types="docTypes"
           :flat-pages="flatPages"
@@ -77,6 +78,7 @@ const {
   isCreating,
   saveLoading,
   editForm,
+  hasUnsavedChanges,
   docTypes,
   selectedPath,
   onTreeSelect,

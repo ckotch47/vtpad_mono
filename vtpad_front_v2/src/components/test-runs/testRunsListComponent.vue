@@ -29,13 +29,13 @@
       @update:options="loadRuns"
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-runs/${item.id}`)"
     >
-      <template v-slot:item.status="{ item }">
+      <template v-slot:[`item.status`]="{ item }">
         <v-chip size="small" :color="statusColor(item.status)">
           <v-icon start size="x-small">{{ statusIcon(item.status) }}</v-icon>
           <span class="text-capitalize">{{ item.status }}</span>
         </v-chip>
       </template>
-      <template v-slot:item.created_by="{ item }">
+      <template v-slot:[`item.created_by`]="{ item }">
         <div v-if="item.created_by?.username" class="creator-cell">
           <v-avatar color="grey" size="24">
             <span class="text-body-2">{{ item.created_by.username[0]?.toUpperCase() }}</span>
@@ -44,16 +44,20 @@
         </div>
         <span v-else class="text-medium-emphasis">—</span>
       </template>
-      <template v-slot:item.created_at="{ item }">
+      <template v-slot:[`item.created_at`]="{ item }">
         {{ formatDate(item.created_at) }}
       </template>
-      <template v-slot:item.actions="{ item }">
+      <template v-slot:[`item.actions`]="{ item }">
         <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click.stop="deleteRun(item)" />
       </template>
     </v-data-table-server>
 
     <v-dialog v-model="openCreate" max-width="760">
-      <v-card>
+      <v-card
+        data-keyboard-save-scope
+        :data-keyboard-escape-confirm="isCreateDirty ? 'Discard unsaved test run changes?' : null"
+        :data-keyboard-escape-saving="creating ? 'true' : null"
+      >
         <v-card-title>Create Test Run</v-card-title>
         <v-card-text>
           <v-text-field v-model="newRun.name" label="Name" required autofocus />
@@ -112,7 +116,7 @@
           <v-spacer />
           <v-btn text @click="openCreate = false">Cancel</v-btn>
           <v-btn variant="text" :loading="previewLoading" @click="loadPreview">Preview</v-btn>
-          <v-btn color="primary" :disabled="!hasSource" :loading="creating" @click="createRun">Create draft</v-btn>
+          <v-btn color="primary" data-keyboard-save-action :disabled="!hasSource || creating" :loading="creating" @click="createRun">Create draft</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -148,6 +152,7 @@ const previewLoading = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const newRun = ref(emptyRun())
+const isCreateDirty = computed(() => JSON.stringify(newRun.value) !== JSON.stringify(emptyRun()))
 
 const hasSource = computed(() => {
   if (newRun.value.sourceType === 'suite') return Boolean(newRun.value.suite_id)
@@ -259,6 +264,7 @@ async function loadPreview() {
 }
 
 async function createRun() {
+  if (creating.value) return
   creating.value = true
   createError.value = ''
   try {

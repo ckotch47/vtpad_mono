@@ -1,6 +1,11 @@
 <template>
   <v-dialog :model-value="modelValue" max-width="600" scrollable @update:model-value="$emit('update:modelValue', $event)">
-    <v-card v-if="result">
+    <v-card
+      v-if="result"
+      data-keyboard-save-scope
+      :data-keyboard-escape-confirm="hasUnsavedChanges ? 'Discard unsaved run result changes?' : null"
+      :data-keyboard-escape-saving="saving ? 'true' : null"
+    >
       <v-card-title class="d-flex align-center">
         <span>Update Result</span>
         <v-spacer />
@@ -51,7 +56,7 @@
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="primary" @click="$emit('save')">Save</v-btn>
+        <v-btn color="primary" data-keyboard-save-action :loading="saving" :disabled="saving" @click="$emit('save')">Save</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -61,7 +66,9 @@
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   result: { type: Object, default: null },
-  spaceBugs: { type: Array, default: () => [] }
+  spaceBugs: { type: Array, default: () => [] },
+  saving: { type: Boolean, default: false },
+  hasUnsavedChanges: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue', 'update:result', 'save', 'create-bug'])

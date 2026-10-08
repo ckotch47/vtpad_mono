@@ -1,6 +1,10 @@
 <template>
   <v-dialog :model-value="modelValue" max-width="560" @update:model-value="$emit('update:modelValue', $event)">
-    <v-card>
+    <v-card
+      data-keyboard-save-scope
+      :data-keyboard-escape-confirm="hasUnsavedChanges ? 'Discard unsaved bug changes?' : null"
+      :data-keyboard-escape-saving="saving ? 'true' : null"
+    >
       <v-card-title>Create Bug</v-card-title>
       <v-card-text>
         <v-alert v-if="retrying" type="info" variant="tonal" class="mb-3">
@@ -14,7 +18,7 @@
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="error" @click="$emit('create')">Create Bug</v-btn>
+        <v-btn color="error" data-keyboard-save-action :loading="saving" :disabled="saving" @click="$emit('create')">Create Bug</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -24,6 +28,8 @@
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   retrying: { type: Boolean, default: false },
+  saving: { type: Boolean, default: false },
+  hasUnsavedChanges: { type: Boolean, default: false },
   bug: { type: Object, default: () => ({ title: '', steps: '', expected: '', actual: '' }) }
 })
 

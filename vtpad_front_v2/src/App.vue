@@ -39,6 +39,7 @@
             <v-list-item title="Esc" subtitle="Close overlay / dialog" />
             <v-list-item title="?" subtitle="Show this help" />
             <v-list-item title="Cmd / Ctrl + K" subtitle="Open command palette" />
+            <v-list-item title="Cmd / Ctrl + S" subtitle="Save the active form" />
           </v-list>
         </v-card-text>
         <v-card-actions>
@@ -84,9 +85,33 @@ function updateRouteMeta() {
 
 function onKeydown(e) {
   if (e.key === 'Escape') {
-    const activeOverlays = document.querySelectorAll('.v-overlay__scrim')
-    if (activeOverlays.length > 0) {
-      activeOverlays[activeOverlays.length - 1].click()
+    const overlays = document.querySelectorAll('.v-overlay--active')
+    const topOverlay = overlays[overlays.length - 1]
+    if (topOverlay) {
+      const savingForm = topOverlay.querySelector('[data-keyboard-escape-saving="true"]')
+      if (savingForm) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        return
+      }
+
+      const guardedForm = topOverlay.querySelector('[data-keyboard-escape-confirm]')
+      if (guardedForm && !window.confirm(guardedForm.dataset.keyboardEscapeConfirm)) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        return
+      }
+    }
+  }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 's') {
+    const activeElement = document.activeElement
+    const scope = activeElement?.closest('[data-keyboard-save-scope]')
+    const saveAction = scope?.querySelector('[data-keyboard-save-action]')
+    if (saveAction) {
+      e.preventDefault()
+      if (!saveAction.disabled && saveAction.getAttribute('aria-disabled') !== 'true') {
+        saveAction.click()
+      }
     }
   }
   if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -100,11 +125,11 @@ function onKeydown(e) {
 onMounted(() => {
   checkAuth()
   updateRouteMeta()
-  document.addEventListener('keydown', onKeydown)
+  document.addEventListener('keydown', onKeydown, true)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('keydown', onKeydown, true)
 })
 
 watch(route, updateRouteMeta, { deep: true })

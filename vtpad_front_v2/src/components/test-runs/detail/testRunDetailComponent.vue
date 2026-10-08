@@ -288,6 +288,8 @@
       v-model="editModal"
       :result="editingResult"
       :space-bugs="spaceBugs"
+      :saving="savingResult"
+      :has-unsaved-changes="resultEditDirty"
       @update:result="editingResult = $event"
       @save="saveResult"
       @create-bug="openBugModal"
@@ -298,6 +300,8 @@
     <quick-bug-dialog
       :model-value="bugModal"
       :bug="newBug"
+      :saving="creatingBug"
+      :has-unsaved-changes="quickBugDirty"
       :retrying="Boolean(editingResult && pendingQuickBugAttempts[editingResult.id])"
       @update:model-value="handleBugModalUpdate"
       @update:bug="newBug = $event"
@@ -331,6 +335,7 @@ const editingResult = ref(null)
 const spaceBugs = ref([])
 const bugModal = ref(false)
 const newBug = ref({ title: '', steps: '', expected: '', actual: '' })
+const initialBug = ref(null)
 const caseDialogOpen = ref(false)
 const selectedCase = ref(null)
 const updatingResultId = ref(null)
@@ -344,6 +349,16 @@ const timerActionLoading = ref(false)
 const timerRefreshLoading = ref(false)
 const savingResult = ref(false)
 const creatingBug = ref(false)
+const resultEditDirty = computed(() => {
+  const result = editingResult.value
+  if (!result) return false
+  const bugIds = (result.linked_bugs || []).map(bug => bug.id)
+  return result.status !== result.originalStatus ||
+    result.duration_seconds !== result.originalDurationSeconds ||
+    result.comment !== result.originalComment ||
+    JSON.stringify(bugIds) !== JSON.stringify(result.originalLinkedBugIds)
+})
+const quickBugDirty = computed(() => Boolean(initialBug.value) && JSON.stringify(newBug.value) !== JSON.stringify(initialBug.value))
 const pendingQuickBugAttempts = ref({})
 const currentGroupId = ref(null)
 const loadedRunId = ref(null)
@@ -564,6 +579,8 @@ function openResultModal(result) {
   editingResult.value = {
     ...result,
     originalStatus: result.status,
+    originalDurationSeconds: result.duration_seconds,
+    originalComment: result.comment,
     originalLinkedBugIds: (result.linked_bugs || []).map(bug => bug.id),
     linked_bugs: [...(result.linked_bugs || [])]
   }
@@ -751,6 +768,7 @@ function openBugModal() {
       actual: editingResult.value.comment || ''
     }
   }
+  initialBug.value = { ...newBug.value }
   bugModal.value = true
 }
 

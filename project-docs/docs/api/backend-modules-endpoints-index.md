@@ -179,6 +179,7 @@ Current behavior constraints (synced with code):
 - `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
 - `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
 - Space access checks invoked by MCP tools use `request.state.mcp_authenticated_user_id`, which is populated only by `MCPAuthMiddleware` after API-token validation; REST requests continue to resolve the user from their JWT Bearer token.
+- Test-run MCP lifecycle includes `start_test_run`, `pause_test_run`, `resume_test_run` and `complete_test_run`; `get_run_results` returns the same timer and duration aggregates as REST. Testcase MCP create/update/read and result updates expose the estimate and validated actual duration.
 
 ### `app/src/test_run`
 - `POST /api/v2/test-run/preview`
@@ -186,12 +187,14 @@ Current behavior constraints (synced with code):
 - `GET /api/v2/test-run/space/{space_id}`
 - `GET/PATCH/DELETE /api/v2/test-run/{run_id}`
 - `POST /api/v2/test-run/{run_id}/start`
+- `POST /api/v2/test-run/{run_id}/pause`
+- `POST /api/v2/test-run/{run_id}/resume`
 - `POST /api/v2/test-run/{run_id}/complete`
 - `PATCH /api/v2/test-run/result/{result_id}`
 - `PATCH /api/v2/test-run/result/bulk`
 
 Run creation snapshots the selected test cases in the same transaction as the new results. A suite, plan, or explicit case selection can include test cases of any status; source validation is limited to source and space membership. Results can be corrected while their run is active; returning a result to `not_run` clears execution attribution and timestamp. List responses for test runs, test cases, test suites and test plans, as well as testcase detail, include a nullable creator `{id, username}` without email.
-Run detail responses include `linked_bug_ids` as an array, including for legacy results with a null database value.
+Run detail responses include `linked_bug_ids` as an array, including for legacy results with a null database value. They include a shared timer summary (`state`, calendar/active/paused seconds and interval count), plus the sum of known case durations and measured/unmeasured result counts. Legacy runs without timer intervals report active and paused duration as unknown. The API calculates timer values from stored interval boundaries on request; there is no cron/background timer loop, and the UI refreshes on load, state changes, or explicit refresh. Estimated testcase duration is versioned and copied into each result snapshot; existing records remain `NULL`.
 
 ### `app/src/tech_doc`
 - `GET /api/v2/tech-doc/space/{space_id}`
@@ -204,6 +207,9 @@ Run detail responses include `linked_bug_ids` as an array, including for legacy 
 All REST routes require JWT and space access. Create/update reject a parent document from another space and serialize parent changes per space to prevent concurrent cycles. MCP exposes the same list, tree, get-by-id, create, update, and delete operations; its list tool supports the REST filters and pagination. MCP also provides text and semantic search, plus link/unlink and list/replace operations for Tech Doc/testcase relationships from either side. Each operation checks access to the requested space or document. Space access allows an active space member or an active company admin in that space's company.
 
 ### `app/src/test_case`
+- `GET /api/v2/test-case/space/{space_id}` and `GET /api/v2/test-case/{testcase_id}` expose `estimated_duration_seconds`.
+- `POST /api/v2/test-case/` and `PATCH /api/v2/test-case/{testcase_id}` accept a non-negative nullable estimate; version, restore, duplicate, and run snapshot paths preserve it.
+- `GET /api/v2/test-case/{testcase_id}/runs` includes linked run timing when available.
 - `GET /api/v2/test-case/{testcase_id}/versions`
 - `GET /api/v2/test-case/{testcase_id}/versions/{version_id}`
 - `GET /api/v2/test-case/{testcase_id}/versions/diff`

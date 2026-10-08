@@ -61,7 +61,7 @@ flowchart LR
 - CORS настроен крайне permissive (`allow_origins=['*']`).
 - Нет rate-limiting middleware.
 - Файлы загружаются в локальную директорию `./uploads` и раздаются как static.
-- Schema generation отключена (`generate_schemas=False`); миграции управляются внешне.
+- Schema generation отключена (`generate_schemas=False`); JSON-миграции из `app/src/migration/data/` автоматически запускаются при старте backend и отмечаются в migration ledger после успеха.
 
 ## Источники в коде
 

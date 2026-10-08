@@ -99,11 +99,20 @@
     </v-card>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
-      Test cases could not be loaded. Change a filter or try again.
+      {{ cases.length ? 'Test cases could not be refreshed. Existing results are still shown.' : 'Test cases could not be loaded.' }}
       <v-btn size="small" variant="text" @click="loadCases({ page: page, itemsPerPage: itemsPerPage, sortBy: sortBy })">Retry</v-btn>
     </v-alert>
 
-    <v-data-table-server
+    <div class="list-loading-region" :aria-busy="initialLoading || tableLoading">
+      <list-loading-skeleton
+        v-if="initialLoading"
+        class="list-loading-region__skeleton"
+        variant="table"
+        :columns="headers.length"
+        label="test cases"
+      />
+      <v-data-table-server
+      :class="{ 'list-loading-region__content--hidden': initialLoading || (loadError && !cases.length) }"
       v-model="selectedCases"
       v-model:items-per-page="itemsPerPage"
       v-model:page="page"
@@ -158,7 +167,8 @@
           <v-icon>mdi-content-copy</v-icon>
         </v-btn>
       </template>
-    </v-data-table-server>
+      </v-data-table-server>
+    </div>
 
     <v-dialog v-model="openCreate" max-width="700">
       <v-card
@@ -262,6 +272,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testCaseService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -274,6 +285,8 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const sortBy = ref([{ key: 'created_at', order: 'desc' }])
 const tableLoading = ref(false)
+const hasLoaded = ref(false)
+const initialLoading = computed(() => Boolean(spaceId.value) && !hasLoaded.value)
 const creating = ref(false)
 const createError = ref(false)
 const firstLoad = ref(true)
@@ -381,11 +394,11 @@ function doLoadCases(options) {
     cases.value = res.data.items || res.data
     totalCases.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     itemsPerPage.value = res.data.page_size || itemsPerPage.value
-    tableLoading.value = false
+    hasLoaded.value = true
   }).catch(() => {
     loadError.value = true
-    cases.value = []
-    totalCases.value = 0
+  }).finally(() => {
+    hasLoaded.value = true
     tableLoading.value = false
   })
 }
@@ -601,5 +614,20 @@ watch(openCreate, (isOpen) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.list-loading-region {
+  position: relative;
+  min-height: 360px;
+}
+
+.list-loading-region__skeleton {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.list-loading-region__content--hidden {
+  visibility: hidden;
 }
 </style>

@@ -18,9 +18,19 @@
       />
     </v-card-text>
     <v-divider />
-    <v-card-text ref="containerRef" class="pa-0 tree-container">
-      <v-skeleton-loader v-if="loading" type="list-item@5" />
-      <v-list v-else density="compact" class="tech-doc-list">
+    <v-card-text ref="containerRef" class="pa-0 tree-container" :aria-busy="loading">
+      <list-loading-skeleton
+        v-if="initialLoading"
+        variant="tree"
+        :rows="6"
+        label="documentation pages"
+      />
+      <v-progress-linear v-if="loading && hasLoaded" indeterminate color="primary" height="2" aria-hidden="true" />
+      <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-2" role="alert">
+        {{ items.length ? 'Pages could not be refreshed. The previous tree is still shown.' : 'Documentation pages could not be loaded.' }}
+        <v-btn size="small" variant="text" @click="$emit('retry')">Retry</v-btn>
+      </v-alert>
+      <v-list v-if="!initialLoading" density="compact" class="tech-doc-list">
         <v-list-item
           v-for="item in items"
           :key="item.id"
@@ -70,15 +80,24 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
+  error: { type: Boolean, default: false },
   query: { type: String, default: '' },
   activeId: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['update:query', 'select', 'create', 'create-subpage', 'rename', 'delete'])
+const hasLoaded = ref(false)
+const initialLoading = computed(() => props.loading && !hasLoaded.value)
+
+watch(() => props.loading, (isLoading) => {
+  if (!isLoading) hasLoaded.value = true
+})
+
+const emit = defineEmits(['update:query', 'select', 'create', 'create-subpage', 'rename', 'delete', 'retry'])
 
 const containerRef = ref(null)
 const localQuery = computed({

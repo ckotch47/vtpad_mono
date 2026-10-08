@@ -18,12 +18,14 @@
           v-model:query="treeQuery"
           :items="flatFilteredPages"
           :loading="treeLoading"
+          :error="treeError"
           :active-id="activeId"
           @select="onTreeSelect"
           @create="openCreate"
           @create-subpage="openCreateSubpage"
           @rename="renameDoc"
           @delete="deleteDocById"
+          @retry="loadTree"
         />
       </v-col>
 

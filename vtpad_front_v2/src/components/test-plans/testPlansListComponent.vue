@@ -18,7 +18,21 @@
       </v-btn>
     </v-toolbar>
 
-    <v-data-table-server
+    <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
+      {{ plans.length ? 'Test plans could not be refreshed. Existing results are still shown.' : 'Test plans could not be loaded.' }}
+      <v-btn size="small" variant="text" @click="loadPlans({ page: page, itemsPerPage: pageSize })">Retry</v-btn>
+    </v-alert>
+
+    <div class="list-loading-region" :aria-busy="initialLoading || loading">
+      <list-loading-skeleton
+        v-if="initialLoading"
+        class="list-loading-region__skeleton"
+        variant="table"
+        :columns="headers.length"
+        label="test plans"
+      />
+      <v-data-table-server
+      :class="{ 'list-loading-region__content--hidden': initialLoading || (loadError && !plans.length) }"
       v-model:page="page"
       v-model:items-per-page="pageSize"
       :headers="headers"
@@ -55,7 +69,8 @@
           <v-icon color="error">mdi-delete</v-icon>
         </v-btn>
       </template>
-    </v-data-table-server>
+      </v-data-table-server>
+    </div>
 
     <!-- Create Dialog -->
     <v-dialog v-model="openDialog" max-width="500">
@@ -84,6 +99,7 @@ import { ref, computed, watch } from 'vue'
 import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { testPlanService } from '@/services'
+import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const log = useLogger('app')
 const route = useRoute()
@@ -95,6 +111,10 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(25)
 const loading = ref(false)
+const hasLoaded = ref(false)
+const initialLoading = computed(() => Boolean(spaceId.value) && spaceId.value !== 'undefined' && !hasLoaded.value)
+const loadError = ref(false)
+const requestId = ref(0)
 const search = ref('')
 const searchDebounce = ref(null)
 const openDialog = ref(false)
@@ -115,9 +135,13 @@ const headers = computed(() => [
   { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100px' }
 ])
 
-async function loadPlans({ page: p, itemsPerPage }) {
+async function loadPlans(options = {}) {
   if (!spaceId.value || spaceId.value === 'undefined') return
+  const currentRequest = ++requestId.value
+  const p = options.page || page.value
+  const itemsPerPage = options.itemsPerPage || pageSize.value
   loading.value = true
+  loadError.value = false
   page.value = p
   pageSize.value = itemsPerPage
   try {
@@ -126,12 +150,20 @@ async function loadPlans({ page: p, itemsPerPage }) {
       page_size: itemsPerPage,
       search: search.value || undefined
     })
-    plans.value = res.data.items
-    total.value = res.data.total
+    if (currentRequest === requestId.value) {
+      plans.value = res.data.items || []
+      total.value = res.data.total || 0
+    }
   } catch (e) {
-    log.error("request failed", e)
+    if (currentRequest === requestId.value) {
+      loadError.value = true
+      log.error("request failed", e)
+    }
   } finally {
-    loading.value = false
+    if (currentRequest === requestId.value) {
+      hasLoaded.value = true
+      loading.value = false
+    }
   }
 }
 
@@ -196,5 +228,20 @@ function formatDate(date) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.list-loading-region {
+  position: relative;
+  min-height: 360px;
+}
+
+.list-loading-region__skeleton {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.list-loading-region__content--hidden {
+  visibility: hidden;
 }
 </style>

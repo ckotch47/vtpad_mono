@@ -1,8 +1,4 @@
 <template>
-  <div v-if="loader">
-    <v-progress-linear color="primary" indeterminate />
-  </div>
-
   <page-header-component title="Bugs" />
 
   <v-toolbar density="compact" class="list-toolbar ">
@@ -35,9 +31,17 @@
     @changeSettingsFromModalEmit="changeSettings"
   />
 
+  <v-alert v-if="loadError && hasLoaded && desserts.length" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
+    Bugs could not be refreshed. Existing results are still shown.
+    <v-btn size="small" variant="text" @click="retryLoad">Retry</v-btn>
+  </v-alert>
+  <v-progress-linear v-if="loader && hasLoaded" color="primary" indeterminate aria-hidden="true" />
+
   <bugs-data-table
-    v-if="!loader"
     :items="desserts"
+    :loading="loader"
+    :initial-loading="initialLoading"
+    :initial-error="loadError && hasLoaded && !desserts.length"
     :filter="filter"
     :filter-param="filterParam"
     :settings="settings"
@@ -45,10 +49,11 @@
     @create-bug="createBug"
     @open-bug="openBug"
     @click-tag="clickTag"
+    @retry="retryLoad"
   />
 
   <v-btn
-    v-if="isInfiniteScroll && !loader"
+    v-if="isInfiniteScroll && hasLoaded && !loader && !loadError"
     ref="infinityScrollBtn"
     v-element-visibility="nextData"
     color="primary"
@@ -77,7 +82,6 @@ import { bugService } from '@/services'
 import BugsModalComponent from '@/components/bugs/modal/bugsModalComponent.vue'
 import BugsDataTable from './BugsDataTable.vue'
 import PageHeaderComponent from '@/components/common/pageHeaderComponent.vue'
-
 const route = useRoute()
 const store = useAppStore()
 
@@ -94,6 +98,11 @@ const search = ref('')
 const searchDebounce = ref(null)
 
 const loader = ref(true)
+const hasLoaded = ref(false)
+const initialLoading = computed(() => loader.value && !hasLoaded.value)
+const loadError = ref(false)
+const requestId = ref(0)
+const retryAppend = ref(false)
 const isInfiniteScroll = ref(true)
 const itemPerPage = ref(15)
 const filterParam = ref({
@@ -148,6 +157,10 @@ onBeforeMount(() => {
 
 function openPage() {
   loader.value = true
+  hasLoaded.value = false
+  loadError.value = false
+  desserts.value = []
+  requestId.value += 1
   filter.value = {
     create_date: true,
     create_date_end: true,
@@ -199,7 +212,13 @@ async function getData(append = true) {
   if (!append) {
     filterParam.value.skip = 0
   }
-  bugService.list(filterParam.value).then(res => {
+  const currentRequest = ++requestId.value
+  retryAppend.value = append
+  loadError.value = false
+  loader.value = true
+  try {
+    const res = await bugService.list(filterParam.value)
+    if (currentRequest !== requestId.value) return
     if (append) {
       desserts.value = desserts.value.concat(res.data)
     } else {
@@ -214,8 +233,18 @@ async function getData(append = true) {
     if (res.data.length === 0 && filterParam.value.skip > 0) {
       filterParam.value.skip -= itemPerPage.value
     }
-    loader.value = false
-  })
+  } catch (error) {
+    if (currentRequest === requestId.value) loadError.value = true
+  } finally {
+    if (currentRequest === requestId.value) {
+      hasLoaded.value = true
+      loader.value = false
+    }
+  }
+}
+
+function retryLoad() {
+  getData(retryAppend.value)
 }
 
 function createBug() {

@@ -1,5 +1,5 @@
 <template>
-  <v-table class="bugs-table" :class="settings.compact ? 'compact' : ''">
+  <v-table class="bugs-table" :class="settings.compact ? 'compact' : ''" :aria-busy="loading">
     <thead>
       <tr>
         <th class="text-left" width="80">
@@ -52,23 +52,38 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td />
-        <td class="title color-state--OPEN" @click="$emit('create-bug')">Create…</td>
-        <td class="username-compact" />
-        <td :class="`color-state--OPEN`"><span class="color-state--OPEN">OPEN</span></td>
-        <td />
-        <td />
-        <td v-if="!settings.compact" />
+      <tr v-if="initialLoading">
+        <td :colspan="settings.compact ? 6 : 7" class="pa-0">
+          <list-loading-skeleton variant="table" :rows="5" :columns="settings.compact ? 6 : 7" label="bugs" />
+        </td>
       </tr>
-      <bugs-list-row-component
-        v-for="item in items"
-        :key="item.name"
-        :item="item"
-        :settings="settings"
-        @openBug="$emit('open-bug', item)"
-        @ClickTagEmit="$emit('click-tag', $event)"
-      />
+      <tr v-else-if="initialError">
+        <td :colspan="settings.compact ? 6 : 7" class="pa-4">
+          <v-alert type="error" variant="tonal" density="compact" role="alert">
+            Bugs could not be loaded.
+            <v-btn size="small" variant="text" @click="$emit('retry')">Retry</v-btn>
+          </v-alert>
+        </td>
+      </tr>
+      <template v-else>
+        <tr>
+          <td />
+          <td class="title color-state--OPEN" @click="$emit('create-bug')">Create…</td>
+          <td class="username-compact" />
+          <td class="color-state--OPEN"><span class="color-state--OPEN">OPEN</span></td>
+          <td />
+          <td />
+          <td v-if="!settings.compact" />
+        </tr>
+        <bugs-list-row-component
+          v-for="item in items"
+          :key="item.name"
+          :item="item"
+          :settings="settings"
+          @openBug="$emit('open-bug', item)"
+          @ClickTagEmit="$emit('click-tag', $event)"
+        />
+      </template>
     </tbody>
   </v-table>
 </template>
@@ -76,15 +91,19 @@
 <script setup>
 import BugsListRowComponent from './list/bugsListRowComponent.vue'
 import BugsListFilterTableComponent from './list/bugsListFilterTableComponent.vue'
+import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 defineProps({
   items: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false },
   filter: { type: Object, default: () => ({}) },
   filterParam: { type: Object, default: () => ({}) },
-  settings: { type: Object, default: () => ({}) }
+  settings: { type: Object, default: () => ({}) },
+  initialLoading: { type: Boolean, default: false },
+  initialError: { type: Boolean, default: false }
 })
 
-defineEmits(['change-filter', 'create-bug', 'open-bug', 'click-tag'])
+defineEmits(['change-filter', 'create-bug', 'open-bug', 'click-tag', 'retry'])
 </script>
 
 <style lang="scss">

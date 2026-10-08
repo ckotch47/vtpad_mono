@@ -40,15 +40,23 @@
       </v-btn>
     </div>
 
-    <nav class="suite-navigation__list" aria-label="Test suites" :aria-busy="tableLoading">
-      <v-progress-linear v-if="tableLoading" color="primary" indeterminate />
-      <v-alert v-else-if="loadError" type="error" variant="tonal" density="compact" class="ma-3">
-        {{ loadError }}
-        <template #append>
-          <v-btn size="small" variant="text" @click="loadSuites()">Retry</v-btn>
-        </template>
-      </v-alert>
-      <v-list v-else-if="suites.length" nav density="compact" class="suite-navigation__items">
+    <nav class="suite-navigation__list" aria-label="Test suites" :aria-busy="initialLoading || tableLoading">
+      <list-loading-skeleton
+        v-if="initialLoading"
+        variant="list"
+        :rows="5"
+        label="test suites"
+      />
+      <template v-else>
+        <v-progress-linear v-if="tableLoading" color="primary" indeterminate aria-hidden="true" />
+        <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="ma-3" role="alert">
+          {{ loadError }}
+          <template #append>
+            <v-btn size="small" variant="text" @click="loadSuites()">Retry</v-btn>
+          </template>
+        </v-alert>
+      </template>
+      <v-list v-if="!initialLoading && suites.length" nav density="compact" class="suite-navigation__items">
         <v-list-item
           v-for="item in suites"
           :key="item.id"
@@ -100,7 +108,7 @@
         </v-list-item>
       </v-list>
       <v-empty-state
-        v-else
+        v-else-if="!initialLoading && !loadError"
         icon="mdi-folder-search-outline"
         :title="search || filterStatus ? 'No matching suites' : 'No test suites yet'"
         :text="search || filterStatus ? 'Try changing the search or status filter.' : 'Create a suite to start organizing test cases.'"
@@ -180,6 +188,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testSuiteService } from '@/services'
+import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const emit = defineEmits(['suite-changed'])
 
@@ -193,6 +202,8 @@ const page = ref(1)
 const pageSize = ref(25)
 const sortBy = ref([{ key: 'created_at', order: 'desc' }])
 const tableLoading = ref(false)
+const hasLoaded = ref(false)
+const initialLoading = computed(() => Boolean(spaceId.value) && !hasLoaded.value)
 const loadError = ref('')
 const search = ref('')
 const filterStatus = ref('')
@@ -305,12 +316,15 @@ function doLoadSuites(options = {}) {
     pageSize.value = res.data.page_size || pageSize.value
   }).catch(() => {
     if (currentRequest === requestId.value) {
-      loadError.value = 'Could not load test suites.'
-      suites.value = []
-      totalSuites.value = 0
+      loadError.value = suites.value.length
+        ? 'Could not refresh test suites. The previous results are still shown.'
+        : 'Could not load test suites.'
     }
   }).finally(() => {
-    if (currentRequest === requestId.value) tableLoading.value = false
+    if (currentRequest === requestId.value) {
+      hasLoaded.value = true
+      tableLoading.value = false
+    }
   })
 }
 
@@ -399,6 +413,10 @@ watch(spaceId, (nextSpaceId, oldSpaceId) => {
     clearTimeout(optionsDebounce.value)
     requestId.value += 1
     tableLoading.value = false
+    hasLoaded.value = false
+    suites.value = []
+    totalSuites.value = 0
+    loadError.value = ''
     readRouteState()
     loadSuites()
   }

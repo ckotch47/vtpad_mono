@@ -55,6 +55,8 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 
 Добавить общий переиспользуемый skeleton для initial load основных таблиц cases, suites, runs, plans, bugs и tech docs; удерживать высоту, не скрывать доступные фильтры и не заменять существующий контент при фоновом обновлении.
 
+**Статус UX2, 2026-10-09:** добавлен общий Vue/Vuetify `ListLoadingSkeleton` и подключён к cases, suites, runs, plans, bugs и Tech Docs. Первичная загрузка показывает скелетон внутри области списка, фильтры остаются доступными; последующее обновление сохраняет прежние строки/дерево с отдельным индикатором. Ошибка не очищает ранее загруженные данные; initial error и refresh error различимы, Retry доступен без записи данных. Независимый desktop spot-check увидел `Loading test cases…` и `Loading test runs…` при доступных фильтрах; тестовых записей не создавали. Обнаруженное ревьюером отсутствие `aria-busy` во время bug refetch исправлено. Targeted `npx eslint` по 10 затронутым frontend-файлам прошёл; `npm run build` прошёл за 30.95s (существующие предупреждения Sass legacy API и чанков >500 kB); `git diff --check` прошёл. Контролируемые delayed/error network и refetch сценарии в браузере остаются непроверенными; UX2 ожидает эту UI/UX приёмку. UX3 empty-state redesign и mobile исключены из этого пункта.
+
 ### UX3. Empty states
 
 Обязательный перечень: suite list, case list, plan list и case picker, run list, run detail без результатов, bugs list, Tech Docs tree, analytics dashboard. Для каждого оформить отдельные состояния: первоначально пусто, нет результатов фильтра, ошибка загрузки и нет прав. Показать понятный CTA Create/Clear/Retry только при доступных правах; CTA должен работать с клавиатуры.

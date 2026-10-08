@@ -18,7 +18,21 @@
       </v-btn>
     </v-toolbar>
 
-    <v-data-table-server
+    <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
+      {{ runs.length ? 'Test runs could not be refreshed. Existing results are still shown.' : 'Test runs could not be loaded.' }}
+      <v-btn size="small" variant="text" @click="loadRuns({ page: page, itemsPerPage: itemsPerPage, sortBy: [] })">Retry</v-btn>
+    </v-alert>
+
+    <div class="list-loading-region" :aria-busy="initialLoading || tableLoading">
+      <list-loading-skeleton
+        v-if="initialLoading"
+        class="list-loading-region__skeleton"
+        variant="table"
+        :columns="headers.length"
+        label="test runs"
+      />
+      <v-data-table-server
+      :class="{ 'list-loading-region__content--hidden': initialLoading || (loadError && !runs.length) }"
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="runs"
@@ -50,7 +64,8 @@
       <template v-slot:[`item.actions`]="{ item }">
         <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click.stop="deleteRun(item)" />
       </template>
-    </v-data-table-server>
+      </v-data-table-server>
+    </div>
 
     <v-dialog v-model="openCreate" max-width="760">
       <v-card
@@ -127,6 +142,7 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { testRunService, testSuiteService, testPlanService, testCaseService, milestoneService, environmentService } from '@/services'
+import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
@@ -137,6 +153,9 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const tableLoading = ref(false)
 const firstLoad = ref(true)
+const hasLoaded = ref(false)
+const initialLoading = computed(() => Boolean(spaceId.value) && !hasLoaded.value)
+const loadError = ref(false)
 const search = ref('')
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
@@ -182,6 +201,7 @@ function loadRuns(options) {
 function doLoadRuns(options) {
   if (!spaceId.value || tableLoading.value) return
   tableLoading.value = true
+  loadError.value = false
   const p = firstLoad.value ? page.value : (options?.page || page.value)
   const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
   firstLoad.value = false
@@ -199,8 +219,10 @@ function doLoadRuns(options) {
     runs.value = res.data.items || res.data
     totalRuns.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     itemsPerPage.value = res.data.page_size || itemsPerPage.value
-    tableLoading.value = false
   }).catch(() => {
+    loadError.value = true
+  }).finally(() => {
+    hasLoaded.value = true
     tableLoading.value = false
   })
 }
@@ -304,5 +326,20 @@ function deleteRun(item) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.list-loading-region {
+  position: relative;
+  min-height: 360px;
+}
+
+.list-loading-region__skeleton {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.list-loading-region__content--hidden {
+  visibility: hidden;
 }
 </style>

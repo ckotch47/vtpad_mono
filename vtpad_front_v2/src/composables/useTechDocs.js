@@ -12,6 +12,7 @@ export function useTechDocs() {
 
   const treeLoading = ref(true)
   const treeError = ref(false)
+  const treeRequestId = ref(0)
   const tree = ref([])
   const treeQuery = ref('')
   const treeContainerRef = ref(null)
@@ -72,18 +73,23 @@ export function useTechDocs() {
   })
 
   async function loadTree() {
+    const currentRequest = ++treeRequestId.value
     treeLoading.value = true
     treeError.value = false
     try {
       const res = await techDocService.getTree(spaceId.value)
-      tree.value = res.data || []
+      if (currentRequest === treeRequestId.value) tree.value = res.data || []
     } catch (e) {
-      treeError.value = true
-      log.error('request failed', e)
+      if (currentRequest === treeRequestId.value) {
+        treeError.value = true
+        log.error('request failed', e)
+      }
     } finally {
-      treeLoading.value = false
-      await nextTick()
-      scheduleTreeScrollReset()
+      if (currentRequest === treeRequestId.value) {
+        treeLoading.value = false
+        await nextTick()
+        scheduleTreeScrollReset()
+      }
     }
   }
 

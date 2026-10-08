@@ -69,7 +69,7 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [x] Redesign the suites screen to keep the suite list on the left and show the selected suite on the same page
 - [x] Fix the case filter in suites: normalize clearable input, filter within the selected section, and distinguish empty/error states
 - [x] Explore a Tech Docs-style tree structure for browsing test suites; use a flat searchable list because suites have no parent hierarchy
-- [ ] Add drag-and-drop reordering for sections
+- [x] Reorder sections within the same parent through REST, MCP, drag-and-drop, and keyboard controls
 - [ ] Add search/filter for sections in the tree
 - [ ] Move cases between sections by drag-and-drop or from a dialog
 - [ ] Compare two test case versions side by side

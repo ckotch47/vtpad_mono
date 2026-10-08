@@ -73,4 +73,4 @@
 
 ## Статус
 
-Согласован пользователем в составе полного плана работ; технические инварианты уточнены после architecture/security review (DD4 PATCH bypass/name collisions; BD3 unlink bypass/foreign parent ID leak/concurrent-cycle acceptance). Реализация в работе.
+Superseded by `plans/defect-link-and-tech-doc-security-package-r2.md` after read-only preflight found 6,654 duplicate `(spaces_id, short_name)` groups. The r1 unique-index migration and short-name links are unsafe for this target database; no r1 code has been committed or applied.

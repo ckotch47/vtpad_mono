@@ -1,6 +1,6 @@
 # Пакет DD4 + BD3 — r3
 
-Дата: 2026-10-08. r3 заменяет DD4 часть r2 после rehearsal на disposable copy `vtpad_back_dd4_test`. На целевой БД обнаружены 13,836 bug rows, 6,654 группы с повторяющимися `(spaces_id, short_name)` и 6,908 групп дублирующихся `bugsmodel.id`; у `bugsmodel.id` нет ни PK, ни unique index. Дублирующиеся строки одинаковы по остальным полям, но их нельзя безопасно адресовать текущим UUID. Ни FK, ни уникальность по legacy `id` добавлять нельзя без неоднозначного repair.
+Дата: 2026-10-08. Этот план superseded r4: migration backfill/locking, совместимый API read model и rollout recovery конкретизированы. r3 сохраняется для истории решения добавить отдельный `link_uuid` после обнаружения 6,908 дублирующихся `bugsmodel.id`.
 
 ## Цель
 

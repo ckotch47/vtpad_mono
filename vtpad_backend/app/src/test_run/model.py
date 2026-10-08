@@ -69,6 +69,37 @@ class TestResultModel(Model):
         table = "test_result"
 
 
+class TestResultBugLinkModel(Model):
+    """An unambiguous UUID-based link between a run result and a bug."""
+
+    id = fields.UUIDField(pk=True)
+    result = fields.ForeignKeyField(
+        'models.TestResultModel', related_name='bug_links', on_delete=fields.CASCADE
+    )
+    bug_uuid = fields.UUIDField(null=False)
+    created_at = fields.DatetimeField(null=False, auto_now_add=True)
+
+    class Meta:
+        table = "test_result_bug_link"
+        unique_together = (("result", "bug_uuid"),)
+
+
+class TestResultBugCreateOperationModel(Model):
+    """Idempotency receipt for atomic bug creation from a run result."""
+
+    operation_id = fields.UUIDField(pk=True)
+    actor_id = fields.UUIDField(null=False)
+    payload_hash = fields.CharField(max_length=64, null=False)
+    bug_uuid = fields.UUIDField(null=False)
+    result = fields.ForeignKeyField(
+        'models.TestResultModel', related_name='bug_create_operations', on_delete=fields.CASCADE
+    )
+    created_at = fields.DatetimeField(null=False, auto_now_add=True)
+
+    class Meta:
+        table = "test_result_bug_create_operation"
+
+
 class TestRunTimerIntervalModel(Model):
     id = fields.UUIDField(pk=True, index=True)
     run = fields.ForeignKeyField(

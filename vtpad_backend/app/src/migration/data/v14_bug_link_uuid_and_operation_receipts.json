@@ -1,0 +1,16 @@
+{
+  "transactional": true,
+  "data": [
+    "ALTER TABLE bugsmodel ADD COLUMN IF NOT EXISTS link_uuid UUID",
+    "UPDATE bugsmodel SET link_uuid = gen_random_uuid() WHERE link_uuid IS NULL",
+    "ALTER TABLE bugsmodel ALTER COLUMN link_uuid SET DEFAULT gen_random_uuid()",
+    "ALTER TABLE bugsmodel ALTER COLUMN link_uuid SET NOT NULL",
+    "DO $$ BEGIN IF EXISTS (SELECT 1 FROM bugsmodel WHERE link_uuid IS NULL) OR EXISTS (SELECT 1 FROM bugsmodel GROUP BY link_uuid HAVING COUNT(*) > 1) THEN RAISE EXCEPTION 'bugsmodel.link_uuid must be unique and non-null'; END IF; END $$",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_bugsmodel_link_uuid ON bugsmodel (link_uuid)",
+    "CREATE TABLE IF NOT EXISTS test_result_bug_link (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), result_id UUID NOT NULL REFERENCES test_result(id) ON DELETE CASCADE, bug_uuid UUID NOT NULL REFERENCES bugsmodel(link_uuid) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT uq_test_result_bug_link_pair UNIQUE (result_id, bug_uuid))",
+    "CREATE INDEX IF NOT EXISTS ix_test_result_bug_link_bug_uuid ON test_result_bug_link (bug_uuid)",
+    "CREATE TABLE IF NOT EXISTS test_result_bug_create_operation (operation_id UUID PRIMARY KEY, actor_id UUID NOT NULL, result_id UUID NOT NULL REFERENCES test_result(id) ON DELETE CASCADE, payload_hash VARCHAR(64) NOT NULL, bug_uuid UUID NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE INDEX IF NOT EXISTS ix_test_result_bug_create_operation_result ON test_result_bug_create_operation (result_id)",
+    "CREATE INDEX IF NOT EXISTS ix_test_result_bug_create_operation_bug_uuid ON test_result_bug_create_operation (bug_uuid)"
+  ]
+}

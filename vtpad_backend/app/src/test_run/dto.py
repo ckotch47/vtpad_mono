@@ -1,3 +1,4 @@
+import uuid
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
@@ -34,3 +35,14 @@ class TestResultUpdateDto(BaseModel):
 class TestResultBulkUpdateDto(BaseModel):
     result_ids: List[str]
     status: str
+
+
+class TestResultBugLinkDto(BaseModel):
+    bug_short_name: str = Field(min_length=1, max_length=255)
+
+
+class TestResultBugCreateDto(BaseModel):
+    operation_id: uuid.UUID
+    title: str = Field(min_length=1)
+    text: Optional[str] = None
+    steps: Optional[str] = None

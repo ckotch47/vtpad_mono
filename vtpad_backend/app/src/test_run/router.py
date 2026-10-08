@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, Request
 
 from .service import TestRunService, TestResultService
@@ -155,6 +157,36 @@ async def delete(run_id: str, request: Request):
 @router.patch('/result/bulk', dependencies=[Depends(bearer)])
 async def bulk_update_results(dto: TestResultBulkUpdateDto, request: Request, token: str = Depends(bearer)):
     return await TestResultService.bulk_update(dto, token, request)
+
+
+@router.post('/result/{result_id}/bugs/link', dependencies=[Depends(bearer)])
+async def link_bug_to_result(result_id: str, dto: TestResultBugLinkDto, request: Request):
+    return await TestResultService.link_bug(result_id, dto.bug_short_name, request)
+
+
+@router.delete('/result/{result_id}/bugs/link', dependencies=[Depends(bearer)])
+async def unlink_bug_from_result(result_id: str, dto: TestResultBugLinkDto, request: Request):
+    return await TestResultService.unlink_bug(result_id, dto.bug_short_name, request)
+
+
+@router.post('/result/{result_id}/bugs/{bug_uuid}', dependencies=[Depends(bearer)])
+async def link_bug_id_to_result(result_id: str, bug_uuid: uuid.UUID, request: Request):
+    return await TestResultService.link_bug_id(result_id, bug_uuid, request)
+
+
+@router.delete('/result/{result_id}/bugs/{bug_uuid}', dependencies=[Depends(bearer)])
+async def unlink_bug_id_from_result(result_id: str, bug_uuid: uuid.UUID, request: Request):
+    return await TestResultService.unlink_bug_id(result_id, bug_uuid, request)
+
+
+@router.post('/result/{result_id}/bugs', dependencies=[Depends(bearer)])
+async def create_and_link_bug(
+    result_id: str,
+    dto: TestResultBugCreateDto,
+    request: Request,
+    token: str = Depends(bearer),
+):
+    return await TestResultService.create_and_link_bug(result_id, dto, token, request)
 
 
 @router.patch('/result/{result_id}', dependencies=[Depends(bearer)])

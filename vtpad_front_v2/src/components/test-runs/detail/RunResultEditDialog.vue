@@ -31,19 +31,22 @@
           @update:model-value="updateField('duration_seconds', $event)"
         />
         <v-textarea :model-value="result.comment" label="Comment" rows="2" class="mb-2" @update:model-value="updateField('comment', $event)" />
-        <v-combobox
-          :model-value="result.linked_bug_ids"
+        <v-autocomplete
+          :model-value="(result.linked_bugs || []).map(bug => bug.id)"
           :items="spaceBugs"
           item-title="short_name"
-          item-value="short_name"
+          item-value="link_uuid"
           label="Linked Bugs"
           multiple
           chips
           closable-chips
           clearable
           :return-object="false"
-          @update:model-value="updateField('linked_bug_ids', $event)"
+          @update:model-value="updateLinkedBugs"
         />
+        <div v-if="result.linked_bug_ids?.length" class="text-caption text-medium-emphasis mt-1">
+          Legacy bug references: {{ result.linked_bug_ids.join(', ') }}
+        </div>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -65,5 +68,15 @@ const emit = defineEmits(['update:modelValue', 'update:result', 'save', 'create-
 
 function updateField(key, value) {
   emit('update:result', { ...props.result, [key]: value })
+}
+
+function updateLinkedBugs(ids) {
+  const selected = new Set(ids || [])
+  const byId = new Map(props.spaceBugs.map(bug => [bug.link_uuid, bug]))
+  const linkedBugs = [...selected]
+    .map(id => byId.get(id))
+    .filter(Boolean)
+    .map(bug => ({ ...bug, id: bug.link_uuid }))
+  emit('update:result', { ...props.result, linked_bugs: linkedBugs })
 }
 </script>

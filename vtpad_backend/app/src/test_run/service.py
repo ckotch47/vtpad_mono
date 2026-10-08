@@ -2,18 +2,28 @@ from fastapi import HTTPException
 from starlette.requests import Request
 import hashlib
 import json
+import uuid
 
-from typing import Optional, List
+from typing import Any, Optional, List
 from datetime import datetime, timezone
 
 from tortoise.expressions import Q
+from tortoise import Tortoise
 from tortoise.transactions import in_transaction
+from tortoise.exceptions import IntegrityError
 
-from .model import TestRunModel, TestResultModel, TestRunTimerIntervalModel, TestRunStatus, TestResultStatus
+from .model import (
+    TestRunModel, TestResultModel, TestRunTimerIntervalModel, TestRunStatus,
+    TestResultStatus, TestResultBugCreateOperationModel, TestResultBugLinkModel,
+)
 from .dto import *
 from ..common.crypto import get_user_id_by_token
 from ..common.pagination import paginate
 from ..common.right_guard import check_user_into_space
+from ..bug.model import BugsModel
+from ..bug.service import BugsService
+from ..bug.dto.create_bug_dto import CreateBugDto
+from ..bug.enum import StateBugEnum
 
 
 class TestRunService:
@@ -386,7 +396,7 @@ class TestRunService:
         }
 
     @staticmethod
-    def _serialize_result(r, legacy_location=None):
+    def _serialize_result(r, legacy_location=None, linked_bugs=None):
         testcase = r.testcase
         snapshot = r.testcase_snapshot
         if snapshot:
@@ -429,6 +439,8 @@ class TestRunService:
             ),
             'comment': r.comment,
             'linked_bug_ids': r.linked_bug_ids or [],
+            'linked_bug_ids_raw': r.linked_bug_ids,
+            'linked_bugs': linked_bugs or [],
             'testcase_id': str(r.testcase_id),
             'testcase': testcase_data,
             'testcase_snapshot': snapshot,
@@ -445,10 +457,13 @@ class TestRunService:
             if not result.testcase_snapshot and result.testcase
         ]
         legacy_locations = await TestRunService._resolve_case_locations(legacy_cases) if legacy_cases else {}
+        bug_links_by_result = await TestResultService._get_linked_bugs([str(result.id) for result in results])
         results_data = []
         for result in results:
             location = legacy_locations.get(str(result.testcase.id)) if not result.testcase_snapshot and result.testcase else None
-            results_data.append(TestRunService._serialize_result(result, location))
+            results_data.append(TestRunService._serialize_result(
+                result, location, bug_links_by_result.get(str(result.id), [])
+            ))
         return {
             'run': {
                 'id': str(run.id),
@@ -538,10 +553,11 @@ class TestRunService:
 
     @staticmethod
     async def get_timer(run_id: str) -> dict:
-        timers = await TestRunService.get_timers([run_id])
-        if run_id not in timers:
+        normalized_run_id = str(run_id)
+        timers = await TestRunService.get_timers([normalized_run_id])
+        if normalized_run_id not in timers:
             raise HTTPException(status_code=404, detail="Test run not found")
-        return timers[run_id]
+        return timers[normalized_run_id]
 
     @staticmethod
     async def get_timers(run_ids: list[str]) -> dict[str, dict]:
@@ -649,6 +665,26 @@ class TestRunService:
 
 class TestResultService:
     @staticmethod
+    async def _serialize_updated_result(result: TestResultModel) -> dict[str, Any]:
+        return {
+            "id": str(result.id),
+            "status": result.status.value if hasattr(result.status, "value") else result.status,
+            "duration_seconds": result.duration_seconds,
+            "comment": result.comment,
+            "linked_bug_ids": result.linked_bug_ids or [],
+            "linked_bug_ids_raw": result.linked_bug_ids,
+            "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+            "run_id": str(result.run_id),
+            "testcase_id": str(result.testcase_id),
+            "testcase_version_id": str(result.testcase_version_id) if result.testcase_version_id else None,
+            "testcase_snapshot": result.testcase_snapshot,
+            "executed_by_id": str(result.executed_by_id) if result.executed_by_id else None,
+            "executed_at": result.executed_at.isoformat() if result.executed_at else None,
+            "created_at": result.created_at.isoformat() if result.created_at else None,
+            "updated_at": result.updated_at.isoformat() if result.updated_at else None,
+        }
+
+    @staticmethod
     def _parse_result_status(target_status: str) -> TestResultStatus:
         try:
             return TestResultStatus(target_status)
@@ -656,7 +692,244 @@ class TestResultService:
             raise HTTPException(status_code=422, detail="Unsupported test result status")
 
     @staticmethod
-    async def update_result(result_id: str, dto: TestResultUpdateDto, token: str, request: Request) -> TestResultModel:
+    async def _lock_result_run(result_id: str, connection: Any) -> tuple[TestRunModel, TestResultModel]:
+        result_ref = await TestResultModel.filter(id=result_id).using_db(connection).first()
+        if not result_ref:
+            raise HTTPException(status_code=404, detail="Test result not found")
+        run = await TestRunModel.filter(id=result_ref.run_id).using_db(connection).select_for_update().first()
+        if not run:
+            raise HTTPException(status_code=404, detail="Test run not found")
+        result = await TestResultModel.filter(id=result_id).using_db(connection).select_for_update().first()
+        if not result:
+            raise HTTPException(status_code=404, detail="Test result not found")
+        return run, result
+
+    @staticmethod
+    async def _get_linked_bugs(result_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+        if not result_ids:
+            return {}
+        conn = Tortoise.get_connection("default")
+        rows = await conn.execute_query_dict(
+            "SELECT l.result_id, b.link_uuid, b.short_name, b.title "
+            "FROM test_result_bug_link l JOIN bugsmodel b ON b.link_uuid = l.bug_uuid "
+            "WHERE l.result_id = ANY($1::uuid[]) ORDER BY b.short_name NULLS LAST, b.link_uuid",
+            [result_ids],
+        )
+        linked: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            linked.setdefault(str(row["result_id"]), []).append({
+                "id": str(row["link_uuid"]), "short_name": row["short_name"], "title": row["title"]
+            })
+        return linked
+
+    @staticmethod
+    async def _load_result_bug_links(result_id: str) -> list[dict[str, Any]]:
+        return (await TestResultService._get_linked_bugs([result_id])).get(result_id, [])
+
+    @staticmethod
+    async def _validate_linkable_bug(
+        run: TestRunModel, bug_uuid: uuid.UUID, connection: Any
+    ) -> BugsModel:
+        bug = await BugsModel.filter(link_uuid=bug_uuid, spaces_id=run.space_id).using_db(connection).first()
+        if not bug:
+            raise HTTPException(status_code=404, detail="Bug not found in run space")
+        if run.status != TestRunStatus.active:
+            raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
+        return bug
+
+    @staticmethod
+    async def link_bug_id(result_id: str, bug_uuid: uuid.UUID, request: Request) -> dict[str, Any]:
+        async with in_transaction() as connection:
+            run, result = await TestResultService._lock_result_run(result_id, connection)
+            await check_user_into_space(str(run.space_id), request)
+            bug = await TestResultService._validate_linkable_bug(run, bug_uuid, connection)
+            await TestResultBugLinkModel.get_or_create(
+                result_id=result.id, bug_uuid=bug.link_uuid, using_db=connection
+            )
+        return {
+            "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
+            "linked_bug_ids_raw": result.linked_bug_ids,
+            "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+        }
+
+    @staticmethod
+    async def unlink_bug_id(result_id: str, bug_uuid: uuid.UUID, request: Request) -> dict[str, Any]:
+        async with in_transaction() as connection:
+            run, result = await TestResultService._lock_result_run(result_id, connection)
+            await check_user_into_space(str(run.space_id), request)
+            await TestResultService._validate_linkable_bug(run, bug_uuid, connection)
+            await TestResultBugLinkModel.filter(
+                result_id=result.id, bug_uuid=bug_uuid
+            ).using_db(connection).delete()
+        return {
+            "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
+            "linked_bug_ids_raw": result.linked_bug_ids,
+            "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+        }
+
+    @staticmethod
+    async def _legacy_short_name_bug_id(
+        run: TestRunModel, short_name: str, connection: Any
+    ) -> uuid.UUID:
+        matches = await BugsModel.filter(
+            short_name=short_name, spaces_id=run.space_id
+        ).using_db(connection).values_list("link_uuid", flat=True)
+        if not matches:
+            raise HTTPException(status_code=404, detail="Bug not found in run space")
+        if len(matches) != 1:
+            raise HTTPException(status_code=409, detail="Bug short name is ambiguous in run space; use bug UUID")
+        return matches[0]
+
+    @staticmethod
+    async def link_bug(result_id: str, bug_short_name: str, request: Request) -> dict[str, Any]:
+        async with in_transaction() as connection:
+            run, result = await TestResultService._lock_result_run(result_id, connection)
+            await check_user_into_space(str(run.space_id), request)
+            bug_id = await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
+            await TestResultService._validate_linkable_bug(run, bug_id, connection)
+            await TestResultBugLinkModel.get_or_create(
+                result_id=result.id, bug_uuid=bug_id, using_db=connection
+            )
+        return {
+            "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
+            "linked_bug_ids_raw": result.linked_bug_ids,
+            "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+        }
+
+    @staticmethod
+    async def unlink_bug(result_id: str, bug_short_name: str, request: Request) -> dict[str, Any]:
+        async with in_transaction() as connection:
+            run, result = await TestResultService._lock_result_run(result_id, connection)
+            await check_user_into_space(str(run.space_id), request)
+            bug_id = await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
+            await TestResultService._validate_linkable_bug(run, bug_id, connection)
+            await TestResultBugLinkModel.filter(
+                result_id=result.id, bug_uuid=bug_id
+            ).using_db(connection).delete()
+        return {
+            "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
+            "linked_bug_ids_raw": result.linked_bug_ids,
+            "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+        }
+
+    @staticmethod
+    async def update_legacy_bug_reference(
+        result_id: str, bug_short_name: str, request: Request, *, add: bool
+    ) -> dict[str, Any]:
+        """Preserve the established MCP short-name tools' legacy JSON behavior."""
+        async with in_transaction() as connection:
+            run, result = await TestResultService._lock_result_run(result_id, connection)
+            await check_user_into_space(str(run.space_id), request)
+            await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
+            if run.status != TestRunStatus.active:
+                raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
+            identifiers = list(result.linked_bug_ids or [])
+            if add:
+                if bug_short_name not in identifiers:
+                    identifiers.append(bug_short_name)
+            else:
+                identifiers = [value for value in identifiers if value != bug_short_name]
+            await TestResultModel.filter(id=result.id).using_db(connection).update(linked_bug_ids=identifiers)
+            result.linked_bug_ids = identifiers
+        return {
+            "id": str(result.id),
+            "linked_bug_ids": result.linked_bug_ids or [],
+            "linked_bug_ids_raw": result.linked_bug_ids,
+            "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+        }
+
+    @staticmethod
+    def _bug_payload_hash(payload: TestResultBugCreateDto) -> str:
+        canonical = json.dumps(
+            {"title": payload.title, "text": payload.text, "steps": payload.steps},
+            sort_keys=True, separators=(",", ":")
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _operation_replay(
+        operation: TestResultBugCreateOperationModel, actor_id: str, result_id: str, payload_hash: str
+    ) -> bool:
+        if (str(operation.actor_id) != str(actor_id) or str(operation.result_id) != str(result_id)
+                or operation.payload_hash != payload_hash):
+            raise HTTPException(status_code=409, detail="Operation id was already used for a different request")
+        return True
+
+    @staticmethod
+    async def create_and_link_bug(
+        result_id: str,
+        dto: TestResultBugCreateDto,
+        token: str,
+        request: Request,
+    ) -> dict[str, Any]:
+        actor_id = await get_user_id_by_token(token)
+        payload_hash = TestResultService._bug_payload_hash(dto)
+        try:
+            async with in_transaction() as connection:
+                run, result = await TestResultService._lock_result_run(result_id, connection)
+                await check_user_into_space(str(run.space_id), request)
+                operation = await TestResultBugCreateOperationModel.filter(
+                    operation_id=dto.operation_id
+                ).using_db(connection).first()
+                if operation:
+                    TestResultService._operation_replay(operation, actor_id, result_id, payload_hash)
+                    bug = await BugsModel.get_or_none(link_uuid=operation.bug_uuid).using_db(connection)
+                    if not bug:
+                        raise HTTPException(status_code=410, detail="The bug from this operation was deleted")
+                else:
+                    if run.status != TestRunStatus.active:
+                        raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
+                    create_dto = CreateBugDto(
+                        title=dto.title,
+                        text=dto.text,
+                        steps=dto.steps,
+                        space_id=run.space_id,
+                        state=StateBugEnum.open,
+                    )
+                    bug = await BugsService.create_bug_in_transaction(
+                        create_dto, {"id": actor_id}, connection
+                    )
+                    await TestResultBugLinkModel.get_or_create(
+                        result_id=result.id, bug_uuid=bug.link_uuid, using_db=connection
+                    )
+                    await TestResultBugCreateOperationModel.create(
+                        operation_id=dto.operation_id,
+                        actor_id=actor_id,
+                        result_id=result.id,
+                        payload_hash=payload_hash,
+                        bug_uuid=bug.link_uuid,
+                        using_db=connection,
+                    )
+            return {
+                "id": str(result.id),
+                "linked_bug_ids": result.linked_bug_ids or [],
+                "linked_bug_ids_raw": result.linked_bug_ids,
+                "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+                "bug_uuid": str(bug.link_uuid),
+                "bug_short_name": bug.short_name,
+                "bug": await BugsService.get_bug_detail(str(bug.id)),
+            }
+        except IntegrityError:
+            operation = await TestResultBugCreateOperationModel.get_or_none(operation_id=dto.operation_id)
+            if not operation:
+                raise
+            TestResultService._operation_replay(operation, actor_id, result_id, payload_hash)
+            bug = await BugsModel.get_or_none(link_uuid=operation.bug_uuid)
+            if not bug:
+                raise HTTPException(status_code=410, detail="The bug from this operation was deleted")
+            result = await TestResultModel.get(id=result_id)
+            return {
+                "id": str(result.id),
+                "linked_bug_ids": result.linked_bug_ids or [],
+                "linked_bug_ids_raw": result.linked_bug_ids,
+                "linked_bugs": await TestResultService._load_result_bug_links(str(result.id)),
+                "bug_uuid": str(bug.link_uuid),
+                "bug_short_name": bug.short_name,
+                "bug": await BugsService.get_bug_detail(str(bug.id)),
+            }
+
+    @staticmethod
+    async def update_result(result_id: str, dto: TestResultUpdateDto, token: str, request: Request) -> dict[str, Any]:
         user_id = await get_user_id_by_token(token)
         async with in_transaction() as connection:
             result_ref = await TestResultModel.filter(id=result_id).using_db(connection).first()
@@ -684,10 +957,24 @@ class TestResultService:
                     else:
                         data['executed_by_id'] = user_id
                         data['executed_at'] = datetime.now(timezone.utc)
+            if 'linked_bug_ids' in data:
+                identifiers = data['linked_bug_ids']
+                if identifiers is None:
+                    identifiers = None
+                elif identifiers:
+                    matching = await BugsModel.filter(
+                        short_name__in=identifiers, spaces_id=run.space_id
+                    ).using_db(connection).values_list("short_name", flat=True)
+                    if set(matching) != set(identifiers):
+                        raise HTTPException(status_code=422, detail="Every legacy bug short name must belong to the run space")
+                if identifiers is not None and any(not value for value in identifiers):
+                    raise HTTPException(status_code=422, detail="Every linked bug must belong to the run space")
+                data['linked_bug_ids'] = identifiers
             if not data:
-                return result
+                return await TestResultService._serialize_updated_result(result)
             await TestResultModel.filter(id=result_id).using_db(connection).update(**data)
-        return await TestResultModel.get(id=result_id)
+        updated = await TestResultModel.get(id=result_id)
+        return await TestResultService._serialize_updated_result(updated)
 
     @staticmethod
     async def bulk_update(dto: TestResultBulkUpdateDto, token: str, request: Request) -> int:

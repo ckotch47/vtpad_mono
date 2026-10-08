@@ -1,3 +1,5 @@
+import uuid
+
 from ..core import mcp
 from ..utils import _get_user_id, _case_to_dict
 from fastmcp.server.dependencies import get_http_request
@@ -12,10 +14,12 @@ from ...section.service import SectionService
 from ...embedding.service import EmbeddingService
 from ...tech_doc.model import TechDocModel
 from ...tech_doc.service import TechDocService
-from ...test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from ...test_run.model import TestRunModel
 from ...space.model import SpaceModel
 from ...test_run.service import TestRunService, TestResultService
-from ...test_run.dto import TestRunCreateDto, TestResultUpdateDto
+from ...test_run.dto import (
+    TestRunCreateDto, TestResultUpdateDto, TestResultBugCreateDto,
+)
 from ...test_case.dto import TestCaseUpdateDto
 from ...test_suite.dto import TestSuiteUpdateDto
 from ...section.dto import SectionUpdateDto
@@ -135,6 +139,8 @@ async def update_test_result(
     status: str | None = None,
     comment: str | None = None,
     duration_seconds: int | None = None,
+    linked_bug_ids: list[str] | None = None,
+    clear_legacy_linked_bug_ids: bool = False,
 ) -> dict:
     """Update test result status and details.
 
@@ -143,48 +149,81 @@ async def update_test_result(
         status: Optional new status: passed | failed | skipped | blocked | not_run
         comment: Optional comment
         duration_seconds: Optional duration in seconds
+        linked_bug_ids: Optional legacy short-name values; does not change UUID links
+        clear_legacy_linked_bug_ids: Set the legacy JSON field to null
 
     Returns:
         Updated result details
     """
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
-    dto = TestResultUpdateDto(
+    dto_data = dict(
         status=status,
         comment=comment,
         duration_seconds=duration_seconds,
     )
+    if linked_bug_ids is not None:
+        dto_data["linked_bug_ids"] = linked_bug_ids
+    elif clear_legacy_linked_bug_ids:
+        dto_data["linked_bug_ids"] = None
+    dto = TestResultUpdateDto(**dto_data)
     result = await TestResultService.update_result(
         result_id, dto, token, get_http_request()
     )
-    return {
-        "id": str(result.id),
-        "status": result.status.value if hasattr(result.status, "value") else result.status,
-        "comment": result.comment,
-        "duration_seconds": result.duration_seconds,
-        "executed_at": result.executed_at.isoformat() if result.executed_at else None,
-    }
+    return result
 
 @mcp.tool()
 async def link_bug_to_result(result_id: str, bug_short_name: str) -> dict:
-    """Link a bug to a test result.
+    """Append an unambiguous same-space short name to legacy JSON references.
 
     Args:
         result_id: UUID of the test result
         bug_short_name: Bug identifier (e.g. PROJ-123)
 
     Returns:
-        Updated result with linked bugs
+        Updated legacy linked_bug_ids array; use UUID tools for new links
     """
-    result = await TestResultModel.get_or_none(id=result_id)
-    if not result:
-        return {"error": "Result not found"}
+    return await TestResultService.update_legacy_bug_reference(
+        result_id, bug_short_name, get_http_request(), add=True
+    )
 
-    bugs = result.linked_bug_ids or []
-    if bug_short_name not in bugs:
-        bugs.append(bug_short_name)
-        await TestResultModel.filter(id=result_id).update(linked_bug_ids=bugs)
 
-    return {
-        "id": str(result.id),
-        "linked_bug_ids": bugs,
-    }
+@mcp.tool()
+async def unlink_bug_from_result(result_id: str, bug_short_name: str) -> dict:
+    """Remove an unambiguous same-space short name from legacy JSON references."""
+    return await TestResultService.update_legacy_bug_reference(
+        result_id, bug_short_name, get_http_request(), add=False
+    )
+
+
+@mcp.tool()
+async def link_bug_uuid_to_result(result_id: str, bug_uuid: uuid.UUID) -> dict:
+    """Link a same-space bug to an active result using its UUID."""
+    return await TestResultService.link_bug_id(result_id, bug_uuid, get_http_request())
+
+
+@mcp.tool()
+async def unlink_bug_uuid_from_result(result_id: str, bug_uuid: uuid.UUID) -> dict:
+    """Unlink a same-space bug from an active result using its UUID."""
+    return await TestResultService.unlink_bug_id(result_id, bug_uuid, get_http_request())
+
+
+@mcp.tool()
+async def create_and_link_bug_to_result(
+    result_id: str,
+    operation_id: uuid.UUID,
+    title: str,
+    text: str | None = None,
+    steps: str | None = None,
+) -> dict:
+    """Atomically create a bug and link it to a result; reuse operation_id on retry."""
+    request = get_http_request()
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    dto = TestResultBugCreateDto(
+        operation_id=operation_id,
+        title=title,
+        text=text,
+        steps=steps,
+    )
+    return await TestResultService.create_and_link_bug(
+        result_id, dto, token, request
+    )

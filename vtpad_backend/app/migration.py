@@ -48,6 +48,24 @@ class RunMigration:
         )
 
     async def run_migration(self):
+        lock_id_1 = 197938107
+        lock_id_2 = 1
+        db = Tortoise.get_connection('default')
+        try:
+            async with db.acquire_connection() as lock_connection:
+                await lock_connection.execute(
+                    "SELECT pg_advisory_lock($1, $2)", lock_id_1, lock_id_2
+                )
+                try:
+                    await self._run_migrations_locked()
+                finally:
+                    await lock_connection.execute(
+                        "SELECT pg_advisory_unlock($1, $2)", lock_id_1, lock_id_2
+                    )
+        finally:
+            await Tortoise.close_connections()
+
+    async def _run_migrations_locked(self):
         migration_src = f'{dirname(__file__)}/src/migration/data'
         modules = glob.glob(join(migration_src, "*.json"))
         __all__ = sorted([basename(f) for f in modules if isfile(f)])
@@ -84,8 +102,6 @@ class RunMigration:
                     # Concurrent DDL cannot be transactional.  Statements must
                     # be idempotent so a failed startup can safely retry them.
                     await self.save_migration_name_into_bd(i)
-
-        await Tortoise.close_connections()
 
     async def run_sql(self, sql, params=None, connection=None):
         conn = connection or Tortoise.get_connection('default')

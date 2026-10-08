@@ -64,4 +64,4 @@
 
 ## Статус
 
-Подготовлен для согласования. r3 superseded: уточнены migration/backfill, stable API compatibility и recovery acceptance. DD4 code не закоммичен и к target DB не применён.
+Одобрен пользователем как точная ревизия r4 и реализован. Независимые reviews, backend/frontend проверки, disposable DB recovery/runtime репетиции, apply на target и Docker smoke пройдены. Target backup снят и restore проверен; disposable rehearsal databases удалены. Roadmap отмечен после приемки, изменения готовы к commit.

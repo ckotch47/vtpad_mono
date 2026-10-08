@@ -94,7 +94,7 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 ### Backend and Data
 - [ ] Add PostgreSQL full-text search with `tsvector`
 - [ ] Add CSV/JSON import and export for suites and cases
-- [ ] Harden existing Tech Docs CRUD with space membership and same-space parent checks
+- [x] Harden Tech Docs CRUD and traceability with space membership, same-space parent checks, and cycle protection
 
 ### Analytics — Later
 - [ ] Expand analytics beyond the existing dashboard, suite coverage, and space-level statistics

@@ -18,4 +18,9 @@ export const testRunService = {
 
   updateResult: (resultId, data) => api.patch(`/api/v2/test-run/result/${resultId}`, data),
   bulkUpdateResults: (data) => api.patch('/api/v2/test-run/result/bulk', data),
+  linkBug: (resultId, bugUuid) => api.post(`/api/v2/test-run/result/${resultId}/bugs/${bugUuid}`),
+  unlinkBug: (resultId, bugUuid) => api.delete(`/api/v2/test-run/result/${resultId}/bugs/${bugUuid}`),
+  linkBugByShortName: (resultId, shortName) => api.post(`/api/v2/test-run/result/${resultId}/bugs/link`, { bug_short_name: shortName }),
+  unlinkBugByShortName: (resultId, shortName) => api.delete(`/api/v2/test-run/result/${resultId}/bugs/link`, { data: { bug_short_name: shortName } }),
+  createAndLinkBug: (resultId, data) => api.post(`/api/v2/test-run/result/${resultId}/bugs`, data),
 }

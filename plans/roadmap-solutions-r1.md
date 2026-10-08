@@ -99,9 +99,9 @@
 
 **Основание:** в `AnalyticsService` нет bug-агрегатов. **Решение:** определить атрибуцию suite для plan/multi-suite run по snapshot кейса; считать уникальные bugs и связи отдельно, добавить API и drill-down. **Приёмка:** одинаковый bug в двух результатах не удваивает общий итог; метрика по run/suite сверяется с исходными связями, старые run без snapshot помечены. **Зависимость:** DD4.
 
-### DD4. Автоматическая связь bug с failed result — частично
+### DD4. Связь bug с failed result — реализовано (пакет DD4/BD3 r4)
 
-**Основание:** quick bug flow создаёт bug и вторым запросом пишет `linked_bug_ids`, но `_serialize_result` в `test_run/service.py` не возвращает это поле, хотя UI его читает. **Решение:** первым исправлением вернуть связи в detail и проверить reload; затем сделать атомарный серверный create-and-link с проверкой space, idempotency и выбором уже существующего bug. «Автоматическая связь» означает связь после явного создания/выбора bug, а не автоматическое создание дефекта на каждый fail. **Приёмка:** связь видна после reload; сбой не оставляет созданный bug без связи; чужой bug и повтор не создают некорректных ссылок.
+**Результат:** добавлен отдельный стабильный `link_uuid`, REST и MCP используют общую UUID-связь для активного run, а legacy JSON сохраняется без переосмысления и доступен в `linked_bug_ids_raw`. Quick-create связывает bug атомарно и идемпотентен по `operation_id`; повтор после удаления bug отвечает `410`. Стандартная и быстрая выдача short name сериализованы на уровне space без unique-ограничения, несовместимого с историческими данными. **Проверки:** независимый API review, REST/MCP runtime, параллельный quick-create, recovery и миграционная репетиция пройдены. Target `vtpad_back` обновлена после проверенного `pg_dump`/restore; v14 ledger содержит одну запись, 13 836 rows имеют уникальные UUID, исторические 6 908 duplicate-ID groups сохранены. Backend `/docs` и frontend SPA отвечают HTTP 200 после пересоздания контейнеров.
 
 ## 6. Global UX
 
@@ -131,9 +131,9 @@
 
 **Основание:** соответствующих REST маршрутов не найдено. **Решение:** описать версионированную схему с sections, версиями, ссылками и правилами конфликтов; сначала сделать экспорт, затем preview с ошибками по строкам и атомарный импорт через domain services. Ограничить размер, MIME, scope и права. **Приёмка:** round trip, дубликаты, неверные поля, чужой space и частичный сбой не портят данные. **Решения перед реализацией:** сохранять ли исходные IDs и импортировать ли историю версий.
 
-### BD3. Полный CRUD Tech Docs — есть по коду
+### BD3. Безопасный CRUD Tech Docs — реализовано (пакет DD4/BD3 r4)
 
-**Основание:** `tech_doc/router.py` содержит GET tree/list/id, POST, PATCH и DELETE; `techDocService.js` и UI используют их. Формальный CRUD-контракт уже есть, но пункт нельзя считать безопасно завершённым: маршруты проверяют bearer, но не membership space; `get_by_id` ищет только по id, create/update не подтверждают parent в том же space. **Решение:** добавить проверки доступа и дерева, затем независимую security review и интеграционные тесты на два spaces. После этого закрыть пункт без повторной реализации CRUD.
+**Результат:** REST/MCP CRUD и traceability ограничены membership и одним space; parent create/move проверяет владельца и цикл, конкурентные изменения сериализуются блокировкой space. Устаревшие cross-space parent/link не раскрываются и не изменяются при чтении. **Проверки:** независимая security review и двухпространственная REST runtime матрица пройдены, включая чужой документ, чужого parent, цикл и повреждённую legacy-связь.
 
 ## 8. Analytics — Later
 
@@ -196,8 +196,7 @@
 
 - **RN1–RN2 — реализовано (код):** snapshot и preview сохраняют suite и полный путь секций; группы имеют desktop/mobile навигацию, учитывают фильтр и поддерживают клавиатурный фокус. Frontend lint/build и backend compile пройдены; автоматические тесты отсутствуют, браузерная runtime-проверка не запускалась.
 - **TE1–TE5 — реализовано (код):** согласованный пакет r2 закоммичен в `1769986`; код-документация обновлена в `171e5d2`, отметки roadmap — в последующем roadmap-коммите. Проверены `git diff --check`, `py_compile`, JSON-миграция и ESLint; независимые backend/API review пройдены. Автоматические тесты, UI runtime, применение миграции и перезапуск Docker не выполнялись.
-- **DD4 — частично:** detail serializer теперь возвращает `linked_bug_ids` как массив (в том числе для legacy-записей с `NULL`). Атомарное создание и связывание bug остаётся отдельной работой.
-- **BD3 — частично:** добавлены проверки доступа к space для Tech Docs REST и MCP операций; MCP включает список с фильтрами и пагинацией, CRUD-ответы со всеми полями REST и link/unlink/list/replace для связей с test cases с обеих сторон. Создание/перенос/удаление документов сериализованы блокировкой space; удаление документа и его embeddings атомарно. Чтение связей фильтрует повреждённые cross-space ссылки. Независимая security review пройдена; runtime проверки двух spaces не выполнены.
+- **DD4/BD3 r4 — реализовано и принято:** API/MCP parity, safe UUID identity despite duplicate legacy IDs, idempotent atomic quick-create, legacy response compatibility, migration recovery, two-space Tech Docs checks, independent API/security reviews, backend/frontend checks, and disposable DB runtime passed. Target DB migration and live Docker smoke passed; the pre-apply backup and restore were verified, and the disposable rehearsal databases were removed.
 - **SU2 — частично:** очистка обоих clearable-поисков нормализует `null`; список показывает отдельное состояние для отсутствия совпадений. UI-сценарий и поиск по всей suite не проверялись; сохранено текущее ограничение поиска выбранной секцией.
 - **SU1/SU3 — реализовано (код):** обе suite routes используют общий workspace; выбранная suite открывается справа и хранится в URL, левая плоская навигация сохраняет server-side search/status/pagination/CRUD. Деталь реагирует на смену suite ID и показывает доступную ошибку. Frontend ESLint/build пройдены; browser Back/Forward, клавиатурный и mobile runtime не проверялись.
 - **SU2 — реализовано (код):** case search нормализует clearable `null`, ищет по title/short name в текущей секции и сохраняет query при её смене; Default ограничен кейсами без section. Добавлены loading/error/retry/empty/no-match состояния и защита от устаревших ответов. ESLint/build и independent review пройдены; browser runtime не запускался.

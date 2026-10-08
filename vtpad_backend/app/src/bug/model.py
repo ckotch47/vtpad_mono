@@ -1,4 +1,5 @@
 from datetime import datetime
+import uuid
 
 
 from tortoise.models import Model
@@ -9,6 +10,7 @@ from .enum import StateBugEnum
 
 class BugsModel(Model):
     id = fields.UUIDField(pk=True, index=True)
+    link_uuid = fields.UUIDField(default=uuid.uuid4, unique=True)
     create_date = fields.DatetimeField(null=False, auto_now_add=True)
     update_date = fields.DatetimeField(null=False, auto_now=True)
     title = fields.TextField(null=False)

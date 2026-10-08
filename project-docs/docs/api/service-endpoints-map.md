@@ -104,13 +104,18 @@
 | POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов для cases любого статуса; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`; возвращает nullable `created_by` с `{id, username}` |
 | GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
-| GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты со suite и `section_path` (root→leaf), snapshot/legacy-признак, run timer и сумма фактических длительностей с количеством результатов без замера; `linked_bug_ids` всегда массив |
+| GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты со suite и `section_path` (root→leaf), snapshot/legacy-признак, run timer и сумма фактических длительностей; `linked_bug_ids` остаётся массивом, `linked_bug_ids_raw` содержит неизменённое legacy JSON (включая `null`), `linked_bugs` содержит новые UUID-связи |
 | PATCH | `/api/v2/test-run/{run_id}` | JWT + space check | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
 | POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | переводит run из `draft` в `active` и открывает общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/pause` | JWT + space check | закрывает текущий общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/resume` | JWT + space check | открывает следующий общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | завершает active run и закрывает открытый timer interval |
-| PATCH | `/api/v2/test-run/result/{result_id}` | JWT + space check | меняет статус и детали результата только в active run; фактическая длительность `>= 0`, `NULL` означает «нет замера» |
+| PATCH | `/api/v2/test-run/result/{result_id}` | JWT + space check | меняет статус и детали результата только в active run; фактическая длительность `>= 0`, `NULL` означает «нет замера»; ответ включает массив `linked_bug_ids` и оригинал `linked_bug_ids_raw` |
+| POST | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + space check | идемпотентно связывает result с bug по `link_uuid` в том же space |
+| DELETE | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + space check | удаляет UUID-связь с bug в том же space |
+| POST | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper для UUID-связи; только для active run и ровно одного совпадения, неоднозначность возвращает `409` |
+| DELETE | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper с теми же active-run и ambiguity проверками |
+| POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + space check | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
 | PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`; явный `section_id: null` снимает кейс с секции и оставляет его в указанном (или текущем) suite — UI показывает его в виртуальной секции `Default`; `null` остальных полей игнорируется. |
 | GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |

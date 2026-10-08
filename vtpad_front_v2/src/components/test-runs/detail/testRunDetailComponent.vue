@@ -210,6 +210,15 @@
                       </template>
                     </v-tooltip>
                     <v-chip
+                      v-for="bug in result.linked_bugs || []"
+                      :key="bug.id"
+                      size="x-small"
+                      color="error"
+                      class="mr-1"
+                    >
+                      #{{ bug.short_name || bug.title }}
+                    </v-chip>
+                    <v-chip
                       v-for="bugId in result.linked_bug_ids"
                       :key="bugId"
                       size="x-small"
@@ -261,8 +270,10 @@
     <case-view-dialog v-model="caseDialogOpen" :test-case="selectedCase" @edit="caseDialogOpen = false" />
 
     <quick-bug-dialog
-      v-model="bugModal"
+      :model-value="bugModal"
       :bug="newBug"
+      :retrying="Boolean(editingResult && pendingQuickBugAttempts[editingResult.id])"
+      @update:model-value="handleBugModalUpdate"
       @update:bug="newBug = $event"
       @create="createBug"
     />
@@ -305,6 +316,9 @@ const bulkStatuses = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
 const resultStatusCycle = ['not_run', 'passed', 'failed', 'blocked', 'skipped']
 const timerActionLoading = ref(false)
 const timerRefreshLoading = ref(false)
+const savingResult = ref(false)
+const creatingBug = ref(false)
+const pendingQuickBugAttempts = ref({})
 
 const groupedResults = computed(() => {
   const groups = new Map()
@@ -473,9 +487,17 @@ function openResultModal(result) {
   editingResult.value = {
     ...result,
     originalStatus: result.status,
-    linked_bug_ids: result.linked_bug_ids || []
+    originalLinkedBugIds: (result.linked_bugs || []).map(bug => bug.id),
+    linked_bugs: [...(result.linked_bugs || [])]
   }
   editModal.value = true
+}
+
+function normalizeBugIds(ids) {
+  return [...new Set((Array.isArray(ids) ? ids : []).map((bug) => {
+    if (typeof bug === 'string') return bug
+    return bug?.short_name || ''
+  }).filter(Boolean))]
 }
 
 function openCaseDialog(id) {
@@ -507,6 +529,7 @@ function statusLabel(status) {
 function applyResultUpdate(updatedResult) {
   const resultChanges = { ...updatedResult }
   delete resultChanges.originalStatus
+  delete resultChanges.originalLinkedBugIds
   const result = results.value.find((item) => item.id === resultChanges.id)
   if (!result) return
   const previousStatus = result.status
@@ -565,60 +588,119 @@ async function bulkUpdateResults() {
 }
 
 async function saveResult() {
+  if (savingResult.value || !editingResult.value) return
+  savingResult.value = true
   const duration = editingResult.value.duration_seconds
   const parsedDuration = duration === '' || duration === null || duration === undefined
     ? null
     : Number(duration)
   const payload = {
     duration_seconds: Number.isNaN(parsedDuration) ? null : parsedDuration,
-    comment: editingResult.value.comment,
-    linked_bug_ids: editingResult.value.linked_bug_ids
+    comment: editingResult.value.comment
   }
   if (editingResult.value.status !== editingResult.value.originalStatus) {
     payload.status = editingResult.value.status
   }
   try {
     await testRunService.updateResult(editingResult.value.id, payload)
+    const targetBugIds = (editingResult.value.linked_bugs || []).map(bug => bug.id)
+    const currentBugIds = [...editingResult.value.originalLinkedBugIds]
+    for (const bugId of currentBugIds.filter((id) => !targetBugIds.includes(id))) {
+      await testRunService.unlinkBug(editingResult.value.id, bugId)
+      editingResult.value.originalLinkedBugIds = currentBugIds.filter((id) => id !== bugId)
+    }
+    for (const bugId of targetBugIds.filter((id) => !currentBugIds.includes(id))) {
+      await testRunService.linkBug(editingResult.value.id, bugId)
+      editingResult.value.originalLinkedBugIds = [...editingResult.value.originalLinkedBugIds, bugId]
+    }
     applyResultUpdate(editingResult.value)
     editModal.value = false
-    await loadRun()
   } catch (error) {
     log.error('failed to update test result', error)
+    try {
+      await loadRun({ showLoader: false })
+    } catch (reloadError) {
+      log.error('failed to reload run after result update error', reloadError)
+    }
+    return
+  } finally {
+    savingResult.value = false
+  }
+  try {
+    await loadRun({ showLoader: false })
+  } catch (error) {
+    log.error('result was saved, but the run could not be reloaded', error)
   }
 }
 
 function openBugModal() {
-  newBug.value = {
-    title: `Bug: ${editingResult.value.testcase?.title || 'Failed test'}`,
-    steps: editingResult.value.testcase?.steps || '',
-    expected: editingResult.value.testcase?.expected_results || '',
-    actual: editingResult.value.comment || ''
+  const pendingAttempt = pendingQuickBugAttempts.value[editingResult.value.id]
+  if (pendingAttempt) {
+    newBug.value = { ...pendingAttempt.draft }
+  } else {
+    newBug.value = {
+      title: `Bug: ${editingResult.value.testcase?.title || 'Failed test'}`,
+      steps: editingResult.value.testcase?.steps || '',
+      expected: editingResult.value.testcase?.expected_results || '',
+      actual: editingResult.value.comment || ''
+    }
   }
   bugModal.value = true
 }
 
-function createBug() {
-  let linkedBugIds = []
-  bugService.create({
-    title: newBug.value.title,
-    text: newBug.value.actual,
-    steps: newBug.value.steps,
-    spaces: spaceId.value,
-    state: 'OPEN'
-  }).then(res => {
-    const bugShortName = res.data.short_name
-    linkedBugIds = [...(editingResult.value.linked_bug_ids || []), bugShortName]
-    return testRunService.updateResult(editingResult.value.id, {
-      linked_bug_ids: linkedBugIds
-    })
-  }).then(() => {
+function handleBugModalUpdate(open) {
+  bugModal.value = open
+}
+
+function createBugText(bug) {
+  const sections = []
+  if (bug.expected) sections.push(`Expected result:\n${bug.expected}`)
+  if (bug.actual) sections.push(`Actual result:\n${bug.actual}`)
+  return sections.join('\n\n')
+}
+
+async function createBug() {
+  if (creatingBug.value || !editingResult.value) return
+  creatingBug.value = true
+  const resultId = editingResult.value.id
+  if (!pendingQuickBugAttempts.value[resultId]) {
+    pendingQuickBugAttempts.value = {
+      ...pendingQuickBugAttempts.value,
+      [resultId]: {
+        draft: { ...newBug.value },
+        request: {
+          operation_id: crypto.randomUUID(),
+          title: newBug.value.title,
+          text: createBugText(newBug.value),
+          steps: newBug.value.steps
+        }
+      }
+    }
+  }
+  const pendingAttempt = pendingQuickBugAttempts.value[resultId]
+  try {
+    await testRunService.createAndLinkBug(resultId, pendingAttempt.request)
+    const attempts = { ...pendingQuickBugAttempts.value }
+    delete attempts[resultId]
+    pendingQuickBugAttempts.value = attempts
     bugModal.value = false
     editModal.value = false
-    editingResult.value.linked_bug_ids = linkedBugIds
-    applyResultUpdate(editingResult.value)
-  }).catch(err => {
-    console.error(err)
-  })
+  } catch (error) {
+    log.error('failed to create and link bug to test result', error)
+    try {
+      await loadRun({ showLoader: false })
+    } catch (reloadError) {
+      log.error('failed to reload run after quick bug error', reloadError)
+    }
+    return
+  } finally {
+    creatingBug.value = false
+  }
+  try {
+    await loadRun({ showLoader: false })
+  } catch (error) {
+    log.error('bug was created, but the run could not be reloaded', error)
+  }
 }
 
 function statusColor(status) {

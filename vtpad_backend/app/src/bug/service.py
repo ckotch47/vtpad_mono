@@ -1,10 +1,11 @@
 import datetime
 import json
 import uuid
-from typing import List
+from typing import Any, List
 
 from fastapi import HTTPException, BackgroundTasks
 from tortoise import Tortoise
+from tortoise.transactions import in_transaction
 
 from .enum import StateBugEnum
 from .model import BugsModel
@@ -60,7 +61,7 @@ class BugsService:
     def _get_bug_select_sql():
         return (
             "SELECT "
-            "bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, "
+            "bugsmodel.id, bugsmodel.link_uuid, bugsmodel.create_date, bugsmodel.estimate_date, "
             "bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, "
             "bugsmodel.title, bugsmodel.external_link, bugsmodel.create_user_id, "
             "json_build_object("
@@ -154,7 +155,7 @@ class BugsService:
     def _apply_bug_grouping(sql):
         return sql + (
             "GROUP BY bugsmodel.id, bugsmodel.create_date, bugsmodel.estimate_date, "
-            "bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, bugsmodel.title, "
+            "bugsmodel.link_uuid, bugsmodel.short_name, bugsmodel.state, bugsmodel.update_date, bugsmodel.title, "
             "bugsmodel.external_link, bugsmodel.create_user_id, bugsmodel.assigner_id, "
             "bugsmodel.spaces_id, create_user.id, create_avatar.filepath, "
             "assigner_user.id, assigner_avatar.filepath "
@@ -259,8 +260,19 @@ class BugsService:
 
     @staticmethod
     async def create_bug(bug: CreateBugDto, user: dict, background_tasks: BackgroundTasks):
-        short_name = await BugsService.generate_short_name(str(bug.space_id))
-        temp = await BugsModel.create(
+        async with in_transaction() as connection:
+            temp = await BugsService.create_bug_in_transaction(bug, user, connection)
+        BugsService.schedule_assignment_notification(temp, bug, background_tasks)
+        return await BugsService.get_bug_detail(temp.id)
+
+    @staticmethod
+    async def create_bug_in_transaction(bug: CreateBugDto, user: dict, connection: Any) -> BugsModel:
+        """Create a bug while holding its space row lock for short-name allocation."""
+        space = await SpaceModel.filter(id=bug.space_id).using_db(connection).select_for_update().first()
+        if not space:
+            raise HTTPException(status_code=404, detail="Space not found")
+        short_name = await BugsService._next_short_name(space, connection)
+        return await BugsModel.create(
             create_user_id=user.get('id'),
             title=bug.title,
             text=bug.text,
@@ -271,8 +283,14 @@ class BugsService:
             state=bug.state,
             estimate_date=bug.estimate_date,
             short_name=short_name,
-            external_link=bug.external_link
+            external_link=bug.external_link,
+            using_db=connection,
         )
+
+    @staticmethod
+    def schedule_assignment_notification(
+        temp: BugsModel, bug: CreateBugDto, background_tasks: BackgroundTasks
+    ) -> None:
         # todo rewort
         # todo rework history comment
         if bug.assigner:
@@ -284,7 +302,6 @@ class BugsService:
                                               event=EventNotificationEnum.assign))
             except Exception as e:
                 logger.error('Unexpected error: %s', e, exc_info=True)
-        return await BugsService.get_bug_detail(temp.id)
 
     @staticmethod
     def _build_bug_change_payload(tmp: BugsModel, field_name: str, new_value):
@@ -609,14 +626,30 @@ class BugsService:
             raise HTTPException(status_code=403, detail="not have right")
 
     @staticmethod
-    async def generate_short_name(space_id: str):
-        space = await SpaceModel.filter(id=space_id).get_or_none()
+    async def _next_short_name(space: SpaceModel, connection: Any) -> str | None:
         if not space.short_name:
             return None
-        bug_count = await BugsModel.filter(spaces_id=space_id).count()
-        if bug_count:
-            return f"{space.short_name}-{bug_count}"
-        return f"{space.short_name}-0"
+        rows = await connection.execute_query_dict(
+            "SELECT COALESCE(MAX(substring(short_name FROM char_length($2) + 2)::BIGINT), -1) AS max_suffix "
+            "FROM bugsmodel WHERE spaces_id = $1 "
+            "AND left(short_name, char_length($2) + 1) = ($2 || '-') "
+            "AND substring(short_name FROM char_length($2) + 2) ~ '^[0-9]+$'",
+            [str(space.id), space.short_name],
+        )
+        suffix = int(rows[0]["max_suffix"]) + 1
+        return f"{space.short_name}-{suffix}"
+
+    @staticmethod
+    async def generate_short_name(space_id: str):
+        """Compatibility helper; creation paths must allocate under a space lock."""
+        space = await SpaceModel.filter(id=space_id).get_or_none()
+        if not space:
+            raise HTTPException(status_code=404, detail="Space not found")
+        async with in_transaction() as connection:
+            locked_space = await SpaceModel.filter(id=space_id).using_db(connection).select_for_update().first()
+            if not locked_space:
+                raise HTTPException(status_code=404, detail="Space not found")
+            return await BugsService._next_short_name(locked_space, connection)
 
     @staticmethod
     async def add_tag_to_bug(bug_id: str, dto: AddTagToBugDto):

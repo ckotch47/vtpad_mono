@@ -72,10 +72,12 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [x] Fix the case filter in suites: normalize clearable input, filter within the selected section, and distinguish empty/error states
 - [x] Explore a Tech Docs-style tree structure for browsing test suites; use a flat searchable list because suites have no parent hierarchy
 - [x] Reorder sections within the same parent through REST, MCP, drag-and-drop, and keyboard controls
-- [ ] Add search/filter for sections in the tree
+- [x] Add search/filter for sections in the tree
 - [ ] Move cases between sections by drag-and-drop or from a dialog
 - [ ] Compare two test case versions side by side
 - [ ] Add filterable and searchable tags and priority for cases
+
+SU5 section filtering is implemented in `74fad6f`: matching sections retain their ancestors and order, selection survives filtering, and hidden-selection, no-match, and clear states are explicit. ESLint, production build, and `git diff --check` passed. Read-only desktop smoke on the local app verified a matching result, preserved hidden selection, no-match state, and clearing. Nested-section layout, keyboard focus, and mobile smoke remain in the regression checklist.
 
 ### Test Cases and Checklists
 The TC2 Test IT review is complete. TC1 implementation is committed as `ade63d8`; lint/build and browser acceptance on a disposable clone passed. Checklist hidden fields survived type-switch/save, version history, mixed-run preview, and snapshot creation.

@@ -81,6 +81,7 @@
 - Sections filter: accessible name search finds nested sections and keeps each matching section's ancestors in tree order; keyboard users can focus/select rows.
 - Filtering never changes the selected section. When selection is filtered out, the UI says so and offers “Show selection”; clearing restores the full list.
 - No-match state is explicit and can be cleared; long section names remain readable through wrapping or their full accessible name. Verify at desktop and mobile widths.
+- SU5 read-only desktop smoke passed on 2026-10-09: matching query, hidden selected section with “Show selection”, no-match message, and clear restored all 5 sections. Nested sections, keyboard focus, long-name layout, and mobile viewport still need manual verification.
 
 5. Tech Docs
 - Tree загружается.

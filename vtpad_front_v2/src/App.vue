@@ -2,14 +2,21 @@
   <v-app>
     <v-fab
       v-if="authToken"
+      id="spaces-navigation-toggle"
       class="me-4 menu-show--main"
-      icon="mdi-arrow-collapse-right"
-      absolute
-      offset
+      icon="mdi-menu"
+      aria-label="Toggle spaces navigation"
+      aria-controls="spaces-navigation"
+      title="Toggle spaces navigation"
       @click="drawer = !drawer"
     />
 
-    <v-navigation-drawer v-if="authToken" v-model="drawer" width="300">
+    <v-navigation-drawer
+      id="spaces-navigation"
+      v-if="authToken"
+      v-model="drawer"
+      width="300"
+    >
       <profile-left-component @hide-left-menu="drawer = !drawer" />
       <spaces-list-component />
     </v-navigation-drawer>
@@ -105,13 +112,10 @@ watch(route, updateRouteMeta, { deep: true })
 
 <style lang="scss">
 .menu-show--main {
-  z-index: 99;
-
-  &.v-fab--absolute {
-    position: fixed;
-    top: 200px;
-    left: 30px;
-  }
+  position: fixed !important;
+  top: 200px;
+  left: 12px;
+  z-index: 1200 !important;
 }
 
 body::-webkit-scrollbar,

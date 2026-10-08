@@ -23,7 +23,7 @@
 - [x] **Bug modal on failed result** — quick bug creation with pre-filled data
 
 ### AI Integration (Completed)
-- [x] MCP Server (33 tools) — embedded in FastAPI
+- [x] MCP Server — embedded in FastAPI
 - [x] Tech Docs storage with tree hierarchy
 - [x] pgvector + HNSW index for semantic search
 - [x] Embeddings via nomic-embed-text (768d)
@@ -47,29 +47,51 @@
 
 ## 🚧 In Progress / Planned
 
-### Defects Dashboard
-- [ ] **Defects Dashboard page** — all bugs linked to test results in space
-- [ ] Group/filter by status (Open, Fixed, Reopen)
-- [ ] Stats by run/suite
-- [ ] Auto-link fail → bug creation (partially done via bug modal)
+### Test Execution Time
+- [ ] Add an estimated execution time field to test cases and make it editable in the case editor
+- [ ] Record actual execution time for each case in a run and show it in run results
+- [ ] Show the total execution time for a run as the sum of its case times
+- [ ] Add a run timer with pause/resume; paused time should not count toward the tester's active execution time
+- [ ] Show run duration and timing details in run history
 
-### Suite / Case UX Improvements
-- [ ] Drag-and-drop reordering for sections
-- [ ] Search/filter sections in tree
-- [ ] Move case to section (drag or modal)
-- [ ] Compare versions — side-by-side diff of two case versions
-- [ ] Tags / Priority for cases (filterable, searchable)
+### Run Navigation
+- [ ] Group run cases by folders/sections
+- [ ] Add quick navigation between groups, following the section navigation pattern used in suites
+
+### Suite and Case UX
+- [ ] Redesign the suites screen to keep the suite list on the left and show the selected suite on the same page
+- [ ] Fix the case filter in suites (it currently does not work)
+- [ ] Explore a Tech Docs-style tree structure for browsing test suites
+- [ ] Add drag-and-drop reordering for sections
+- [ ] Add search/filter for sections in the tree
+- [ ] Move cases between sections by drag-and-drop or from a dialog
+- [ ] Compare two test case versions side by side
+- [ ] Add filterable and searchable tags and priority for cases
+
+### Test Cases and Checklists
+- [ ] Design distinct views for test cases and checklists
+- [ ] Review how Test IT presents checklists and use the findings to inform the VTPad design
+
+### Defects Dashboard
+- [ ] Add a space-level dashboard for bugs linked to test results
+- [ ] Group and filter defects by status (Open, Fixed, Reopen)
+- [ ] Show defect statistics by run and suite
+- [ ] Extend automatic bug linking on failed results (partially available through the bug modal)
 
 ### Global UX
-- [ ] Keyboard shortcuts — Cmd+S (save), Esc (close modal)
-- [ ] Loading skeletons for tables
-- [ ] Empty states with illustrations + CTA for all screens
-- [ ] Mobile responsive improvements
+- [ ] Add keyboard shortcuts — Cmd+S to save and Esc to close a modal
+- [ ] Add loading skeletons for tables
+- [ ] Add empty states with illustrations and clear next actions
+- [ ] Improve mobile responsiveness
 
-### Backend
-- [ ] Full-text search via PostgreSQL tsvector
-- [ ] Import/Export — CSV/JSON for suites/cases
-- [ ] Tech Docs endpoints — full CRUD
+### Backend and Data
+- [ ] Add PostgreSQL full-text search with `tsvector`
+- [ ] Add CSV/JSON import and export for suites and cases
+- [ ] Harden existing Tech Docs CRUD with space membership and same-space parent checks
+
+### Analytics — Later
+- [ ] Expand analytics beyond the existing dashboard, suite coverage, and space-level statistics
+- [ ] Use recorded case and run execution times for duration and trend analysis
 
 ---
 

@@ -6,5 +6,5 @@ export const sectionService = {
   create: (data) => api.post('/api/v2/section/', data),
   update: (id, data) => api.patch(`/api/v2/section/${id}`, data),
   delete: (id) => api.delete(`/api/v2/section/${id}`),
-  sort: (id) => api.patch(`/api/v2/section/sort/${id}`),
+  sort: (id, data) => api.patch(`/api/v2/section/sort/${id}`, data),
 }

@@ -13,6 +13,7 @@
 - [x] Test Run results grouped by section
 - [x] Stats cards in Suite Detail (total, manual, checklist, automated)
 - [x] Section tree with context menu (add sub-section, rename, delete)
+- [x] Reorder sections within the same parent using drag-and-drop and keyboard controls
 - [x] Add existing test cases to section
 - [x] Test Case view modal from Suite Detail
 

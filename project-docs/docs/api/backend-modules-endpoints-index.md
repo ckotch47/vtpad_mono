@@ -115,6 +115,15 @@
 ### `app/src/testcases_runitem`
 - `PATCH /api/v1/testcases-runitem/{element_id}`
 
+### `app/src/section`
+- `GET /api/v2/section/suite/{suite_id}`
+- `GET /api/v2/section/suite/{suite_id}/tree`
+- `GET /api/v2/section/{section_id}`
+- `POST /api/v2/section/`
+- `PATCH /api/v2/section/{section_id}`
+- `DELETE /api/v2/section/{section_id}`
+- `PATCH /api/v2/section/sort/{section_id}` — JSON body contains exactly one of `sort_before_id` or `sort_after_id`; neighbor must have the same suite and parent; requires suite space membership; returns ordered siblings.
+
 ### `app/src/checklist`
 - `GET /api/v1/checklist/list/{space_id}`
 - `GET /api/v1/checklist/{checklist_id}`

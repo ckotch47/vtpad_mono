@@ -1,9 +1,13 @@
 from fastapi import HTTPException
 from typing import Optional
+from starlette.requests import Request
+from tortoise.transactions import in_transaction
 
 from .model import SectionModel
 from .dto import *
 from ..common.crypto import get_user_id_by_token
+from ..common.right_guard import check_user_into_space
+from ..test_suite.model import TestSuiteModel
 
 
 class SectionService:
@@ -90,21 +94,54 @@ class SectionService:
         return True
 
     @staticmethod
-    async def update_sort(section_id: str, dto: SectionSortDto) -> list[SectionModel]:
+    async def update_sort(
+        section_id: str,
+        dto: SectionSortDto,
+        request: Request,
+    ) -> list[SectionModel]:
+        neighbor_id = dto.sort_before_id or dto.sort_after_id
+        if neighbor_id == section_id:
+            raise HTTPException(status_code=422, detail='A section cannot be sorted relative to itself')
+
         section = await SectionService.get_by_id(section_id)
         suite_id = str(section.suite_id)
-        parent_id = section.parent_id
+        suite = await TestSuiteModel.get_or_none(id=suite_id)
+        if not suite:
+            raise HTTPException(status_code=404, detail='Test suite not found')
+        await check_user_into_space(str(suite.space_id), request)
 
-        if dto.sort_before_id:
-            before = await SectionService.get_by_id(dto.sort_before_id)
-            target = await SectionService.get_by_id(section_id)
-            await SectionModel.filter(id=dto.sort_before_id).update(sort=target.sort)
-            await SectionModel.filter(id=section_id).update(sort=before.sort)
+        async with in_transaction() as connection:
+            # Lock the suite row as a serialization point for all reorder requests
+            # within this suite, then lock its existing sections before computing
+            # and writing a complete sibling order.
+            locked_suite = await TestSuiteModel.filter(id=suite_id).using_db(connection).select_for_update().first()
+            if not locked_suite:
+                raise HTTPException(status_code=404, detail='Test suite not found')
 
-        if dto.sort_after_id:
-            after = await SectionService.get_by_id(dto.sort_after_id)
-            target = await SectionService.get_by_id(section_id)
-            await SectionModel.filter(id=dto.sort_after_id).update(sort=target.sort)
-            await SectionModel.filter(id=section_id).update(sort=after.sort)
+            siblings = await SectionModel.filter(
+                suite_id=suite_id,
+                parent_id=section.parent_id,
+            ).using_db(connection).order_by('sort', 'id').select_for_update()
+            by_id = {str(item.id): item for item in siblings}
+            target = by_id.get(section_id)
+            neighbor = by_id.get(neighbor_id)
+            if not target:
+                raise HTTPException(status_code=404, detail='Section not found in test suite')
+            if not neighbor:
+                raise HTTPException(
+                    status_code=422,
+                    detail='The neighbor must be a section in the same suite and parent',
+                )
 
-        return await SectionModel.filter(suite_id=suite_id, parent_id=parent_id).order_by('sort')
+            ordered = [item for item in siblings if str(item.id) != section_id]
+            neighbor_index = next(index for index, item in enumerate(ordered) if str(item.id) == neighbor_id)
+            insert_at = neighbor_index if dto.sort_before_id else neighbor_index + 1
+            ordered.insert(insert_at, target)
+
+            for index, item in enumerate(ordered, start=1):
+                await SectionModel.filter(id=item.id).using_db(connection).update(sort=index * 10)
+
+            return await SectionModel.filter(
+                suite_id=suite_id,
+                parent_id=section.parent_id,
+            ).using_db(connection).order_by('sort', 'id')

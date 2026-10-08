@@ -77,6 +77,7 @@
           <suite-sections-panel
             :flat-sections="flatSections"
             :selected-section="selectedSection"
+            @reorder="onSectionsReordered"
             @select-section="onSectionSelect"
             @add-section="openSectionDialog()"
             @add-sub-section="openSectionDialog"
@@ -166,6 +167,7 @@ const {
   filteredExistingCases,
   allCases,
   onSectionSelect,
+  onSectionsReordered,
   onDefaultSectionSelect,
   openSectionDialog,
   openRenameDialog,

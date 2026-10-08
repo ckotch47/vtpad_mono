@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from .service import SectionService
 from .dto import *
@@ -42,5 +42,5 @@ async def delete(section_id: str):
 
 
 @router.patch('/sort/{section_id}', dependencies=[Depends(bearer)])
-async def update_sort(section_id: str, dto: SectionSortDto):
-    return await SectionService.update_sort(section_id, dto)
+async def update_sort(section_id: str, dto: SectionSortDto, request: Request):
+    return await SectionService.update_sort(section_id, dto, request)

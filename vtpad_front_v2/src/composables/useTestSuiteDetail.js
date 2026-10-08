@@ -158,12 +158,16 @@ export function useTestSuiteDetail() {
     })
   }
 
-  function flattenTree(nodes, list = [], level = 0) {
+  function flattenTree(nodes, list = [], level = 0, parentId = null) {
     for (const n of nodes || []) {
-      list.push({ id: n.id, name: n.name, level, test_case_count: n.test_case_count || 0 })
-      flattenTree(n.children, list, level + 1)
+      list.push({ id: n.id, name: n.name, level, parentId, test_case_count: n.test_case_count || 0 })
+      flattenTree(n.children, list, level + 1, n.id)
     }
     return list
+  }
+
+  function onSectionsReordered(orderedSections) {
+    flatSections.value = orderedSections
   }
 
   function onSectionSelect(id) {
@@ -425,6 +429,7 @@ export function useTestSuiteDetail() {
     suite,
     sectionTree,
     flatSections,
+    onSectionsReordered,
     selectedSection,
     defaultSection,
     hasDefaultSection,

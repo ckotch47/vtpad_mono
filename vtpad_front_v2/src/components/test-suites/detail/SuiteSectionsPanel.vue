@@ -4,24 +4,44 @@
       <v-icon class="mr-2">mdi-folder-open-outline</v-icon>
       Sections
       <v-spacer />
-      <v-btn icon size="small" variant="text" @click="$emit('add-section')">
+      <v-btn icon size="small" variant="text" aria-label="Add section" @click="$emit('add-section')">
         <v-icon>mdi-plus</v-icon>
       </v-btn>
     </v-card-title>
     <v-divider />
+    <v-alert v-if="sortError" type="error" density="compact" class="ma-3" role="alert">
+      <div class="d-flex align-center justify-space-between ga-2">
+        <span>{{ sortError }}</span>
+        <v-btn size="small" variant="text" :disabled="sorting" @click="retrySort">Retry</v-btn>
+      </div>
+    </v-alert>
     <v-card-text class="pa-0">
       <v-list density="compact" class="section-list">
         <v-list-item
-          v-for="item in flatSections"
+          v-for="item in localSections"
           :key="item.id"
           :active="selectedSection?.id === item.id"
           rounded="sm"
           class="section-list-item"
-          @click="$emit('select-section', item.id)"
+          @click="selectSection(item.id)"
+          @dragover="onDragOver($event, item)"
+          @drop="onDrop($event, item)"
+          @dragend="draggedId = null"
         >
           <template #prepend>
             <div class="d-flex align-center">
               <div :style="{ width: `${item.level * 14}px` }" />
+              <v-btn
+                class="section-drag-handle"
+                icon="mdi-drag"
+                size="x-small"
+                variant="text"
+                :draggable="!sorting"
+                :aria-label="`Drag ${item.name} to reorder within its parent`"
+                :disabled="sorting"
+                @click.stop
+                @dragstart="onDragStart($event, item)"
+              />
               <v-icon size="small" color="primary">mdi-folder-outline</v-icon>
             </div>
           </template>
@@ -32,25 +52,43 @@
             </v-chip>
           </v-list-item-title>
           <template #append>
-            <v-menu location="end" :close-on-content-click="true">
-              <template #activator="{ props: menuProps }">
-                <v-btn icon="mdi-dots-vertical" size="x-small" variant="text" v-bind="menuProps" @click.stop />
-              </template>
-              <v-list density="compact">
-                <v-list-item @click="$emit('add-sub-section', item.id)">
-                  <template #prepend><v-icon>mdi-plus</v-icon></template>
-                  <v-list-item-title>Add sub-section</v-list-item-title>
-                </v-list-item>
-                <v-list-item @click="$emit('rename-section', item)">
-                  <template #prepend><v-icon>mdi-pencil</v-icon></template>
-                  <v-list-item-title>Rename</v-list-item-title>
-                </v-list-item>
-                <v-list-item class="text-error" @click="$emit('delete-section', item.id)">
-                  <template #prepend><v-icon color="error">mdi-delete</v-icon></template>
-                  <v-list-item-title>Delete</v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </v-menu>
+            <div class="d-flex align-center">
+              <v-btn
+                icon="mdi-chevron-up"
+                size="x-small"
+                variant="text"
+                :aria-label="`Move ${item.name} up`"
+                :disabled="sorting || !hasSiblingAt(item, -1)"
+                @click.stop="moveByKeyboard(item, -1)"
+              />
+              <v-btn
+                icon="mdi-chevron-down"
+                size="x-small"
+                variant="text"
+                :aria-label="`Move ${item.name} down`"
+                :disabled="sorting || !hasSiblingAt(item, 1)"
+                @click.stop="moveByKeyboard(item, 1)"
+              />
+              <v-menu location="end" :close-on-content-click="true">
+                <template #activator="{ props: menuProps }">
+                  <v-btn icon="mdi-dots-vertical" size="x-small" variant="text" v-bind="menuProps" @click.stop />
+                </template>
+                <v-list density="compact">
+                  <v-list-item @click="$emit('add-sub-section', item.id)">
+                    <template #prepend><v-icon>mdi-plus</v-icon></template>
+                    <v-list-item-title>Add sub-section</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item @click="$emit('rename-section', item)">
+                    <template #prepend><v-icon>mdi-pencil</v-icon></template>
+                    <v-list-item-title>Rename</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item class="text-error" @click="$emit('delete-section', item.id)">
+                    <template #prepend><v-icon color="error">mdi-delete</v-icon></template>
+                    <v-list-item-title>Delete</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+            </div>
           </template>
         </v-list-item>
       </v-list>
@@ -59,16 +97,144 @@
 </template>
 
 <script setup>
-defineProps({
+import { ref, watch } from 'vue'
+import { sectionService } from '@/services'
+
+const props = defineProps({
   flatSections: { type: Array, default: () => [] },
   selectedSection: { type: Object, default: null }
 })
 
-defineEmits(['select-section', 'add-section', 'add-sub-section', 'rename-section', 'delete-section'])
+const emit = defineEmits(['select-section', 'add-section', 'add-sub-section', 'rename-section', 'delete-section', 'reorder'])
+const localSections = ref([...props.flatSections])
+const sorting = ref(false)
+const sortError = ref('')
+const draggedId = ref(null)
+let lastAction = null
+let suppressNextClick = false
+
+watch(() => props.flatSections, sections => {
+  if (!sorting.value) localSections.value = [...sections]
+}, { deep: true })
+
+function siblingsOf(item) {
+  return localSections.value.filter(section => section.parentId === item.parentId)
+}
+
+function siblingPosition(item) {
+  return siblingsOf(item).findIndex(section => section.id === item.id)
+}
+
+function hasSiblingAt(item, offset) {
+  const siblings = siblingsOf(item)
+  const position = siblingPosition(item) + offset
+  return position >= 0 && position < siblings.length
+}
+
+function subtreeEndIndex(sections, startIndex) {
+  const level = sections[startIndex].level
+  let index = startIndex + 1
+  while (index < sections.length && sections[index].level > level) index += 1
+  return index
+}
+
+function applyLocalMove(sectionId, neighborId, placement) {
+  const sections = [...localSections.value]
+  const sourceStart = sections.findIndex(section => section.id === sectionId)
+  const sourceEnd = subtreeEndIndex(sections, sourceStart)
+  const moving = sections.splice(sourceStart, sourceEnd - sourceStart)
+  const neighborStart = sections.findIndex(section => section.id === neighborId)
+  const insertAt = placement === 'before' ? neighborStart : subtreeEndIndex(sections, neighborStart)
+  sections.splice(insertAt, 0, ...moving)
+  return sections
+}
+
+async function runSort(action) {
+  if (sorting.value) return
+  const previousSections = [...localSections.value]
+  const optimisticSections = applyLocalMove(action.sectionId, action.neighborId, action.placement)
+  if (optimisticSections.every((section, index) => section.id === previousSections[index]?.id)) return
+
+  sorting.value = true
+  sortError.value = ''
+  lastAction = action
+  localSections.value = optimisticSections
+  try {
+    await sectionService.sort(action.sectionId, {
+      [action.placement === 'before' ? 'sort_before_id' : 'sort_after_id']: action.neighborId
+    })
+    emit('reorder', optimisticSections)
+    lastAction = null
+  } catch (error) {
+    localSections.value = previousSections
+    sortError.value = error?.response?.data?.detail || 'Could not reorder sections. Your previous order was restored.'
+  } finally {
+    sorting.value = false
+  }
+}
+
+function retrySort() {
+  if (lastAction) runSort(lastAction)
+}
+
+function selectSection(id) {
+  if (suppressNextClick) {
+    suppressNextClick = false
+    return
+  }
+  emit('select-section', id)
+}
+
+function moveByKeyboard(item, offset) {
+  const siblings = siblingsOf(item)
+  const index = siblingPosition(item)
+  const neighbor = siblings[index + offset]
+  if (!neighbor) return
+  runSort({
+    sectionId: item.id,
+    neighborId: neighbor.id,
+    placement: offset < 0 ? 'before' : 'after'
+  })
+}
+
+function onDragStart(event, item) {
+  if (!event.target.closest('.section-drag-handle')) {
+    event.preventDefault()
+    return
+  }
+  draggedId.value = item.id
+  event.dataTransfer?.setData('text/plain', String(item.id))
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragOver(event, item) {
+  const dragged = localSections.value.find(section => section.id === draggedId.value)
+  if (!dragged || dragged.parentId !== item.parentId || dragged.id === item.id) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onDrop(event, item) {
+  const dragged = localSections.value.find(section => section.id === draggedId.value)
+  if (!dragged || dragged.parentId !== item.parentId || dragged.id === item.id) return
+  event.preventDefault()
+  const bounds = event.currentTarget.getBoundingClientRect()
+  const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after'
+  draggedId.value = null
+  suppressNextClick = true
+  setTimeout(() => { suppressNextClick = false }, 300)
+  runSort({ sectionId: dragged.id, neighborId: item.id, placement })
+}
 </script>
 
 <style scoped>
 .section-list-item {
   cursor: pointer;
+}
+
+.section-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 </style>

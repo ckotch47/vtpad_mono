@@ -1,95 +1,102 @@
 <template>
   <div>
-    <v-toolbar density="compact" class="list-toolbar">
-      <v-text-field
-        v-model="search"
-        prepend-inner-icon="mdi-magnify"
-        label="Search test cases"
-        density="compact"
-        hide-details
-        variant="solo"
-        class="mx-2 list-filter-search"
-        clearable
-        @update:model-value="onSearch"
-      />
-      <v-select
-        v-model="filterType"
-        :items="[{title:'All', value:''}, {title:'Manual', value:'manual'}, {title:'Checklist', value:'checklist'}, {title:'Automated', value:'automated'}]"
-        item-title="title"
-        item-value="value"
-        label="Type"
-        density="compact"
-        hide-details
-        variant="solo"
-        class="mx-2 list-filter-sm"
-        @update:model-value="onFilterChange"
-      />
-      <v-select
-        v-model="filterStatus"
-        :items="[{title:'All', value:''}, {title:'Draft', value:'draft'}, {title:'Active', value:'active'}, {title:'Deprecated', value:'deprecated'}]"
-        item-title="title"
-        item-value="value"
-        label="Status"
-        density="compact"
-        hide-details
-        variant="solo"
-        class="mx-2 list-filter-sm"
-        @update:model-value="onFilterChange"
-      />
-      <v-select
-        v-model="filterPriority"
-        :items="priorityOptions"
-        item-title="title"
-        item-value="value"
-        label="Priority"
-        density="compact"
-        hide-details
-        variant="solo"
-        class="mx-2 list-filter-sm"
-        @update:model-value="onFilterChange"
-      />
-      <v-select
-        v-model="filterTags"
-        :items="availableTagOptions"
-        :loading="tagOptionsLoading"
-        label="Tags (all)"
-        multiple
-        chips
-        closable-chips
-        density="compact"
-        hide-details
-        variant="solo"
-        class="mx-2 list-filter-tags"
-        @update:model-value="onFilterChange"
-      />
-      <v-tooltip v-if="tagOptionsError" text="Existing tags could not be loaded. Tag filtering may be incomplete.">
-        <template #activator="{ props }">
-          <v-icon v-bind="props" color="warning" aria-label="Tag options could not be loaded">mdi-alert-circle-outline</v-icon>
-        </template>
-      </v-tooltip>
-      <v-select
-        v-model="filterSuite"
-        :items="[{title:'All Suites', value:''}, {title:'No Suite', value:'none'}]"
-        item-title="title"
-        item-value="value"
-        label="Suite"
-        density="compact"
-        hide-details
-        variant="solo"
-        class="mx-2 list-filter-sm"
-        @update:model-value="onFilterChange"
-      />
-      <v-spacer />
-      <v-btn v-if="selectedCases.length" size="small" variant="text" color="error" class="mr-2" @click="bulkDelete">
-        Delete ({{ selectedCases.length }})
-      </v-btn>
-      <v-btn v-if="selectedCases.length" size="small" variant="text" class="mr-2" @click="bulkStatusDialog = true">
-        Change Status ({{ selectedCases.length }})
-      </v-btn>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
-        New Test Case
-      </v-btn>
-    </v-toolbar>
+    <v-card variant="outlined" class="list-toolbar mb-4">
+      <v-card-text class="pa-3">
+        <div class="list-toolbar__filter-row">
+          <v-text-field
+            v-model="search"
+            prepend-inner-icon="mdi-magnify"
+            label="Search test cases"
+            density="compact"
+            hide-details
+            variant="solo"
+            class="list-filter-search"
+            clearable
+            @update:model-value="onSearch"
+          />
+          <v-select
+            v-model="filterType"
+            :items="[{title:'All', value:''}, {title:'Manual', value:'manual'}, {title:'Checklist', value:'checklist'}, {title:'Automated', value:'automated'}]"
+            item-title="title"
+            item-value="value"
+            label="Type"
+            density="compact"
+            hide-details
+            variant="solo"
+            class="list-filter-sm"
+            @update:model-value="onFilterChange"
+          />
+          <v-select
+            v-model="filterStatus"
+            :items="[{title:'All', value:''}, {title:'Draft', value:'draft'}, {title:'Active', value:'active'}, {title:'Deprecated', value:'deprecated'}]"
+            item-title="title"
+            item-value="value"
+            label="Status"
+            density="compact"
+            hide-details
+            variant="solo"
+            class="list-filter-sm"
+            @update:model-value="onFilterChange"
+          />
+          <v-select
+            v-model="filterPriority"
+            :items="priorityOptions"
+            item-title="title"
+            item-value="value"
+            label="Priority"
+            density="compact"
+            hide-details
+            variant="solo"
+            class="list-filter-sm"
+            @update:model-value="onFilterChange"
+          />
+        </div>
+        <div class="list-toolbar__filter-row list-toolbar__filter-row--secondary">
+          <v-select
+            v-model="filterTags"
+            :items="availableTagOptions"
+            :loading="tagOptionsLoading"
+            label="Tags (all)"
+            multiple
+            chips
+            closable-chips
+            density="compact"
+            hide-details
+            variant="solo"
+            class="list-filter-tags"
+            @update:model-value="onFilterChange"
+          />
+          <v-tooltip v-if="tagOptionsError" text="Existing tags could not be loaded. Tag filtering may be incomplete.">
+            <template #activator="{ props }">
+              <v-icon v-bind="props" color="warning" aria-label="Tag options could not be loaded">mdi-alert-circle-outline</v-icon>
+            </template>
+          </v-tooltip>
+          <v-select
+            v-model="filterSuite"
+            :items="[{title:'All Suites', value:''}, {title:'No Suite', value:'none'}]"
+            item-title="title"
+            item-value="value"
+            label="Suite"
+            density="compact"
+            hide-details
+            variant="solo"
+            class="list-filter-sm"
+            @update:model-value="onFilterChange"
+          />
+          <div class="list-toolbar__actions">
+            <v-btn v-if="selectedCases.length" size="small" variant="text" color="error" @click="bulkDelete">
+              Delete ({{ selectedCases.length }})
+            </v-btn>
+            <v-btn v-if="selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">
+              Change Status ({{ selectedCases.length }})
+            </v-btn>
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
+              New Test Case
+            </v-btn>
+          </div>
+        </div>
+      </v-card-text>
+    </v-card>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
       Test cases could not be loaded. Change a filter or try again.
@@ -111,22 +118,22 @@
       @update:options="loadCases"
       @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-cases/${item.id}`)"
     >
-      <template v-slot:item.type="{ item }">
+      <template v-slot:[`item.type`]="{ item }">
         <v-chip size="small" :color="typeColor(item.type)">{{ item.type }}</v-chip>
       </template>
-      <template v-slot:item.status="{ item }">
+      <template v-slot:[`item.status`]="{ item }">
         <v-chip size="small" :color="statusColor(item.status)">{{ item.status }}</v-chip>
       </template>
-      <template v-slot:item.priority="{ item }">
+      <template v-slot:[`item.priority`]="{ item }">
         <v-chip size="small" :color="priorityColor(item.priority)">{{ priorityLabel(item.priority) }}</v-chip>
       </template>
-      <template v-slot:item.tags="{ item }">
+      <template v-slot:[`item.tags`]="{ item }">
         <div class="d-flex flex-wrap ga-1">
           <v-chip v-for="tag in item.tags || []" :key="tag" size="x-small" variant="tonal">{{ tag }}</v-chip>
           <span v-if="!item.tags?.length" class="text-medium-emphasis">—</span>
         </div>
       </template>
-      <template v-slot:item.short_name="{ item }">
+      <template v-slot:[`item.short_name`]="{ item }">
         <v-tooltip v-if="item.short_name" :text="item.short_name" location="top">
           <template #activator="{ props }">
             <span v-bind="props" class="short-name-cell">{{ item.short_name }}</span>
@@ -134,7 +141,7 @@
         </v-tooltip>
         <span v-else class="text-medium-emphasis">—</span>
       </template>
-      <template v-slot:item.created_by="{ item }">
+      <template v-slot:[`item.created_by`]="{ item }">
         <div v-if="item.created_by?.username" class="creator-cell">
           <v-avatar color="grey" size="24">
             <span class="text-body-2">{{ item.created_by.username[0]?.toUpperCase() }}</span>
@@ -143,11 +150,11 @@
         </div>
         <span v-else class="text-medium-emphasis">—</span>
       </template>
-      <template v-slot:item.updated_at="{ item }">
+      <template v-slot:[`item.updated_at`]="{ item }">
         {{ formatDate(item.updated_at) }}
       </template>
-      <template v-slot:item.actions="{ item }">
-        <v-btn icon size="x-small" variant="text" @click.stop="duplicateCase(item.id)">
+      <template v-slot:[`item.actions`]="{ item }">
+        <v-btn icon size="x-small" variant="text" :aria-label="`Duplicate ${item.title}`" :title="`Duplicate ${item.title}`" @click.stop="duplicateCase(item.id)">
           <v-icon>mdi-content-copy</v-icon>
         </v-btn>
       </template>
@@ -528,19 +535,43 @@ watch(spaceId, () => {
 
 <style scoped>
 .list-toolbar {
-  gap: 8px;
+  border-radius: 12px;
+}
+
+.list-toolbar__filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .list-filter-search {
-  max-width: 320px;
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 420px;
 }
 
 .list-filter-sm {
-  max-width: 160px;
+  flex: 0 1 160px;
+  min-width: 145px;
 }
 
 .list-filter-tags {
-  max-width: 230px;
+  flex: 0 1 240px;
+  min-width: 210px;
+}
+
+.list-toolbar__filter-row--secondary {
+  margin-top: 12px;
+}
+
+.list-toolbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .creator-cell {

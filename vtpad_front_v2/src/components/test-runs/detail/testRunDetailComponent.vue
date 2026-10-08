@@ -99,39 +99,52 @@
           <v-btn size="small" color="primary" :loading="bulkUpdating" :disabled="run.status !== 'active' || !selectedResultIds.length" @click="bulkUpdateResults">Apply</v-btn>
         </v-col>
       </v-row>
-      <v-row v-if="groupedResults.length" class="align-start">
-        <v-col cols="12" md="3" lg="2" class="py-0">
+      <v-row v-if="groupedResults.length">
+        <v-col cols="12" md="4" lg="3" class="py-0">
           <nav aria-label="Run result groups" class="group-navigation-desktop d-none d-md-block">
-            <div class="text-subtitle-2 font-weight-bold mb-2">Groups</div>
-            <v-list density="compact" nav class="pa-0">
+            <div class="group-navigation__header">
+              <div class="text-subtitle-2 font-weight-bold">Result groups</div>
+              <div class="text-caption text-medium-emphasis">{{ groupedResults.length }} groups</div>
+            </div>
+            <v-list density="compact" nav class="group-navigation__list">
               <v-list-item
                 v-for="group in groupedResults"
                 :key="group.id"
                 :href="`#${group.headingId}`"
+                :class="{ 'group-navigation__item--current': currentGroupId === group.id }"
+                :aria-current="currentGroupId === group.id ? 'location' : undefined"
                 :aria-label="`${group.accessibleName}, ${group.results.length} visible results`"
                 @click.prevent="goToGroup(group)"
               >
-                <v-list-item-title class="text-body-2 text-wrap">{{ group.navigationName }}</v-list-item-title>
+                <v-list-item-title class="group-navigation__title">
+                  <span v-if="group.suiteDisplayName" class="group-navigation__suite">{{ group.suiteDisplayName }}</span>
+                  <span class="group-navigation__path">{{ group.pathName }}</span>
+                </v-list-item-title>
                 <template #append>
-                  <v-chip size="x-small" color="primary">{{ group.results.length }}</v-chip>
+                  <v-chip size="x-small" :color="currentGroupId === group.id ? 'primary' : undefined">{{ group.results.length }}</v-chip>
                 </template>
               </v-list-item>
             </v-list>
           </nav>
         </v-col>
-        <v-col cols="12" md="9" lg="10" class="py-0">
+        <v-col cols="12" md="8" lg="9" class="py-0">
           <nav aria-label="Run result groups" class="group-navigation-mobile d-md-none mb-3">
             <div class="d-flex ga-2 overflow-x-auto pb-2">
               <v-btn
                 v-for="group in groupedResults"
                 :key="group.id"
                 :href="`#${group.headingId}`"
-                variant="outlined"
+                :variant="currentGroupId === group.id ? 'tonal' : 'outlined'"
+                :color="currentGroupId === group.id ? 'primary' : undefined"
                 size="small"
+                :aria-current="currentGroupId === group.id ? 'location' : undefined"
                 :aria-label="`${group.accessibleName}, ${group.results.length} visible results`"
                 @click.prevent="goToGroup(group)"
               >
-                <span class="text-truncate">{{ group.navigationName }}</span>
+                <span class="group-navigation__mobile-label">
+                  <span v-if="group.suiteDisplayName" class="group-navigation__mobile-suite">{{ group.suiteDisplayName }}</span>
+                  <span class="text-truncate">{{ group.pathName }}</span>
+                </span>
                 <v-chip size="x-small" color="primary" class="ml-2">{{ group.results.length }}</v-chip>
               </v-btn>
             </div>
@@ -281,7 +294,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useLogger } from '@/composables/useLogger'
 import { testRunService, bugService, testCaseService } from '@/services'
@@ -319,6 +332,10 @@ const timerRefreshLoading = ref(false)
 const savingResult = ref(false)
 const creatingBug = ref(false)
 const pendingQuickBugAttempts = ref({})
+const currentGroupId = ref(null)
+const loadedRunId = ref(null)
+let drilldownFocused = false
+let drilldownRequestVersion = 0
 
 const groupedResults = computed(() => {
   const groups = new Map()
@@ -399,17 +416,62 @@ function getSectionSortOrder(sort) {
 const nextNotRunResult = computed(() => results.value.find((result) => result.status === 'not_run'))
 
 async function loadRun({ showLoader = true } = {}) {
+  const requestedRunId = String(runId.value)
   if (showLoader) loader.value = true
   try {
-    const res = await testRunService.getDetail(runId.value)
+    const res = await testRunService.getDetail(requestedRunId)
+    if (requestedRunId !== String(runId.value)) return
     run.value = res.data.run
     stats.value = res.data.stats
     results.value = res.data.results
     selectedResultIds.value = selectedResultIds.value.filter((id) => results.value.some((result) => result.id === id))
+    loadedRunId.value = requestedRunId
+    await nextTick()
+    focusDrilldownResult()
   } finally {
-    if (showLoader) loader.value = false
+    if (showLoader && requestedRunId === String(runId.value)) loader.value = false
   }
 }
+
+function focusDrilldownResult() {
+  const resultId = route.query.result_id
+  if (drilldownFocused || loadedRunId.value !== String(runId.value) || typeof resultId !== 'string' || !resultId) return
+  const resultElement = document.getElementById(`result-${resultId}`)
+  if (!resultElement) return
+
+  drilldownFocused = true
+  const requestVersion = drilldownRequestVersion
+  resultElement.setAttribute('tabindex', '-1')
+  requestAnimationFrame(() => {
+    if (requestVersion !== drilldownRequestVersion || resultId !== route.query.result_id) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    resultElement.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' })
+    resultElement.focus({ preventScroll: true })
+  })
+}
+
+function resetDrilldownFocus() {
+  drilldownFocused = false
+  drilldownRequestVersion += 1
+}
+
+watch(() => route.query.result_id, async () => {
+  resetDrilldownFocus()
+  await nextTick()
+  focusDrilldownResult()
+})
+
+watch(runId, async (newRunId, previousRunId) => {
+  if (!newRunId || newRunId === previousRunId) return
+  resetDrilldownFocus()
+  loadedRunId.value = null
+  run.value = {}
+  stats.value = {}
+  results.value = []
+  selectedResultIds.value = []
+  currentGroupId.value = null
+  await loadRun()
+})
 
 async function refreshTimer() {
   if (timerRefreshLoading.value) return
@@ -493,13 +555,6 @@ function openResultModal(result) {
   editModal.value = true
 }
 
-function normalizeBugIds(ids) {
-  return [...new Set((Array.isArray(ids) ? ids : []).map((bug) => {
-    if (typeof bug === 'string') return bug
-    return bug?.short_name || ''
-  }).filter(Boolean))]
-}
-
 function openCaseDialog(id) {
   testCaseService.getById(id).then(res => {
     selectedCase.value = res.data
@@ -566,6 +621,7 @@ function goToNextNotRun() {
 }
 
 function goToGroup(group) {
+  currentGroupId.value = group.id
   requestAnimationFrame(() => {
     const heading = document.getElementById(`${group.headingId}-title`)
     if (!heading) return
@@ -737,20 +793,112 @@ onMounted(() => {
 .result-item:last-child {
   border-bottom: none;
 }
+.result-item:focus {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
 .cursor-pointer {
   cursor: pointer;
 }
 .group-navigation-desktop {
   position: sticky;
-  top: 16px;
-  max-height: calc(100vh - 32px);
+  top: max(16px, env(safe-area-inset-top));
+  max-height: calc(100vh - max(32px, env(safe-area-inset-top) + 16px));
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 12px;
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+.group-navigation__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgb(var(--v-theme-surface));
+}
+.group-navigation__list {
+  padding: 6px !important;
+}
+.group-navigation__title {
+  min-width: 0;
+  white-space: normal;
+}
+.group-navigation__suite,
+.group-navigation__path {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.group-navigation__suite {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.group-navigation__path {
+  padding-left: 10px;
+  border-left: 2px solid rgba(var(--v-theme-primary), 0.35);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+.group-navigation-desktop :deep(.v-list-item) {
+  min-height: 48px;
+  margin-bottom: 2px;
+  border-radius: 8px;
+}
+.group-navigation-desktop :deep(.v-list-item:hover) {
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+.group-navigation-desktop :deep(.v-list-item:focus-visible),
+.group-navigation-mobile :deep(.v-btn:focus-visible) {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+.group-navigation-desktop :deep(.group-navigation__item--current) {
+  background: rgba(var(--v-theme-primary), 0.1);
+}
+.group-navigation-mobile > div {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.group-navigation__mobile-label {
+  display: flex;
+  min-width: 0;
+  max-width: min(52vw, 240px);
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+.group-navigation__mobile-suite {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-navigation-mobile :deep(.v-btn) {
+  flex: 0 0 auto;
+  max-width: min(76vw, 320px);
 }
 .group-heading {
-  scroll-margin-top: 16px;
+  scroll-margin-top: max(16px, env(safe-area-inset-top));
 }
 .group-heading:focus {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: 3px;
+}
+@media (max-width: 959px) {
+  .group-navigation-mobile > div {
+    padding: 2px 2px 8px;
+  }
 }
 </style>

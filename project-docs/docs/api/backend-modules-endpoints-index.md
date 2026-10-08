@@ -82,6 +82,14 @@
 - `PUT /api/v1/bugs/{bug_id}/tag`
 - `DELETE /api/v1/bugs/{bug_id}/tag/{tag_id}`
 - `GET /api/v1/bugs/state-enum`
+- `GET /api/v2/bugs/space/{space_id}/by-link/{link_uuid}`
+
+### `app/src/analytics`
+- `GET /api/v2/analytics/space/{space_id}/bugs`
+- `GET /api/v2/analytics/space/{space_id}/bugs/by-run`
+- `GET /api/v2/analytics/space/{space_id}/bugs/by-suite`
+
+Linked-defect analytics use explicit UUID links only and require space membership. Bug/run joins enforce the same space. Each bug list item contains at most 25 `result_links`; `link_count` remains the full count and `result_links_truncated` indicates omitted navigation pairs.
 
 ### `app/src/comments`
 - `GET /api/v1/comment/{bug_id}`

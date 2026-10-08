@@ -259,6 +259,47 @@ class BugsService:
         return bug
 
     @staticmethod
+    async def get_bug_detail_by_link_uuid(link_uuid: str, space_id: str) -> dict:
+        """Resolve one bug by its stable identity, never by duplicate legacy id."""
+        try:
+            stable_uuid = uuid.UUID(link_uuid)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=404, detail="not found")
+
+        conn = Tortoise.get_connection("default")
+        rows = await conn.execute_query_dict(
+            """SELECT bugsmodel.*,
+                       jsonb_build_object('id', u.id, 'mail', u.mail, 'username', u.username,
+                         'avatar', jsonb_build_object('id', f.id, 'filepath', f.filepath)) AS assigner_user,
+                       jsonb_build_object('id', u2.id, 'mail', u2.mail, 'username', u2.username,
+                         'avatar', jsonb_build_object('id', f2.id, 'filepath', f2.filepath)) AS create_user
+                FROM bugsmodel
+                LEFT JOIN usermodel u ON bugsmodel.assigner_id = u.id
+                LEFT JOIN usermodel u2 ON u2.id = bugsmodel.create_user_id
+                LEFT JOIN filemodel f ON u.avatar_id = f.id
+                LEFT JOIN filemodel f2 ON u2.avatar_id = f2.id
+                WHERE bugsmodel.link_uuid = $1::uuid AND bugsmodel.spaces_id = $2::uuid""",
+            [stable_uuid, space_id],
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail="not found")
+        bug = rows[0]
+        # Tag rows still point to the non-unique legacy bug id. Resolve them
+        # only when that id is globally unambiguous; otherwise an unrelated
+        # duplicate row could contribute another bug's tags here.
+        duplicate_rows = await conn.execute_query_dict(
+            "SELECT COUNT(*)::int AS count FROM bugsmodel WHERE id = $1::uuid",
+            [bug['id']],
+        )
+        tags_are_ambiguous = bool(duplicate_rows and duplicate_rows[0]['count'] != 1)
+        bug['tag'] = [] if tags_are_ambiguous else await BugTagsService.get_tags_fo_bug(str(bug['id']))
+        bug['tag_association_ambiguous'] = tags_are_ambiguous
+        bug['external_link'] = parse_external_link(bug.get('external_link'))
+        bug['assigner_user'] = json.loads(bug['assigner_user']) if bug.get('assigner_id') else {}
+        bug['create_user'] = json.loads(bug['create_user'])
+        return bug
+
+    @staticmethod
     async def create_bug(bug: CreateBugDto, user: dict, background_tasks: BackgroundTasks):
         async with in_transaction() as connection:
             temp = await BugsService.create_bug_in_transaction(bug, user, connection)

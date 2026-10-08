@@ -5,4 +5,7 @@ export const analyticsService = {
   getTopFailed: (spaceId, limit = 10) => api.get(`/api/v2/analytics/space/${spaceId}/top-failed`, { params: { limit } }),
   getTrend: (spaceId, days = 30) => api.get(`/api/v2/analytics/space/${spaceId}/trend`, { params: { days } }),
   getCoverage: (suiteId) => api.get(`/api/v2/analytics/suite/${suiteId}/coverage`),
+  getLinkedBugs: (spaceId, params = {}, signal) => api.get(`/api/v2/analytics/space/${spaceId}/bugs`, { params, signal }),
+  getLinkedBugsByRun: (spaceId, params = {}, signal) => api.get(`/api/v2/analytics/space/${spaceId}/bugs/by-run`, { params, signal }),
+  getLinkedBugsBySuite: (spaceId, params = {}, signal) => api.get(`/api/v2/analytics/space/${spaceId}/bugs/by-suite`, { params, signal }),
 }

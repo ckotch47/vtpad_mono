@@ -18,11 +18,11 @@
 
 Добавить в существующий analytics router endpoints (под глобальным `/api`):
 
-- `GET /api/v2/analytics/space/{space_id}/bugs` — ответ `{summary, items, page, page_size, total}`. Query: `status=OPEN|FIXED|REOPEN|OTHER` (optional), `run_id` (optional UUID), `suite_id` (optional UUID), `page` (default 1), `page_size` (default 25, max 100). Summary отражает весь space до list filters. Item содержит `bug_uuid`, `short_name`, `title`, `status`, `link_count`, и связанные run/result IDs для переходов.
+- `GET /api/v2/analytics/space/{space_id}/bugs` — ответ `{summary, items, page, page_size, total}`. Query: `status=OPEN|FIXED|REOPEN|OTHER` (optional), `run_id` (optional UUID), `suite_id` (optional UUID), `page` (default 1), `page_size` (default 25, max 100). Summary отражает весь space до list filters. Item содержит `bug_uuid`, `short_name`, `title`, `status`, полный `link_count` и не более 25 навигационных `result_links`; `result_links_truncated` показывает, если часть переходов не включена в ответ.
 - `GET /api/v2/analytics/space/{space_id}/bugs/by-run` — rows `{run_id, run_name, unique_bug_count, link_count}` с пагинацией и сортировкой по link count убыванию, затем стабильным run ID.
 - `GET /api/v2/analytics/space/{space_id}/bugs/by-suite` — rows `{suite_id, suite_name, attribution, unique_bug_count, link_count}`; legacy bucket имеет `suite_id=null`, имя `Unknown / legacy`, `attribution='legacy_missing_snapshot'`.
 
-Каждый handler требует bearer и подтверждённое membership пользователя в `space_id`; run/suite filters сначала проверяются в том же space и не должны позволять различать чужой объект. SQL ограничивает пространство через `test_run.space_id` до агрегаций и joins к bug; не доверяет `suite_id` из query без проверки. Для агрегаций применять параметризованный SQL/ORM с уникальными aggregate counts и стабильной пагинацией. Перед добавлением новых индексов выполнить `EXPLAIN (ANALYZE, BUFFERS)` на целевой форме query и описать решение; существующий `UNIQUE(result_id, bug_uuid)` уже обслуживает поиск по result, индекс bug UUID — обратное направление. Schema migration не добавлять без измеренной необходимости.
+Каждый handler требует bearer и подтверждённое membership пользователя в `space_id`; run/suite filters сначала проверяются в том же space и не должны позволять различать чужой объект. SQL ограничивает пространство через `test_run.space_id` до агрегаций и joins к bug, причём `bugsmodel.spaces_id` обязан совпадать с space run; не доверяет `suite_id` из query без проверки. Для агрегаций применять параметризованный SQL/ORM с уникальными aggregate counts и стабильной пагинацией. Перед добавлением новых индексов выполнить `EXPLAIN (ANALYZE, BUFFERS)` на целевой форме query и описать решение; существующий `UNIQUE(result_id, bug_uuid)` уже обслуживает поиск по result, индекс bug UUID — обратное направление. Schema migration не добавлять без измеренной необходимости.
 
 ## Frontend
 
@@ -39,10 +39,10 @@
 ## Проверки и приемка
 
 1. Backend checks и frontend lint/production build проходят; `git diff --check` чист.
-2. Runtime fixtures минимум в двух spaces: чужое пространство не даёт данные; чужие run/suite filters отклоняются без утечки; current space даёт ожидаемую выборку.
+2. Runtime fixtures минимум в двух spaces: чужое пространство не даёт данные; чужие run/suite filters отклоняются без утечки; повреждённая cross-space link row исключается из всех counts/items; current space даёт ожидаемую выборку.
 3. Fixtures покрывают один bug на нескольких results, каждый из статусов, неизвестный status, null/legacy snapshot, suite snapshot, отсутствие связей, pagination ties и фильтры status/run/suite.
 4. Reconciliation: unique counts и link counts каждого ответа сверяются SQL-пересчётом от исходных UUID links. Run/suite breakdown сверяется по тем же result IDs; одинаковый bug в нескольких run не суммируется как один в каждой строке и явно не выдаётся как уникальный общий итог.
-5. Query plans зафиксированы на целевой форме запроса; N+1 отсутствует; при реальной необходимости индекс утверждается до schema change отдельной точной ревизией.
+5. Query plans зафиксированы на целевой форме запроса; N+1 отсутствует; каждый bug item отдаёт не более 25 result links и UI сообщает об усечении; при реальной необходимости индекс утверждается до schema change отдельной точной ревизией.
 6. Обновить `project-docs/docs/` для API, flow и ошибок; независимый API/security review; Docker backend/frontend smoke. После approval точной r1 выполнить один scoped commit.
 
 ## Вне объёма
@@ -55,4 +55,4 @@
 
 ## Статус
 
-Подготовлен для согласования. Реализация не начиналась; DD1–DD3 остаются незакрытыми до отдельного approval этой ревизии.
+Реализован по r1. Исправления API/security review включены: bug/run join требует одинаковый space; nested `result_links` ограничен 25 парами при полном `link_count` и явном truncation-флаге. Независимые API и security reviews завершились PASS. Disposable-клон с fixtures подтвердил reconciliation (43 same-space links, один уникальный bug; 25 ссылок в item), run/suite totals, исключение повреждённой cross-space link row, 404 для чужого run filter, 403 для пользователя без доступа к чужому space и 404 при чтении foreign bug UUID через другой space. `EXPLAIN (ANALYZE, BUFFERS)` новой выдачи на восстановленном клоне: 1.584 ms execution, 231 shared-hit blocks, 0 reads; новых индексов не добавлял. Dashboard browser smoke подтвердил список, фильтрованный/сводный блок, 25 ссылок, truncation hint и UUID-based bug detail.

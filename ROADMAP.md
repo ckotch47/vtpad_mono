@@ -60,7 +60,9 @@
 All five time-tracking items (TE1–TE5) are implemented in code under approved plan r2. The timer is shared across the run, and case duration is entered manually. Timer values are computed by the server from stored interval boundaries when requested; no cron, background loop, or client-side ticking is used. Automated tests, database migration, and Docker runtime checks remain outstanding.
 
 ### Run Navigation
-RN1 and RN2 are implemented in code under approved plan r1. Static checks and production build passed; browser interaction and keyboard/mobile runtime checks remain outstanding.
+RN1 and RN2 are verified under approved plan r1. Frontend lint/build and browser desktop/mobile checks passed, including focusable result navigation, sticky left group list through a long scroll, result deep-link, and no page-wide horizontal overflow. The summary now separates progress/status, measured case duration, and the shared timer without changing values.
+- [x] Keep run result groups visible in a sticky left navigator on desktop and compact horizontal navigation on mobile
+- [x] Redesign the run summary into progress/status, case-time, and shared-timer sections
 
 ### Suite and Case UX
 SU1 and SU3 are implemented in code under approved plan r1: suite list/detail share a URL-backed split workspace with a flat searchable navigation list. Frontend lint/build and independent review passed; browser history and mobile interaction checks remain outstanding.
@@ -80,10 +82,12 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 - [ ] Review how Test IT presents checklists and use the findings to inform the VTPad design
 
 ### Defects Dashboard
-- [ ] Add a space-level dashboard for bugs linked to test results
-- [ ] Group and filter defects by status (Open, Fixed, Reopen)
-- [ ] Show defect statistics by run and suite
+- [x] Add a space-level dashboard for bugs linked to test results
+- [x] Group and filter defects by status (Open, Fixed, Reopen; retain an Other group)
+- [x] Show defect statistics by run and suite
 - [ ] Extend automatic bug linking on failed results (partially available through the bug modal)
+
+DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separately from result links, groups by run and historical suite snapshot, bounds each bug's displayed navigation to 25 result links, and labels legacy JSON-only links as excluded. Runtime fixtures, cross-space isolation checks, browser smoke, API review, and security review passed on an isolated database copy. `EXPLAIN (ANALYZE, BUFFERS)` for the final paginated query on the restored clone took 1.584 ms with 231 shared-hit blocks and no shared reads; no index change was needed.
 
 ### Global UX
 - [ ] Add keyboard shortcuts — Cmd+S to save and Esc to close a modal

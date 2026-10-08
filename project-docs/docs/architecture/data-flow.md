@@ -66,6 +66,8 @@
 - Frontend: `GET /bugs?space_id=...` -> backend -> raw SQL query (сложные фильтры) -> PostgreSQL.
 - Frontend: `POST /bugs` -> backend -> Tortoise create.
 - Frontend: `POST /bugs/{id}/comments` -> backend -> separate comments table.
+- Dashboard: `/api/v2/analytics/space/{space_id}/bugs` and its `/by-run`/`/by-suite` views read only explicit UUID links. Queries check membership and same-space bug/run equality; legacy JSON bug IDs are excluded. Each bug item returns at most 25 result navigation pairs and reports truncation while retaining the full link count.
+- Bug details opened from analytics use `/api/v2/bugs/space/{space_id}/by-link/{link_uuid}`; legacy numeric IDs are not used because historical duplicates exist.
 
 ## Uploads
 - Frontend: `POST /uploads` (multipart/form-data) -> backend -> сохранение в `./uploads/`.

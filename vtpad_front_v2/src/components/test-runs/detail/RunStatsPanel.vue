@@ -1,11 +1,94 @@
 <template>
-  <v-container fluid class="py-3">
-    <v-row>
-      <v-col v-for="stat in statsList" :key="stat.label" cols="6" sm="4" md="2">
-        <v-card variant="outlined">
-          <v-card-text class="text-center py-3">
-            <div class="text-h5 font-weight-bold" :class="stat.textClass">{{ stat.value }}</div>
-            <div class="text-caption text-medium-emphasis">{{ stat.label }}</div>
+  <v-container fluid class="run-summary py-3">
+    <v-card variant="outlined" class="run-summary__overview">
+      <v-card-text class="pa-4 pa-md-5">
+        <div class="d-flex flex-wrap align-end justify-space-between ga-3 mb-3">
+          <div>
+            <div class="text-overline text-medium-emphasis">Run progress</div>
+            <div class="d-flex align-baseline ga-2">
+              <span class="text-h4 font-weight-bold">{{ completedCount }}</span>
+              <span class="text-body-2 text-medium-emphasis">of {{ stats.total || 0 }} results complete</span>
+            </div>
+          </div>
+          <div class="text-h5 font-weight-bold text-primary">{{ completionPercent }}%</div>
+        </div>
+        <v-progress-linear
+          :model-value="completionPercent"
+          color="primary"
+          height="8"
+          rounded
+          :aria-label="`Run progress: ${completedCount} of ${stats.total || 0} results complete`"
+        />
+        <div class="run-summary__statuses mt-4" aria-label="Result status totals">
+          <div v-for="status in statusList" :key="status.label" class="run-summary__status">
+            <span class="run-summary__status-dot" :class="status.dotClass" aria-hidden="true" />
+            <span class="text-body-2">{{ status.label }}</span>
+            <span class="font-weight-bold ml-auto">{{ status.value }}</span>
+          </div>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-row class="mt-1">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="run-summary__detail h-100">
+          <v-card-text class="pa-4">
+            <div class="d-flex align-center ga-2 mb-3">
+              <v-avatar color="primary" variant="tonal" size="34">
+                <v-icon size="19">mdi-timer-outline</v-icon>
+              </v-avatar>
+              <div>
+                <div class="text-subtitle-1 font-weight-bold">Case execution time</div>
+                <div class="text-caption text-medium-emphasis">Measured time across test cases</div>
+              </div>
+            </div>
+            <div class="d-flex flex-wrap align-end justify-space-between ga-2">
+              <div class="text-h5 font-weight-bold">{{ formatDuration(stats.duration_seconds_total) }}</div>
+              <div class="text-caption text-medium-emphasis">{{ stats.duration_measured_count ?? 'No data' }} measured</div>
+            </div>
+            <v-divider class="my-3" />
+            <div class="d-flex align-center justify-space-between text-body-2">
+              <span class="text-medium-emphasis">Cases without recorded time</span>
+              <span class="font-weight-medium">{{ stats.duration_unmeasured_count ?? 'No data' }}</span>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="run-summary__detail h-100">
+          <v-card-text class="pa-4">
+            <div class="d-flex align-center justify-space-between ga-2 mb-3">
+              <div class="d-flex align-center ga-2">
+                <v-avatar color="success" variant="tonal" size="34">
+                  <v-icon size="19">mdi-clock-time-four-outline</v-icon>
+                </v-avatar>
+                <div>
+                  <div class="text-subtitle-1 font-weight-bold">Run time</div>
+                  <div class="text-caption text-medium-emphasis">Shared run timer</div>
+                </div>
+              </div>
+              <v-chip v-if="timer.state" size="small" :color="timerStateColor(timer.state)" variant="tonal" class="text-capitalize">
+                {{ timerStateLabel(timer.state) }}
+              </v-chip>
+            </div>
+            <div class="run-summary__timer-grid">
+              <div>
+                <div class="text-caption text-medium-emphasis">Calendar</div>
+                <div class="text-subtitle-1 font-weight-bold">{{ formatDuration(timer.calendar_seconds) }}</div>
+              </div>
+              <div>
+                <div class="text-caption text-medium-emphasis">Active</div>
+                <div class="text-subtitle-1 font-weight-bold text-success">{{ formatDuration(timer.active_seconds) }}</div>
+              </div>
+              <div>
+                <div class="text-caption text-medium-emphasis">Paused</div>
+                <div class="text-subtitle-1 font-weight-bold text-warning">{{ formatDuration(timer.paused_seconds) }}</div>
+              </div>
+            </div>
+            <div v-if="timer.state === 'untracked'" class="text-caption text-medium-emphasis mt-3">
+              Time tracking is unavailable for this run.
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -32,18 +115,73 @@ function formatDuration(seconds) {
     : `${minutes}m ${String(remainder).padStart(2, '0')}s`
 }
 
-const statsList = computed(() => [
-  { label: 'Total', value: props.stats.total || 0, textClass: '' },
-  { label: 'Passed', value: props.stats.passed || 0, textClass: 'text-success' },
-  { label: 'Failed', value: props.stats.failed || 0, textClass: 'text-error' },
-  { label: 'Blocked', value: props.stats.blocked || 0, textClass: 'text-warning' },
-  { label: 'Skipped', value: props.stats.skipped || 0, textClass: 'text-grey' },
-  { label: 'Not Run', value: props.stats.not_run || 0, textClass: '' },
-  { label: 'Measured case time', value: formatDuration(props.stats.duration_seconds_total), textClass: '' },
-  { label: 'Cases with time', value: props.stats.duration_measured_count ?? 'No data', textClass: 'text-medium-emphasis' },
-  { label: 'Cases without time', value: props.stats.duration_unmeasured_count ?? 'No data', textClass: 'text-medium-emphasis' },
-  { label: 'Run calendar time', value: formatDuration(props.timer.calendar_seconds), textClass: '' },
-  { label: 'Run active time', value: formatDuration(props.timer.active_seconds), textClass: 'text-success' },
-  { label: 'Run paused time', value: formatDuration(props.timer.paused_seconds), textClass: 'text-warning' },
+const statusList = computed(() => [
+  { label: 'Passed', value: props.stats.passed || 0, dotClass: 'run-summary__status-dot--passed' },
+  { label: 'Failed', value: props.stats.failed || 0, dotClass: 'run-summary__status-dot--failed' },
+  { label: 'Blocked', value: props.stats.blocked || 0, dotClass: 'run-summary__status-dot--blocked' },
+  { label: 'Skipped', value: props.stats.skipped || 0, dotClass: 'run-summary__status-dot--skipped' },
+  { label: 'Not run', value: props.stats.not_run || 0, dotClass: 'run-summary__status-dot--not-run' }
 ])
+
+const completedCount = computed(() => statusList.value
+  .filter((status) => status.label !== 'Not run')
+  .reduce((total, status) => total + status.value, 0))
+
+const completionPercent = computed(() => {
+  const total = Number(props.stats.total) || 0
+  if (total <= 0) return 0
+  return Math.min(100, Math.round((completedCount.value / total) * 100))
+})
+
+function timerStateLabel(state) {
+  return ({ running: 'Running', paused: 'Paused', completed: 'Completed', untracked: 'Untracked' })[state] || state
+}
+
+function timerStateColor(state) {
+  return ({ running: 'success', paused: 'warning', completed: 'primary', untracked: 'info' })[state] || 'default'
+}
 </script>
+
+<style scoped>
+.run-summary__overview {
+  border-radius: 14px;
+}
+.run-summary__statuses {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+.run-summary__status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+.run-summary__status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+.run-summary__status-dot--passed { background: rgb(var(--v-theme-success)); }
+.run-summary__status-dot--failed { background: rgb(var(--v-theme-error)); }
+.run-summary__status-dot--blocked { background: rgb(var(--v-theme-warning)); }
+.run-summary__status-dot--skipped { background: rgba(var(--v-theme-on-surface), 0.45); }
+.run-summary__status-dot--not-run { background: rgb(var(--v-theme-primary)); }
+.run-summary__detail {
+  border-radius: 12px;
+}
+.run-summary__timer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .run-summary__statuses {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .run-summary__timer-grid {
+    gap: 8px;
+  }
+}
+</style>

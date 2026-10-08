@@ -171,6 +171,17 @@
 | PUT | `/api/v1/bugs/{bug_id}/tag` | JWT | добавление tag к bug |
 | DELETE | `/api/v1/bugs/{bug_id}/tag/{tag_id}` | JWT | удаление tag из bug |
 | GET | `/api/v1/bugs/state-enum` | JWT | enum статусов |
+| GET | `/api/v2/bugs/space/{space_id}/by-link/{link_uuid}` | JWT + space membership | детали bug по стабильному UUID связи; выборка проверяет `bugsmodel.spaces_id` |
+
+### Analytics — linked defects
+
+| Method | Path | Auth/Access | Примечания |
+| --- | --- | --- | --- |
+| GET | `/api/v2/analytics/space/{space_id}/bugs` | JWT + space membership | summary уникальных bugs/связей и страница bug; фильтры `status`, `run_id`, `suite_id`; для каждого bug возвращается максимум 25 пар `result_links`, `result_links_truncated` сообщает об усечении; `link_count` содержит полный счётчик |
+| GET | `/api/v2/analytics/space/{space_id}/bugs/by-run` | JWT + space membership | пагинированные уникальные bugs и связи по run |
+| GET | `/api/v2/analytics/space/{space_id}/bugs/by-suite` | JWT + space membership | пагинированные уникальные bugs и связи по suite snapshot; legacy/неизвестная suite имеет явную атрибуцию |
+
+Аналитика читает только `test_result_bug_link` и сопоставляет bug и run в одном space; legacy JSON `linked_bug_ids` в метрики не входит. Статусы сводятся к `OPEN`, `FIXED`, `REOPEN`, `OTHER`.
 
 Параметры фильтра для `GET /api/v1/bugs` включают `q` (поиск по `title` и `short_name`), а также существующие фильтры (`state`, `assigner_id`, `create_user`, `tag`, `external_link`, `create_date*`, `estimate_date*`, `order_*`, `skip`, `limit`).
 

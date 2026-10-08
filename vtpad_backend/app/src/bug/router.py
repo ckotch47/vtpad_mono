@@ -67,6 +67,11 @@ router_v2 = APIRouter(
 )
 
 
+@router_v2.get('/space/{space_id}/by-link/{link_uuid}', dependencies=[Depends(bearer), Depends(check_user_into_space)])
+async def get_bug_by_link_uuid(space_id: str, link_uuid: str):
+    return await BugsService.get_bug_detail_by_link_uuid(link_uuid, space_id)
+
+
 @router_v2.patch('/{bug_id}', dependencies=[Depends(bearer)], response_model=GetBugsWithFilterRto)
 async def update_bug(bug_id: str, dto: UpdateBugDtoV2, token: str = Depends(bearer),
                      background_tasks: BackgroundTasks = BackgroundTasks()):

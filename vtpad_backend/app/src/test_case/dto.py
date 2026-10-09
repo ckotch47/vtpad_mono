@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from pydantic import Field, field_validator
 from typing import List, Optional
+from ..custom_field.dto import CustomFieldValueInput
 
 
 class TestCaseCreateDto(BaseModel):
@@ -20,6 +21,7 @@ class TestCaseCreateDto(BaseModel):
     estimated_duration_seconds: Optional[int] = Field(default=None, ge=0)
     priority: str = "P2"
     tags: List[str] = Field(default_factory=list)
+    custom_fields: Optional[List[CustomFieldValueInput]] = None
 
     @field_validator("priority")
     @classmethod
@@ -56,6 +58,7 @@ class TestCaseUpdateDto(BaseModel):
     sort: Optional[int] = None
     priority: Optional[str] = None
     tags: Optional[List[str]] = None
+    custom_fields: Optional[List[CustomFieldValueInput]] = None
 
     @field_validator("priority")
     @classmethod

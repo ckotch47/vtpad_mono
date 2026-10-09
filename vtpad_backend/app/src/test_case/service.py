@@ -16,7 +16,11 @@ from ..common.pagination import paginate
 
 class TestCaseService:
     @staticmethod
-    def _serialize_list_item(testcase: TestCaseModel, tags: list[str]) -> dict:
+    def _serialize_list_item(
+        testcase: TestCaseModel,
+        tags: list[str],
+        custom_fields: list[dict],
+    ) -> dict:
         return {
             'id': str(testcase.id),
             'title': testcase.title,
@@ -32,6 +36,7 @@ class TestCaseService:
             'status': testcase.status,
             'priority': testcase.priority,
             'tags': tags,
+            'custom_fields': custom_fields,
             'external_id': testcase.external_id,
             'estimated_duration_seconds': testcase.estimated_duration_seconds,
             'space_id': str(testcase.space_id),
@@ -67,7 +72,7 @@ class TestCaseService:
         filter_conditions = ['test_case.space_id = $1']
         exact_identifier = (
             "numnode(websearch_to_tsquery('simple', $2)) > 0 "
-            "AND lower(test_case.short_name) = lower($2)"
+            "AND COALESCE(lower(test_case.short_name) = lower($2), FALSE)"
         )
 
         def add_filter(column: str, value) -> None:
@@ -136,10 +141,16 @@ class TestCaseService:
         cases_by_id = {str(case.id): case for case in cases}
         ordered_cases = [cases_by_id[case_id] for case_id in case_ids if case_id in cases_by_id]
         tags_by_case = await TestCaseService.get_tags_for_cases(case_ids)
+        from ..custom_field.service import CustomFieldValueService
+        custom_fields_by_case = await CustomFieldValueService.get_snapshot_values(
+            space_id, case_ids
+        )
         return {
             'items': [
                 TestCaseService._serialize_list_item(
-                    testcase, tags_by_case.get(str(testcase.id), [])
+                    testcase,
+                    tags_by_case.get(str(testcase.id), []),
+                    custom_fields_by_case.get(str(testcase.id), []),
                 )
                 for testcase in ordered_cases
             ],
@@ -185,10 +196,13 @@ class TestCaseService:
         return sorted((link.tag.name for link in links), key=str.casefold)
 
     @staticmethod
-    async def get_tags_for_cases(testcase_ids: list[str]) -> dict[str, list[str]]:
+    async def get_tags_for_cases(testcase_ids: list[str], connection=None) -> dict[str, list[str]]:
         if not testcase_ids:
             return {}
-        links = await TestCaseTagLinkModel.filter(testcase_id__in=testcase_ids).prefetch_related('tag')
+        query = TestCaseTagLinkModel.filter(testcase_id__in=testcase_ids)
+        if connection is not None:
+            query = query.using_db(connection)
+        links = await query.prefetch_related('tag')
         result: dict[str, list[str]] = {str(case_id): [] for case_id in testcase_ids}
         for link in links:
             result.setdefault(str(link.testcase_id), []).append(link.tag.name)
@@ -223,9 +237,19 @@ class TestCaseService:
         return {str(row['testcase_id']) for row in rows}
 
     @staticmethod
-    async def serialize_case(testcase: TestCaseModel, tags: Optional[list[str]] = None) -> dict:
+    async def serialize_case(
+        testcase: TestCaseModel,
+        tags: Optional[list[str]] = None,
+        custom_fields: Optional[list[dict]] = None,
+    ) -> dict:
         if tags is None:
             tags = await TestCaseService.get_tags(str(testcase.id))
+        if custom_fields is None:
+            from ..custom_field.service import CustomFieldValueService
+            custom_fields = await CustomFieldValueService.get_snapshot_values(
+                str(testcase.space_id), [str(testcase.id)]
+            )
+            custom_fields = custom_fields.get(str(testcase.id), [])
         return {
             'id': str(testcase.id), 'title': testcase.title, 'text': testcase.text,
             'steps': testcase.steps, 'expected_results': testcase.expected_results,
@@ -235,6 +259,7 @@ class TestCaseService:
             'priority': testcase.priority, 'tags': tags,
             'external_id': testcase.external_id,
             'estimated_duration_seconds': testcase.estimated_duration_seconds,
+            'custom_fields': custom_fields,
             'space_id': str(testcase.space_id),
             'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
             'section_id': str(testcase.section_id) if testcase.section_id else None,
@@ -245,12 +270,19 @@ class TestCaseService:
 
     @staticmethod
     async def serialize_cases(testcases: list[TestCaseModel]) -> list[dict]:
+        case_ids = [str(testcase.id) for testcase in testcases]
         tags_by_case = await TestCaseService.get_tags_for_cases(
-            [str(testcase.id) for testcase in testcases]
+            case_ids
+        )
+        from ..custom_field.service import CustomFieldValueService
+        custom_fields_by_case = await CustomFieldValueService.get_snapshot_values(
+            str(testcases[0].space_id) if testcases else '', case_ids
         )
         return [
             await TestCaseService.serialize_case(
-                testcase, tags=tags_by_case.get(str(testcase.id), [])
+                testcase,
+                tags=tags_by_case.get(str(testcase.id), []),
+                custom_fields=custom_fields_by_case.get(str(testcase.id), []),
             )
             for testcase in testcases
         ]
@@ -267,14 +299,20 @@ class TestCaseService:
             if section:
                 suite_id = str(section.suite_id)
 
-        last = await TestCaseModel.filter(
-            space_id=dto.space_id,
-            suite_id=suite_id,
-            section_id=section_id
-        ).order_by('-sort').first()
-        sort = (last.sort + 10) if last else 10
-
         async with in_transaction() as connection:
+            # Serialize testcase creation with creation/activation of required
+            # custom fields in this space. Keep space -> testcase -> fields as
+            # the shared lock order for these domain mutations.
+            from ..space.model import SpaceModel
+            space = await SpaceModel.filter(id=dto.space_id).using_db(connection).select_for_update().first()
+            if not space:
+                raise HTTPException(status_code=404, detail="Space not found")
+            last = await TestCaseModel.filter(
+                space_id=dto.space_id,
+                suite_id=suite_id,
+                section_id=section_id
+            ).using_db(connection).order_by('-sort').first()
+            sort = (last.sort + 10) if last else 10
             testcase = await TestCaseModel.create(
                 title=dto.title,
                 text=dto.text,
@@ -297,6 +335,12 @@ class TestCaseService:
             )
             await TestCaseService._replace_tags(
                 str(testcase.id), dto.space_id, dto.tags, connection=connection
+            )
+            from ..custom_field.service import CustomFieldValueService
+            await CustomFieldValueService.replace_case_values(
+                testcase,
+                [item.model_dump() for item in dto.custom_fields] if dto.custom_fields is not None else None,
+                connection,
             )
             await TestCaseService._create_test_case_version(
                 testcase, user_id, connection=connection
@@ -361,12 +405,19 @@ class TestCaseService:
         result = await paginate(
             q.prefetch_related('suite', 'created_by'), page, page_size, sort_by, sort_order
         )
-        tags_by_case = await TestCaseService.get_tags_for_cases([str(item.id) for item in result['items']])
+        case_ids = [str(item.id) for item in result['items']]
+        tags_by_case = await TestCaseService.get_tags_for_cases(case_ids)
+        from ..custom_field.service import CustomFieldValueService
+        custom_fields_by_case = await CustomFieldValueService.get_snapshot_values(
+            space_id, case_ids
+        )
         return {
             **result,
             'items': [
                 TestCaseService._serialize_list_item(
-                    testcase, tags_by_case.get(str(testcase.id), [])
+                    testcase,
+                    tags_by_case.get(str(testcase.id), []),
+                    custom_fields_by_case.get(str(testcase.id), []),
                 )
                 for testcase in result['items']
             ],
@@ -410,6 +461,10 @@ class TestCaseService:
         testcase = await TestCaseModel.get_or_none(id=testcase_id).prefetch_related('created_by')
         if not testcase:
             raise HTTPException(status_code=404, detail="Test case not found")
+        from ..custom_field.service import CustomFieldValueService
+        custom_fields = await CustomFieldValueService.get_snapshot_values(
+            str(testcase.space_id), [testcase_id]
+        )
         return {
             'id': str(testcase.id),
             'title': testcase.title,
@@ -427,6 +482,7 @@ class TestCaseService:
             'tags': await TestCaseService.get_tags(testcase_id),
             'external_id': testcase.external_id,
             'estimated_duration_seconds': testcase.estimated_duration_seconds,
+            'custom_fields': custom_fields.get(testcase_id, []),
             'space_id': str(testcase.space_id),
             'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
             'section_id': str(testcase.section_id) if testcase.section_id else None,
@@ -444,6 +500,7 @@ class TestCaseService:
     async def update(testcase_id: str, dto: TestCaseUpdateDto, token: Optional[str] = None) -> TestCaseModel:
         data = dto.model_dump(exclude_unset=True)
         tag_values = data.pop('tags', None)
+        custom_field_values = data.pop('custom_fields', None)
         # PATCH omits nullable fields by default.  `section_id: null` is the
         # one intentional exception: it moves a case to the suite's virtual
         # Default section without changing its suite.  Keep all other nulls
@@ -458,13 +515,20 @@ class TestCaseService:
             testcase = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()
             if not testcase:
                 raise HTTPException(status_code=404, detail="Test case not found")
-            if not data and tag_values is None:
+            if not data and tag_values is None and custom_field_values is None:
                 return testcase
             if data:
                 await TestCaseModel.filter(id=testcase_id).using_db(connection).update(**data)
             if tag_values is not None:
                 await TestCaseService._replace_tags(
                     testcase_id, str(testcase.space_id), tag_values, connection=connection
+                )
+            if custom_field_values is not None:
+                from ..custom_field.service import CustomFieldValueService
+                await CustomFieldValueService.replace_case_values(
+                    testcase,
+                    [item.model_dump() if hasattr(item, 'model_dump') else item for item in custom_field_values],
+                    connection,
                 )
             updated = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
             await TestCaseService._create_test_case_version(
@@ -530,15 +594,31 @@ class TestCaseService:
 
     @staticmethod
     async def delete(testcase_id: str) -> bool:
-        await TestCaseService.get_by_id(testcase_id)
+        testcase = await TestCaseService.get_by_id(testcase_id)
         from ..test_run.model import TestResultModel
         if await TestResultModel.filter(testcase_id=testcase_id).exists():
             # Preserve case/version/result snapshots for historical runs.
             await TestCaseModel.filter(id=testcase_id).update(status=TestCaseStatus.deprecated)
             await EmbeddingService.delete_embeddings('test_case', testcase_id)
             return True
-        await TestCaseVersionModel.filter(testcase_id=testcase_id).delete()
-        await TestCaseModel.filter(id=testcase_id).delete()
+        from ..custom_field.model import CustomFieldEntityType, CustomFieldModel, CustomFieldValueModel
+        async with in_transaction() as connection:
+            locked_case = await TestCaseModel.filter(id=testcase_id).using_db(connection).select_for_update().first()
+            if not locked_case:
+                return True
+            # The polymorphic entity_id has no FK, so remove custom-field
+            # values explicitly when permanently deleting a testcase.
+            testcase_field_ids = await CustomFieldModel.filter(
+                space_id=locked_case.space_id,
+                entity_type=CustomFieldEntityType.testcase,
+            ).using_db(connection).values_list('id', flat=True)
+            if testcase_field_ids:
+                await CustomFieldValueModel.filter(
+                    entity_id=testcase_id,
+                    field_id__in=testcase_field_ids,
+                ).using_db(connection).delete()
+            await TestCaseVersionModel.filter(testcase_id=testcase_id).using_db(connection).delete()
+            await TestCaseModel.filter(id=testcase_id).using_db(connection).delete()
         return True
 
     @staticmethod
@@ -599,12 +679,15 @@ class TestCaseService:
         return {**result, 'items': results}
 
     @staticmethod
-    async def _compute_next_sort(original):
-        last = await TestCaseModel.filter(
+    async def _compute_next_sort(original, connection=None):
+        query = TestCaseModel.filter(
             space_id=str(original.space_id),
             suite_id=original.suite_id,
             section_id=original.section_id
-        ).order_by('-sort').first()
+        )
+        if connection is not None:
+            query = query.using_db(connection)
+        last = await query.order_by('-sort').first()
         return (last.sort + 10) if last else 10
 
     @staticmethod
@@ -631,6 +714,10 @@ class TestCaseService:
             "WHERE link.testcase_id = $1 ORDER BY tag.normalized_name",
             [str(testcase.id)],
         )
+        from ..custom_field.service import CustomFieldValueService
+        custom_fields = await CustomFieldValueService.get_snapshot_values(
+            str(testcase.space_id), [str(testcase.id)], connection
+        )
         create_kwargs = {
             'testcase_id': str(testcase.id),
             'version_number': version_number,
@@ -644,6 +731,7 @@ class TestCaseService:
             'type': testcase.type,
             'priority': testcase.priority,
             'tag_labels': [row['name'] for row in tag_query],
+            'custom_fields': custom_fields.get(str(testcase.id), []),
             'created_by_id': user_id,
         }
         if connection is not None:
@@ -669,11 +757,15 @@ class TestCaseService:
         user_id = await get_user_id_by_token(token)
         original = await TestCaseService.get_by_id(testcase_id)
 
-        sort = await TestCaseService._compute_next_sort(original)
         new_short_name = TestCaseService._generate_copy_short_name(original.short_name)
         original_tags = await TestCaseService.get_tags(str(original.id))
 
         async with in_transaction() as connection:
+            from ..space.model import SpaceModel
+            space = await SpaceModel.filter(id=original.space_id).using_db(connection).select_for_update().first()
+            if not space:
+                raise HTTPException(status_code=404, detail="Space not found")
+            sort = await TestCaseService._compute_next_sort(original, connection)
             duplicated = await TestCaseModel.create(
                 title=f"{original.title} (Copy)",
                 text=original.text,
@@ -698,6 +790,18 @@ class TestCaseService:
             await TestCaseService._replace_tags(
                 str(duplicated.id), str(duplicated.space_id), original_tags, connection=connection
             )
+            from ..custom_field.service import CustomFieldValueService
+            original_fields = await CustomFieldValueService.get_snapshot_values(
+                str(original.space_id), [str(original.id)], connection
+            )
+            await CustomFieldValueService.replace_case_values(
+                duplicated,
+                [
+                    {'field_id': field['field_id'], 'value': field['value']}
+                    for field in original_fields.get(str(original.id), [])
+                ],
+                connection,
+            )
             await TestCaseService._create_test_case_version(
                 duplicated, user_id, connection=connection
             )
@@ -721,6 +825,7 @@ class TestCaseService:
             'type': version.type,
             'priority': version.priority,
             'tags': version.tag_labels,
+            'custom_fields': version.custom_fields,
             'created_by_id': str(version.created_by_id) if version.created_by_id else None,
             'created_at': version.created_at.isoformat() if version.created_at else None,
         }
@@ -746,6 +851,7 @@ class TestCaseService:
             'title', 'type', 'priority', 'tags', 'text', 'steps',
             'expected_results', 'preconditions', 'postconditions',
             'estimated_duration_seconds',
+            'custom_fields',
         )
         changes = {
             field: {'from': from_version[field], 'to': to_version[field]}
@@ -786,6 +892,10 @@ class TestCaseService:
                 await TestCaseService._replace_tags(
                     testcase_id, str(restored.space_id), version.tag_labels, connection=connection
                 )
+            from ..custom_field.service import CustomFieldValueService
+            await CustomFieldValueService.restore_case_values(
+                restored, version.custom_fields, connection
+            )
             restored = await TestCaseModel.filter(id=testcase_id).using_db(connection).first()
             await TestCaseService._create_test_case_version(
                 restored, user_id, next_version=True, connection=connection

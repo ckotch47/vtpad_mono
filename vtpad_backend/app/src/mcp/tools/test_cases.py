@@ -1,5 +1,5 @@
 from ..core import mcp
-from ..utils import _get_user_id, _case_to_dict
+from ..utils import _get_user_id, _case_to_dict, _cases_to_dict_with_metadata
 from fastmcp.server.dependencies import get_http_request
 
 from ...api_token.service import ApiTokenService
@@ -41,6 +41,8 @@ async def _serialize_case(case: TestCaseModel) -> dict:
     value = _case_to_dict(case)
     value['priority'] = case.priority
     value['tags'] = await TestCaseService.get_tags(str(case.id))
+    custom_fields = await TestCaseService.serialize_case(case)
+    value['custom_fields'] = custom_fields['custom_fields']
     return value
 
 
@@ -84,7 +86,7 @@ async def search_test_cases(
         sort_by="created_at",
         sort_order="desc",
     )
-    return [_case_to_dict(c) for c in result.get("items", [])]
+    return await _cases_to_dict_with_metadata(result.get("items", []))
 
 @mcp.tool()
 async def get_test_case(case_id: str) -> dict | None:
@@ -122,6 +124,7 @@ async def create_test_case(
     estimated_duration_seconds: int | None = None,
     priority: str = "P2",
     tags: list[str] | None = None,
+    custom_fields: list[dict] | None = None,
 ) -> dict:
     """Create a new test case.
 
@@ -164,6 +167,7 @@ async def create_test_case(
         estimated_duration_seconds=estimated_duration_seconds,
         priority=priority,
         tags=tags or [],
+        custom_fields=custom_fields,
     )
     case = await TestCaseService.create(dto, token)
     return await _serialize_case(case)
@@ -187,6 +191,7 @@ async def update_test_case(
     clear_estimated_duration: bool = False,
     priority: str | None = None,
     tags: list[str] | None = None,
+    custom_fields: list[dict] | None = None,
 ) -> dict:
     """Update a test case.
 
@@ -227,6 +232,7 @@ async def update_test_case(
         'estimated_duration_seconds': estimated_duration_seconds,
         'priority': priority,
         'tags': tags,
+        'custom_fields': custom_fields,
     }
     # MCP optional arguments are materialized as None even when absent. Keep
     # that legacy omit behavior; only the REST PATCH can explicitly detach a

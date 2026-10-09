@@ -258,11 +258,17 @@
               @editor-update="newCase.expected_results = $event"
             />
           </template>
+          <custom-field-values-component
+            ref="createCustomFieldForm"
+            v-model="newCase.custom_fields"
+            :space-id="spaceId"
+            entity-type="testcase"
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openCreate = false" :disabled="creating">Cancel</v-btn>
-          <v-btn color="primary" data-keyboard-save-action @click="createCase" :loading="creating" :disabled="creating">Create</v-btn>
+          <v-btn color="primary" data-keyboard-save-action @click="createCase" :loading="creating" :disabled="creating || createCustomFieldForm?.loading">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -288,6 +294,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testCaseService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const route = useRoute()
@@ -329,8 +336,9 @@ const availableTagOptions = computed(() => [...new Set([...tagOptions.value, ...
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
-const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '' })
+const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '', custom_fields: [] })
 const newCase = ref(emptyCase())
+const createCustomFieldForm = ref(null)
 const isCreateDirty = computed(() => JSON.stringify(newCase.value) !== JSON.stringify(emptyCase()))
 const selectedCases = ref([])
 const bulkStatusDialog = ref(false)
@@ -465,13 +473,16 @@ function clearCaseFilters() {
   onFilterChange()
 }
 
-function createCase() {
+async function createCase() {
+  const validation = await createCustomFieldForm.value?.validate()
+  if (validation && !validation.valid) return
   creating.value = true
   createError.value = false
   testCaseService.create({
     ...newCase.value,
     priority: newCase.value.priority || 'P2',
     tags: normalizeTags(newCase.value.tags),
+    custom_fields: newCase.value.custom_fields || [],
     space_id: spaceId.value
   }).then(() => {
     openCreate.value = false

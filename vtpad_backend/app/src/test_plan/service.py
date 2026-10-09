@@ -63,8 +63,11 @@ class TestPlanService:
         }
 
     @staticmethod
-    async def get_by_id(plan_id: str) -> TestPlanModel:
-        plan = await TestPlanModel.get_or_none(id=plan_id).prefetch_related('space')
+    async def get_by_id(plan_id: str, connection=None) -> TestPlanModel:
+        query = TestPlanModel.filter(id=plan_id)
+        if connection is not None:
+            query = query.using_db(connection)
+        plan = await query.prefetch_related('space').first()
         if not plan:
             raise HTTPException(status_code=404, detail="Test plan not found")
         return plan
@@ -85,9 +88,9 @@ class TestPlanService:
         return True
 
     @staticmethod
-    async def get_cases(plan_id: str) -> list:
+    async def get_cases(plan_id: str, connection=None) -> list:
         """Return union of cases from suites and explicit case_ids."""
-        plan = await TestPlanService.get_by_id(plan_id)
+        plan = await TestPlanService.get_by_id(plan_id, connection)
         from ..test_case.model import TestCaseModel
 
         seen = set()
@@ -96,9 +99,12 @@ class TestPlanService:
         # Cases from suites
         suite_ids = plan.suite_ids or []
         if suite_ids:
-            suite_cases = await TestCaseModel.filter(
+            query = TestCaseModel.filter(
                 suite_id__in=suite_ids, space_id=str(plan.space_id)
-            ).prefetch_related('suite', 'section')
+            )
+            if connection is not None:
+                query = query.using_db(connection)
+            suite_cases = await query.prefetch_related('suite', 'section')
             for c in suite_cases:
                 cid = str(c.id)
                 if cid not in seen:
@@ -108,9 +114,12 @@ class TestPlanService:
         # Explicit case_ids
         explicit_ids = plan.case_ids or []
         if explicit_ids:
-            explicit_cases = await TestCaseModel.filter(
+            query = TestCaseModel.filter(
                 id__in=explicit_ids, space_id=str(plan.space_id)
-            ).prefetch_related('suite', 'section')
+            )
+            if connection is not None:
+                query = query.using_db(connection)
+            explicit_cases = await query.prefetch_related('suite', 'section')
             case_map = {str(c.id): c for c in explicit_cases}
             for cid in explicit_ids:
                 if cid in case_map and cid not in seen:

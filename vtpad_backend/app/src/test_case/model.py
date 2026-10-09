@@ -69,6 +69,9 @@ class TestCaseVersionModel(Model):
     type = fields.CharEnumField(TestCaseType, null=True, max_length=20)
     priority = fields.CharField(null=True, max_length=2)
     tag_labels = fields.JSONField(null=True)
+    # Self-contained field metadata/values keep history readable after a field
+    # definition is edited or deleted. NULL identifies legacy rows.
+    custom_fields = fields.JSONField(null=True)
 
     testcase = fields.ForeignKeyField('models.TestCaseModel', related_name='versions')
     created_by = fields.ForeignKeyField('models.UserModel', related_name='created_test_case_versions', null=True)

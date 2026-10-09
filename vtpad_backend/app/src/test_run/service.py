@@ -43,6 +43,7 @@ class TestRunService:
         ('expected_results', 'expected_results'),
         ('priority', 'priority'),
         ('tags', 'tags'),
+        ('custom_fields', 'custom_fields'),
         ('estimated_duration_seconds', 'estimated_duration_seconds'),
     )
     _rich_case_fields = {'description', 'preconditions', 'steps', 'expected_results'}
@@ -322,7 +323,7 @@ class TestRunService:
         }
 
     @staticmethod
-    async def _resolve_testcases_for_run(dto: TestRunCreateDto):
+    async def _resolve_testcases_for_run(dto: TestRunCreateDto, connection=None):
         """Resolve exactly one source, scoped to test cases in its space."""
         from ..test_case.model import TestCaseModel
 
@@ -336,20 +337,26 @@ class TestRunService:
 
         if dto.suite_id:
             from ..test_suite.model import TestSuiteModel
-            suite = await TestSuiteModel.get_or_none(id=dto.suite_id, space_id=dto.space_id)
+            suite_query = TestSuiteModel.filter(id=dto.suite_id, space_id=dto.space_id)
+            if connection is not None:
+                suite_query = suite_query.using_db(connection)
+            suite = await suite_query.first()
             if not suite:
                 raise HTTPException(status_code=404, detail="Test suite not found in space")
-            testcases = await TestCaseModel.filter(
+            case_query = TestCaseModel.filter(
                 suite_id=dto.suite_id,
                 space_id=dto.space_id,
-            ).prefetch_related('section').order_by('section__sort', 'sort')
+            )
+            if connection is not None:
+                case_query = case_query.using_db(connection)
+            testcases = await case_query.prefetch_related('section').order_by('section__sort', 'sort')
             source = {'type': 'suite', 'id': str(suite.id), 'name': suite.name}
         elif dto.plan_id:
             from ..test_plan.service import TestPlanService
-            plan = await TestPlanService.get_by_id(dto.plan_id)
+            plan = await TestPlanService.get_by_id(dto.plan_id, connection)
             if str(plan.space_id) != str(dto.space_id):
                 raise HTTPException(status_code=404, detail="Test plan not found in space")
-            plan_cases = await TestPlanService.get_cases(dto.plan_id)
+            plan_cases = await TestPlanService.get_cases(dto.plan_id, connection)
             testcases = [
                 testcase for testcase in plan_cases
                 if str(testcase.space_id) == str(dto.space_id)
@@ -357,10 +364,13 @@ class TestRunService:
             source = {'type': 'plan', 'id': str(plan.id), 'name': plan.name}
         else:
             requested_ids = list(dict.fromkeys(dto.testcase_ids or []))
-            testcases = await TestCaseModel.filter(
+            case_query = TestCaseModel.filter(
                 id__in=requested_ids,
                 space_id=dto.space_id,
-            ).prefetch_related('section')
+            )
+            if connection is not None:
+                case_query = case_query.using_db(connection)
+            testcases = await case_query.prefetch_related('section')
             testcase_by_id = {str(testcase.id): testcase for testcase in testcases}
             if len(testcase_by_id) != len(requested_ids):
                 raise HTTPException(
@@ -406,7 +416,7 @@ class TestRunService:
         }
 
     @staticmethod
-    async def _resolve_case_locations(testcases):
+    async def _resolve_case_locations(testcases, connection=None):
         """Return only suite/section labels proven to belong to each testcase space."""
         from ..section.model import SectionModel
         from ..test_suite.model import TestSuiteModel
@@ -416,7 +426,10 @@ class TestRunService:
             for testcase in testcases
             if getattr(testcase, 'section_id', None)
         }
-        direct_sections = await SectionModel.filter(id__in=list(direct_section_ids)).all() if direct_section_ids else []
+        direct_query = SectionModel.filter(id__in=list(direct_section_ids)) if direct_section_ids else None
+        if direct_query is not None and connection is not None:
+            direct_query = direct_query.using_db(connection)
+        direct_sections = await direct_query.all() if direct_query is not None else []
         direct_by_id = {str(section.id): section for section in direct_sections}
         candidate_suite_ids = {
             str(testcase.suite_id)
@@ -426,9 +439,15 @@ class TestRunService:
         candidate_suite_ids.update(
             str(section.suite_id) for section in direct_sections if section.suite_id
         )
-        suites = await TestSuiteModel.filter(id__in=list(candidate_suite_ids)).all() if candidate_suite_ids else []
+        suite_query = TestSuiteModel.filter(id__in=list(candidate_suite_ids)) if candidate_suite_ids else None
+        if suite_query is not None and connection is not None:
+            suite_query = suite_query.using_db(connection)
+        suites = await suite_query.all() if suite_query is not None else []
         suites_by_id = {str(suite.id): suite for suite in suites}
-        all_sections = await SectionModel.filter(suite_id__in=list(candidate_suite_ids)).all() if candidate_suite_ids else []
+        section_query = SectionModel.filter(suite_id__in=list(candidate_suite_ids)) if candidate_suite_ids else None
+        if section_query is not None and connection is not None:
+            section_query = section_query.using_db(connection)
+        all_sections = await section_query.all() if section_query is not None else []
         sections_by_id = {str(section.id): section for section in all_sections}
         sections_by_id.update(direct_by_id)
 
@@ -503,6 +522,7 @@ class TestRunService:
                     'type': snapshot['type'],
                     'priority': snapshot['priority'],
                     'tags': snapshot['tags'],
+                    'custom_fields': snapshot.get('custom_fields', []),
                     'status': snapshot['status'],
                     'suite_id': snapshot['suite_id'],
                     'section': snapshot['section'],
@@ -519,26 +539,47 @@ class TestRunService:
     @staticmethod
     async def _resolve_selection(dto: TestRunCreateDto):
         from ..test_case.model import TestCaseVersionModel
+        from ..test_case.model import TestCaseModel
 
-        source, testcases = await TestRunService._resolve_testcases_for_run(dto)
-        versions = await TestCaseVersionModel.filter(
-            testcase_id__in=[str(testcase.id) for testcase in testcases]
-        ).order_by('testcase_id', '-version_number')
-        latest_versions = {}
-        for version in versions:
-            latest_versions.setdefault(str(version.testcase_id), version)
-        locations = await TestRunService._resolve_case_locations(testcases)
-        from ..test_case.service import TestCaseService
-        tags_by_case = await TestCaseService.get_tags_for_cases([str(case.id) for case in testcases])
-        snapshots = []
-        for testcase in testcases:
-            snapshots.append(TestRunService._build_case_snapshot(
-                testcase,
-                latest_versions.get(str(testcase.id)),
-                location=locations.get(str(testcase.id)),
-            ))
-            snapshots[-1]['tags'] = tags_by_case.get(str(testcase.id), [])
-        return source, testcases, snapshots, TestRunService._selection_hash(source, snapshots)
+        async with in_transaction() as connection:
+            # Use one PostgreSQL MVCC snapshot for source resolution and all
+            # testcase, version, tag, location, and custom-field reads.
+            await connection.execute_query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
+            source, testcases = await TestRunService._resolve_testcases_for_run(dto, connection)
+            selected_ids = [str(testcase.id) for testcase in testcases]
+            # Reload through this transaction's consistent snapshot, retaining
+            # the source selection order.
+            case_rows = await TestCaseModel.filter(
+                id__in=selected_ids,
+                space_id=dto.space_id,
+            ).using_db(connection)
+            by_id = {str(testcase.id): testcase for testcase in case_rows}
+            if len(by_id) != len(selected_ids):
+                raise HTTPException(status_code=409, detail='Test run source changed; refresh the selection')
+            testcases = [by_id[testcase_id] for testcase_id in selected_ids]
+            versions = await TestCaseVersionModel.filter(
+                testcase_id__in=selected_ids
+            ).using_db(connection).order_by('testcase_id', '-version_number')
+            latest_versions = {}
+            for version in versions:
+                latest_versions.setdefault(str(version.testcase_id), version)
+            locations = await TestRunService._resolve_case_locations(testcases, connection)
+            from ..test_case.service import TestCaseService
+            from ..custom_field.service import CustomFieldValueService
+            tags_by_case = await TestCaseService.get_tags_for_cases(selected_ids, connection)
+            custom_fields_by_case = await CustomFieldValueService.get_snapshot_values(
+                str(testcases[0].space_id), selected_ids, connection
+            )
+            snapshots = []
+            for testcase in testcases:
+                snapshots.append(TestRunService._build_case_snapshot(
+                    testcase,
+                    latest_versions.get(str(testcase.id)),
+                    location=locations.get(str(testcase.id)),
+                ))
+                snapshots[-1]['tags'] = tags_by_case.get(str(testcase.id), [])
+                snapshots[-1]['custom_fields'] = custom_fields_by_case.get(str(testcase.id), [])
+            return source, testcases, snapshots, TestRunService._selection_hash(source, snapshots)
 
     @staticmethod
     async def preview(dto: TestRunCreateDto) -> dict:
@@ -728,6 +769,7 @@ class TestRunService:
                 'estimated_duration_seconds': snapshot.get('estimated_duration_seconds'),
                 'priority': snapshot.get('priority'),
                 'tags': snapshot.get('tags'),
+                'custom_fields': snapshot.get('custom_fields'),
                 'is_snapshot': True,
             }
         else:

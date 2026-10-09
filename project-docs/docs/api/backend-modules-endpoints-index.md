@@ -199,6 +199,8 @@ Current behavior constraints (synced with code):
 - Space access checks invoked by MCP tools use `request.state.mcp_authenticated_user_id`, which is populated only by `MCPAuthMiddleware` after API-token validation; REST requests continue to resolve the user from their JWT Bearer token.
 - Test-run MCP lifecycle includes `start_test_run`, `pause_test_run`, `resume_test_run` and `complete_test_run`; `get_run_results` returns the same timer and duration aggregates as REST. `compare_test_runs` returns the same snapshot-only comparison projection and same-space/completed-run checks as REST. Testcase MCP create/update/read and result updates expose the estimate and validated actual duration.
 - `sort_sections` reorders one section relative to exactly one before/after sibling; it uses the same `SectionSortDto` and `SectionService.update_sort` as REST, and returns JSON siblings with `id`, `name`, `description`, `suite_id`, `parent_id`, `sort`.
+- Custom-field tools `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field`, `get_custom_field_values`, and `set_custom_field_value` call the same space-authorized services as REST. MCP testcase create/update accepts `custom_fields: [{field_id, value}]`; testcase detail/search/list reads and run result snapshots return self-contained field metadata and values. Collection responses batch-load fields for the selected cases.
+- Custom field values are validated against their definition type/options and entity type; foreign-space field/entity pairs are hidden as `404`. Required definitions default to false; requiredness is supported for testcase fields.
 
 ### `app/src/test_run`
 - `POST /api/v2/test-run/preview`
@@ -233,15 +235,28 @@ MCP keeps `link_bug_to_result` and `unlink_bug_from_result` data semantics: they
 
 All REST routes require JWT and space access. Create/update reject a parent document from another space and serialize parent changes per space to prevent concurrent cycles. MCP exposes the same list, tree, get-by-id, create, update, and delete operations; its list tool supports the REST filters and pagination. MCP also provides text and semantic search, plus link/unlink and list/replace operations for Tech Doc/testcase relationships from either side. Each operation checks access to the requested space or document. Space access allows an active space member or an active company admin in that space's company.
 
+### `app/src/custom_field`
+- `GET /api/v2/custom-field/space/{space_id}`
+- `GET /api/v2/custom-field/{field_id}`
+- `POST /api/v2/custom-field/`
+- `PATCH /api/v2/custom-field/{field_id}`
+- `DELETE /api/v2/custom-field/{field_id}`
+- `POST /api/v2/custom-field/value`
+- `GET /api/v2/custom-field/value/{entity_id}`
+
+All definition/value routes require JWT and active access to the same space as the field/entity. Definitions support `required` (default false) for testcase fields. Values must match the configured JSON type/options; changing a definition is rejected when saved values would become invalid. Updating an existing value returns the newly saved value over both REST and MCP. Deleting a definition removes live values, while testcase-version and run snapshots retain their embedded metadata and historical values. MCP provides matching `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field`, `get_custom_field_values`, and `set_custom_field_value` tools.
+
 ### `app/src/test_case`
 - `GET /api/v2/test-case/space/{space_id}` supports `priority` and repeated `tags` filters (AND semantics) and returns priority and tag labels.
-- A non-empty `search` on the case space list uses the trigger-maintained PostgreSQL `simple` full-text vector, ranks title/short name above description/preconditions and steps/expected results, and orders equal ranks by case ID. An exact short-name match also handles hyphenated identifiers such as `TC-123`. Whitespace-only input preserves the ordinary list sort. Legacy searchable fields postconditions, external ID, and link remain indexed at the lowest weight. If a document would exceed PostgreSQL's 1 MiB tsvector limit, its vector is retried using the first 8,192 characters of each indexed field so the write can still succeed.
+- A non-empty `search` on the case space list uses the trigger-maintained PostgreSQL `simple` full-text vector, ranks title/short name above description/preconditions and steps/expected results, and orders equal ranks by case ID. An exact short-name match also handles hyphenated identifiers such as `TC-123`; a missing short name is treated as no exact match and does not suppress title/full-text results. Whitespace-only input preserves the ordinary list sort. Legacy searchable fields postconditions, external ID, and link remain indexed at the lowest weight. If a document would exceed PostgreSQL's 1 MiB tsvector limit, its vector is retried using the first 8,192 characters of each indexed field so the write can still succeed.
 - `GET /api/v2/test-suite/space/{space_id}` requires space access; non-empty `search` ranks suite name above description and breaks ties by suite ID. REST and MCP suite listing use the same service and search semantics.
 - `GET /api/v2/test-case/space/{space_id}/tags` returns tag options scoped to the space.
-- `GET /api/v2/test-case/suite/{suite_id}` and `/section/{section_id}` require access to the owning suite's space and return cases with priority and tags.
-- `GET /api/v2/test-case/{testcase_id}` and case create/update responses expose `priority` and `tags`.
+- `GET /api/v2/test-case/suite/{suite_id}` and `/section/{section_id}` require access to the owning suite's space and return cases with priority, tags, and custom-field values loaded in one batch.
+- `GET /api/v2/test-case/{testcase_id}` and case create/update responses expose `priority`, `tags`, and current custom-field definitions/values. Space list/search and MCP `search_test_cases` expose the same custom fields for returned cases.
 - Create/update accept priority `P0`–`P3` and up to 50 tag labels; create defaults to `P2`. PATCH omission retains tags and `tags: []` clears them.
 - New version snapshots record type, priority, and immutable tag labels; legacy version rows remain `NULL` for unknown fields. Restore preserves current values for unknown legacy fields.
+- Case create/update accepts `custom_fields: [{field_id, value}]`; create enforces every required testcase field, PATCH omission preserves values, and a supplied array replaces the values atomically with a version snapshot. Detail and list/search reads include metadata and values; list, suite, section, and MCP collection paths batch-load them. The same service path is used by REST and MCP.
+- New case versions and run result snapshots store custom-field values with copied field name/type/options/required metadata. Legacy snapshots without this property mean unavailable history, not an empty set. Comparison includes custom-field changes.
 - New test-run snapshots include priority and tag labels; pre-SU8 snapshots remain readable with those values unknown.
 - `POST /api/v2/test-case/` and `PATCH /api/v2/test-case/{testcase_id}` accept a non-negative nullable estimate; version, restore, duplicate, and run snapshot paths preserve it.
 - `POST /api/v2/test-case/{testcase_id}/move` accepts required `{suite_id, section_id}`; nullable `section_id: null` targets the suite's virtual Default section. The shared move service validates same-space suite/section placement and does not create a content version.

@@ -121,7 +121,7 @@ DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separate
 - Run comparison / diff between two runs
 - Test automation integration (CI/CD webhooks)
 - Requirements traceability matrix
-- Custom fields for test cases
+- [x] Custom fields for test cases — typed values, required-field validation, version/run snapshots, REST/MCP parity, and delete cleanup implemented and verified on a disposable database.
 - Test case templates
 - Notifications for run completion
 - Email reports

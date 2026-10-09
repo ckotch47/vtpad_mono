@@ -17,13 +17,14 @@
           <v-list-item-title>{{ field.name }}</v-list-item-title>
           <v-list-item-subtitle>
             Type: {{ field.field_type }} | Entity: {{ field.entity_type }}
+            <span v-if="field.required">| Required</span>
             <span v-if="field.options?.length">| Options: {{ field.options.join(', ') }}</span>
           </v-list-item-subtitle>
           <template #append>
-            <v-btn icon variant="text" @click="editField(field)">
+          <v-btn icon variant="text" @click="editField(field)">
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
-            <v-btn icon variant="text" color="red" @click="deleteField(field.id)">
+          <v-btn icon variant="text" color="red" @click="deleteField(field.id)">
               <v-icon>mdi-delete</v-icon>
             </v-btn>
           </template>
@@ -43,7 +44,24 @@
           <v-text-field v-model="form.name" label="Name" :rules="[v => !!v || 'Name is required']" required />
           <v-select v-model="form.field_type" :items="fieldTypes" label="Field Type" :rules="[v => !!v || 'Field type is required']" required />
           <v-select v-model="form.entity_type" :items="entityTypes" label="Entity Type" :rules="[v => !!v || 'Entity type is required']" required />
-          <v-textarea v-model="optionsText" label="Options (one per line, for select/multiselect)" rows="3" />
+          <v-textarea
+            v-model="optionsText"
+            label="Options (one per line, for select/multiselect)"
+            rows="3"
+            :rules="optionsRules"
+            :hint="optionsHint"
+            persistent-hint
+          />
+          <v-switch
+            v-model="form.required"
+            label="Required"
+            color="primary"
+            hide-details="auto"
+            :disabled="form.entity_type === 'testrun'"
+          />
+          <div v-if="form.entity_type === 'testrun'" class="text-caption text-medium-emphasis mt-1">
+            Required custom fields are currently available for test cases only.
+          </div>
           <v-text-field v-model.number="form.sort" label="Sort order" type="number" />
         </v-form>
       </v-card-text>
@@ -74,11 +92,20 @@ const form = ref({
   field_type: 'text',
   entity_type: 'testcase',
   options: [],
+  required: false,
   sort: 0
 })
 const cfForm = ref(null)
+const originalOptions = ref([])
 const fieldTypes = ['text', 'select', 'multiselect', 'number', 'date', 'checkbox']
 const entityTypes = ['testcase', 'testrun']
+
+const optionsHint = computed(() => ['select', 'multiselect'].includes(form.value.field_type)
+  ? 'Add at least one unique option, one per line.'
+  : 'Only used for select and multiselect fields.')
+const optionsRules = computed(() => ['select', 'multiselect'].includes(form.value.field_type)
+  ? [validateSelectOptions]
+  : [])
 
 const optionsText = computed({
   get() {
@@ -106,25 +133,43 @@ function editField(field) {
     field_type: field.field_type,
     entity_type: field.entity_type,
     options: field.options || [],
+    required: Boolean(field.required),
     sort: field.sort || 0
   }
+  originalOptions.value = [...(field.options || [])]
   showCreateDialog.value = true
+}
+
+function validateSelectOptions(value) {
+  const options = (value || '').split('\n').map(option => option.trim()).filter(Boolean)
+  const unchangedLegacyEmptyOptions = editingId.value
+    && originalOptions.value.length === 0
+    && options.length === 0
+  if (unchangedLegacyEmptyOptions) return true
+  if (!options.length) return 'Add at least one option'
+  if (new Set(options).size !== options.length) return 'Options must be unique'
+  return true
 }
 
 function closeDialog() {
   showCreateDialog.value = false
   editingId.value = null
-  form.value = { name: '', field_type: 'text', entity_type: 'testcase', options: [], sort: 0 }
+  form.value = { name: '', field_type: 'text', entity_type: 'testcase', options: [], required: false, sort: 0 }
   formValid.value = false
+  originalOptions.value = []
   nextTick(() => cfForm.value?.resetValidation())
 }
 
 function saveField() {
+  if (form.value.entity_type === 'testrun') form.value.required = false
   const payload = {
     ...form.value,
     space_id: spaceId.value
   }
   if (editingId.value) {
+    // Keep unrelated edits possible for legacy select fields that predate
+    // option validation; omit options when their empty value is unchanged.
+    if (originalOptions.value.length === 0 && form.value.options.length === 0) delete payload.options
     customFieldService.update(editingId.value, payload).then(() => {
       closeDialog()
       loadFields()

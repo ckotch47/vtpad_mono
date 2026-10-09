@@ -22,7 +22,7 @@
             </v-btn>
             <span class="ml-2">Edit Test Case</span>
             <v-spacer />
-            <v-btn color="primary" data-keyboard-save-action :loading="saving" :disabled="saving" @click="save">Save</v-btn>
+            <v-btn color="primary" data-keyboard-save-action :loading="saving" :disabled="saving || customFieldForm?.loading" @click="save">Save</v-btn>
           </v-card-title>
 
           <v-card-text>
@@ -151,7 +151,7 @@
                 @editor-update="form.steps = $event"
               />
 
-              <div class="text-subtitle-1 mt-4 mb-2">Expected Results</div>
+            <div class="text-subtitle-1 mt-4 mb-2">Expected Results</div>
               <editor-component
                 :text="form.expected_results || ''"
                 :edit="true"
@@ -161,6 +161,12 @@
                 @editor-update="form.expected_results = $event"
               />
             </template>
+            <custom-field-values-component
+              ref="customFieldForm"
+              v-model="form.custom_fields"
+              :space-id="spaceId"
+              entity-type="testcase"
+            />
           </v-card-text>
         </v-card>
       </v-col>
@@ -209,6 +215,7 @@ import {ref, watch, onMounted, computed} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
+import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
 import { testCaseService } from '@/services'
 
 const route = useRoute()
@@ -228,6 +235,7 @@ const tagOptionsLoading = ref(false)
 const tagOptionsError = ref(false)
 const saving = ref(false)
 const saveError = ref(false)
+const customFieldForm = ref(null)
 const priorityOptions = [
   { title: 'P0 · Blocker', value: 'P0' },
   { title: 'P1 · High', value: 'P1' },
@@ -247,7 +255,12 @@ function loadCase() {
         const parsed = JSON.parse(draft)
         if (parsed._savedAt && new Date(parsed._savedAt) > new Date(res.data.updated_at)) {
           if (confirm('You have an unsaved draft. Restore it?')) {
-            form.value = { ...parsed, priority: parsed.priority || 'P2', tags: Array.isArray(parsed.tags) ? parsed.tags : [] }
+            form.value = {
+              ...parsed,
+              priority: parsed.priority || 'P2',
+              tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+              custom_fields: Array.isArray(parsed.custom_fields) ? parsed.custom_fields : (res.data.custom_fields || [])
+            }
             hasDraft.value = true
             loader.value = false
             return
@@ -257,7 +270,12 @@ function loadCase() {
         // ignore parse error
       }
     }
-    form.value = { ...res.data, priority: res.data.priority || 'P2', tags: Array.isArray(res.data.tags) ? [...res.data.tags] : [] }
+    form.value = {
+      ...res.data,
+      priority: res.data.priority || 'P2',
+      tags: Array.isArray(res.data.tags) ? [...res.data.tags] : [],
+      custom_fields: Array.isArray(res.data.custom_fields) ? [...res.data.custom_fields] : []
+    }
     loader.value = false
   }).catch(() => { loader.value = false })
   loadTagOptions()
@@ -289,7 +307,9 @@ function saveDraft() {
   localStorage.setItem(draftKey, JSON.stringify(draft))
 }
 
-function save() {
+async function save() {
+  const fieldsValidation = await customFieldForm.value?.validate()
+  if (fieldsValidation && !fieldsValidation.valid) return
   saving.value = true
   saveError.value = false
   const estimatedDuration = form.value.estimated_duration_seconds

@@ -46,6 +46,15 @@
             <editor-component :text="testCase.expected_results" :edit="false" accessible-label="Expected Results" />
           </div>
         </template>
+        <div v-if="testCase.custom_fields?.length" class="mt-4">
+          <div class="text-subtitle-2 text-medium-emphasis mb-2">Custom Fields</div>
+          <v-list density="compact" class="py-0">
+            <v-list-item v-for="field in testCase.custom_fields" :key="field.field_id">
+              <v-list-item-title>{{ field.name }}<span v-if="field.required"> · Required</span></v-list-item-title>
+              <v-list-item-subtitle>{{ displayValue(field.value) }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </div>
         <div v-if="!hasContent(testCase)" class="text-center text-grey py-8">
           No content
         </div>
@@ -59,7 +68,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: Boolean, default: false },
   testCase: { type: Object, default: null }
 })
@@ -70,7 +79,14 @@ const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
 
 function hasContent(tc) {
-  return tc?.type === 'checklist' || tc?.text || tc?.steps || (tc?.preconditions || tc?.expected_results)
+  return tc?.type === 'checklist' || tc?.text || tc?.steps || (tc?.preconditions || tc?.expected_results) || tc?.custom_fields?.length
+}
+
+function displayValue(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (Array.isArray(value)) return value.join(', ')
+  return String(value)
 }
 
 function typeColor(type) {

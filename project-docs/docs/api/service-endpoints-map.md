@@ -101,8 +101,8 @@
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
 | GET | `/api/v2/test-suite/space/{space_id}` | JWT + space check | paginated list; `search` uses PostgreSQL full-text rank (`name` A, `description` B), with `id` tie-break; `status` supports active, archived, all |
-| POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с suite, root→leaf `section_path` и `source_hash`; путь учитывается при проверке устаревшего preview |
-| POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов для cases любого статуса; устаревший preview возвращает `409` |
+| POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с suite, root→leaf `section_path` и `source_hash`; source, case content, versions, tags, custom fields и locations читаются в одном PostgreSQL `REPEATABLE READ` snapshot |
+| POST | `/api/v2/test-run` | JWT + space check | создаёт run и self-contained result snapshots для cases любого статуса; атомарный selection snapshot согласован даже если caller не передал optional `source_hash`; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`, `status`; возвращает nullable `created_by` с `{id, username}` и `completed_at` |
 | GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
 | GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты со suite и `section_path` (root→leaf), snapshot/legacy-признак, run timer и сумма фактических длительностей; `linked_bug_ids` остаётся массивом, `linked_bug_ids_raw` содержит неизменённое legacy JSON (включая `null`), `linked_bugs` содержит новые UUID-связи |
@@ -119,22 +119,36 @@
 | DELETE | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper с теми же active-run и ambiguity проверками |
 | POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + space check | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
-| GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами type/status/suite/priority/tags; при непустом `search` PostgreSQL `simple` full-text rank: title/short_name A, description/preconditions B, steps/expected C, legacy searchable postconditions/external_id/link D; одинаковый rank упорядочивается по `id`; повторяющиеся `tags` работают как AND |
+| GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами type/status/suite/priority/tags; при непустом `search` PostgreSQL `simple` full-text rank: title/short_name A, description/preconditions B, steps/expected C, legacy searchable postconditions/external_id/link D; отсутствующий short_name не подавляет совпадение по полному тексту; одинаковый rank упорядочивается по `id`; повторяющиеся `tags` работают как AND; каждое case включает `custom_fields` |
 | GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты меток кейсов в space |
-| GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом и метками |
-| GET | `/api/v2/test-case/section/{section_id}` | JWT + section suite space check | список кейсов section с приоритетом и метками |
-| POST | `/api/v2/test-case/` | JWT + space check | создаёт кейс с `priority` (`P0`–`P3`, default `P2`) и метками `tags` |
-| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`, priority и tags; omitted `tags` сохраняет метки, `tags: []` очищает их; явный `section_id: null` оставляет кейс в виртуальной секции `Default` |
+| GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом, метками и `custom_fields` |
+| GET | `/api/v2/test-case/section/{section_id}` | JWT + section suite space check | список кейсов section с приоритетом, метками и `custom_fields` |
+| POST | `/api/v2/test-case/` | JWT + space check | создаёт кейс с `priority` (`P0`–`P3`, default `P2`), метками `tags` и optional `custom_fields: [{field_id, value}]`; отсутствующие обязательные значения возвращают `422` |
+| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`, priority, tags и `custom_fields`; omission сохраняет values, переданный массив заменяет текущие значения; явный `section_id: null` оставляет кейс в виртуальной секции `Default` |
 | POST | `/api/v2/test-case/{testcase_id}/move` | JWT + space check | явно перемещает кейс в тело `{suite_id, section_id}`; оба поля обязательны, `section_id: null` означает виртуальную секцию `Default` указанного suite. Suite и section проверяются в space кейса; чужая/несуществующая ссылка возвращает общий `404`, section другого suite в том же space — `422`. Ответ содержит `id`, `space_id`, `suite_id`, `section_id`; перемещение не создаёт content version. |
 | GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/{version_id}` | JWT + space check | конкретная версия testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/diff` | JWT + space check | сравнение двух версий |
-| POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной; snapshot включает type, priority и значения меток |
+| POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной; snapshot включает type, priority, метки и совместимые custom-field values |
 | GET | `/api/v2/test-case/{testcase_id}/runs` | JWT + space check | история результата кейса с фактическим временем и доступными timing полями связанного run |
 | GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
 | GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |
 | POST | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | создаёт same-space связь Tech Doc и testcase |
 | DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + access to both spaces | удаляет связь только для same-space пары; service повторяет проверку |
+
+### Custom Fields
+
+| Method | Path | Auth/Access | Примечания |
+| --- | --- | --- | --- |
+| GET | `/api/v2/custom-field/space/{space_id}` | JWT + space check | definitions по space; `entity_type=testcase` возвращает `required` (по умолчанию `false`) |
+| GET | `/api/v2/custom-field/{field_id}` | JWT + field space check | definition после проверки доступа к её space |
+| POST | `/api/v2/custom-field/` | JWT + space check | создаёт typed definition; select/multiselect требуют хотя бы один уникальный непустой option; required fields поддерживаются для testcase |
+| PATCH | `/api/v2/custom-field/{field_id}` | JWT + field space check | type/options меняются только если текущие значения совместимы; select/multiselect требуют хотя бы один уникальный непустой option; включение required требует заполнения у всех существующих cases |
+| DELETE | `/api/v2/custom-field/{field_id}` | JWT + field space check | удаляет definition и live values; testcase-version/run snapshots остаются self-contained |
+| POST | `/api/v2/custom-field/value` | JWT + entity space check | typed value; field/entity type, same-space и доступ валидируются общим сервисом; testcase mutation создаёт версию |
+| GET | `/api/v2/custom-field/value/{entity_id}` | JWT + entity space check | live values определения; пустой набор разрешён для доступного entity |
+
+Testcase detail, list/search, create/update response `custom_fields` содержит definition metadata (`field_id`, `name`, `field_type`, `options`, `required`) и `value`; REST и MCP `search_test_cases` включают ту же структуру. Коллекции загружают значения пакетом. Version snapshots хранят metadata и values; `null` означает legacy version без достоверной истории. Создание/обновление принимает `custom_fields: [{field_id, value}]`; ключ `value` обязателен, а JSON `null` явно очищает необязательное значение. В PATCH omission всего `custom_fields` сохраняет values, переданный массив является полной заменой. Явные `null` в полях PATCH определения игнорируются для совместимости с прежним контрактом.
 
 ### V2 Sections
 

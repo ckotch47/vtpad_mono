@@ -142,6 +142,10 @@
                         <v-chip v-for="tag in testcase.tags || []" :key="tag" size="x-small" class="mr-1 mb-1" variant="tonal">{{ tag }}</v-chip>
                       </v-list-item-subtitle>
                     </v-list-item>
+                    <v-list-item v-for="field in testcase.custom_fields || []" :key="field.field_id">
+                      <v-list-item-title>{{ field.name }}<span v-if="field.required"> · Required</span></v-list-item-title>
+                      <v-list-item-subtitle>{{ formatCustomFieldValue(field.value) }}</v-list-item-subtitle>
+                    </v-list-item>
                     <v-list-item>
                       <v-list-item-title>External ID</v-list-item-title>
                       <v-list-item-subtitle>{{ testcase.external_id || '-' }}</v-list-item-subtitle>
@@ -220,8 +224,8 @@
                 <v-alert v-if="sameVersionsSelected" type="info" variant="tonal" density="compact" class="mb-3">
                   Select two different versions to compare.
                 </v-alert>
-                <v-alert v-else-if="versionA?.legacy || versionB?.legacy" type="info" variant="tonal" density="compact" class="mb-3">
-                  Some older snapshots do not contain type, priority, or tag history. Those values are shown as unknown.
+                <v-alert v-else-if="versionA?.legacy || versionB?.legacy || versionA?.custom_fields === null || versionB?.custom_fields === null" type="info" variant="tonal" density="compact" class="mb-3">
+                  Some older snapshots do not contain complete type, priority, tag, or custom-field history. Those values are shown as unknown.
                 </v-alert>
 
                 <template v-if="versionA && versionB && !sameVersionsSelected">
@@ -366,7 +370,8 @@ const versionComparisonRows = computed(() => {
     { key: 'title', label: 'Title', a: versionA.value.title, b: versionB.value.title },
     { key: 'type', label: 'Type', a: legacyValue(versionA.value.type), b: legacyValue(versionB.value.type) },
     { key: 'priority', label: 'Priority', a: legacyValue(versionA.value.priority), b: legacyValue(versionB.value.priority) },
-    { key: 'tags', label: 'Tags', a: formatTags(versionA.value.tags), b: formatTags(versionB.value.tags) }
+    { key: 'tags', label: 'Tags', a: formatTags(versionA.value.tags), b: formatTags(versionB.value.tags) },
+    { key: 'custom_fields', label: 'Custom Fields', a: formatCustomFields(versionA.value.custom_fields), b: formatCustomFields(versionB.value.custom_fields) }
   ]
   const richRows = [
     { key: 'description', label: 'Description', field: 'text' },
@@ -423,6 +428,18 @@ function legacyValue(value) {
 function formatTags(tags) {
   if (tags === null || tags === undefined) return 'Unknown (legacy snapshot)'
   return tags.length ? [...tags].sort((a, b) => a.localeCompare(b)).join(', ') : 'No tags'
+}
+
+function formatCustomFieldValue(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  return Array.isArray(value) ? value.join(', ') : String(value)
+}
+
+function formatCustomFields(fields) {
+  if (fields === null || fields === undefined) return 'Unknown (legacy snapshot)'
+  if (!fields.length) return 'No custom fields'
+  return fields.map((field) => `${field.name}: ${formatCustomFieldValue(field.value)}`).join('\n')
 }
 
 function extractSteps(value) {

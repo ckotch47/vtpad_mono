@@ -286,7 +286,7 @@ function fieldLabel(field) {
     title: 'Title', type: 'Type', suite_id: 'Suite', suite_name: 'Suite name',
     section_path: 'Section path', description: 'Description', preconditions: 'Preconditions',
     steps: 'Steps', expected_results: 'Expected results', priority: 'Priority', tags: 'Tags',
-    estimated_duration_seconds: 'Estimated time', status: 'Status', comment: 'Comment',
+    custom_fields: 'Custom Fields', estimated_duration_seconds: 'Estimated time', status: 'Status', comment: 'Comment',
     duration_seconds: 'Actual duration'
   })[field] || field
 }
@@ -313,7 +313,13 @@ function safeMarkup(value) {
 
 function displayValue(value) {
   if (value === null || value === undefined || value === '') return '—'
-  if (Array.isArray(value)) return value.map((item) => typeof item === 'object' ? item.name || JSON.stringify(item) : item).join(', ')
+  if (Array.isArray(value)) return value.map((item) => {
+    if (item && typeof item === 'object' && 'field_id' in item) {
+      const fieldValue = item.value === null || item.value === undefined ? '—' : Array.isArray(item.value) ? item.value.join(', ') : String(item.value)
+      return `${item.name}: ${fieldValue}`
+    }
+    return typeof item === 'object' ? item.name || JSON.stringify(item) : item
+  }).join('; ')
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }

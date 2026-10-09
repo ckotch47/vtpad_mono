@@ -31,6 +31,7 @@ def _case_to_dict(case: TestCaseModel) -> dict:
         "estimated_duration_seconds": value('estimated_duration_seconds'),
         "priority": value('priority'),
         "tags": value('tags'),
+        "custom_fields": value('custom_fields'),
         "short_name": value('short_name'),
         "external_id": value('external_id'),
         "space_id": str(space_id) if space_id else None,
@@ -52,4 +53,20 @@ async def _cases_to_dict_with_metadata(cases: list[TestCaseModel]) -> list[dict]
         for value in values:
             if value.get("tags") is None:
                 value["tags"] = tags_by_case.get(value["id"], [])
+    missing_custom_field_ids = [value["id"] for value in values if value.get("custom_fields") is None]
+    if missing_custom_field_ids:
+        from ..custom_field.service import CustomFieldValueService
+        custom_fields_by_case: dict[str, list[dict]] = {}
+        cases_by_space: dict[str, list[str]] = {}
+        for case in cases:
+            case_id = str(case.id)
+            if case_id in missing_custom_field_ids:
+                cases_by_space.setdefault(str(case.space_id), []).append(case_id)
+        for space_id, case_ids in cases_by_space.items():
+            custom_fields_by_case.update(
+                await CustomFieldValueService.get_snapshot_values(space_id, case_ids)
+            )
+        for value in values:
+            if value.get("custom_fields") is None:
+                value["custom_fields"] = custom_fields_by_case.get(value["id"], [])
     return values

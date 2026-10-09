@@ -49,6 +49,7 @@ class CustomFieldModel(Model):
     field_type = fields.CharEnumField(CustomFieldType, max_length=20)
     entity_type = fields.CharEnumField(CustomFieldEntityType, max_length=20)
     options = fields.JSONField(null=True, default=list)  # list of strings for select/multiselect
+    required = fields.BooleanField(default=False)
     sort = fields.IntField(default=0)
 
     space = fields.ForeignKeyField('models.SpaceModel', related_name='custom_fields')
@@ -73,3 +74,4 @@ class CustomFieldValueModel(Model):
 
     class Meta:
         table = "custom_field_value"
+        unique_together = (("field", "entity_id"),)

@@ -29,6 +29,8 @@
 | `403` или лог-ошибка в уведомлениях при отсутствии assigner | Background task пытался создать notification с пустым `assigner_id` | `vtpad_backend/app/src/bug/service.py`, `vtpad_backend/app/src/comments/service.py` |
 | `401` после долгого простоя | Access token expired, refresh failed | `app/src/auth/service.py`, Redis |
 | `403` при чтении списка suites | REST и MCP проверяют membership/роль в запрошенном space до поиска; клиенту нужно выбрать доступный space | `app/src/test_suite/router.py`, `app/src/mcp/tools/test_suites.py` |
+| `404` при чтении/записи custom field | Definition или entity отсутствует либо находится в другом space; чужие UUID не раскрываются | `app/src/custom_field/service.py` |
+| `422` при сохранении custom field | Тип/вариант значения не совпадает с definition, select/multiselect не имеет уникальных вариантов, отсутствует required value, либо изменение type/options сделало live values несовместимыми | `app/src/custom_field/service.py`, `app/src/test_case/service.py` |
 | Пустой экран после открытия `/` или входа | Главная страница и успешная авторизация переходили на `/space` без `spaceId`; существует только маршрут `/space/:spaceId` | `vtpad_front_v2/src/pages/index.vue`, `vtpad_front_v2/src/components/auth/authComponent.vue` |
 
 ## Исправленные дефекты
@@ -54,6 +56,7 @@
 19. Tech Docs REST unlink больше не меняет повреждённую cross-space связь: роут проверяет доступ к документу и testcase, а сервис повторно сверяет same-space пару. Повреждённый legacy `parent_id` больше не раскрывается в REST/MCP ответах и отображается как корневой документ без родителя.
 20. После закрытия левой панели пространств переключатель остаётся поверх содержимого и сохраняет возможность открыть панель без обновления страницы.
 21. Tech Docs различает пустое дерево, загрузку и ошибку: `Create first page` появляется только после успешно загруженного пустого списка; при ошибке доступен Retry.
+22. Case full-text search должен возвращать совпадения по title/description даже у записей без `short_name`; отсутствие идентификатора не должно блокировать результат после подсчёта совпадений.
 22. Главная страница, успешный вход и возврат после удаления space переходят на существующий `/company/spaces` через Vue Router; пустая заглушка `/space` больше не является точкой входа.
 
 ## Источники в коде

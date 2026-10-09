@@ -15,11 +15,23 @@ DEPENDENCY_TIMEOUT_SECONDS = 2
 logger = logging.getLogger(__name__)
 
 
+class HealthResponse(BaseModel):
+    status: Literal["ok"]
+
+
+class ReadinessResponse(BaseModel):
+    status: Literal["ready"]
+
+
 class ReadinessUnavailable(BaseModel):
     status: Literal["not_ready"]
 
 
-@router.get("/health", summary="Check whether the backend process is alive")
+@router.get(
+    "/health",
+    summary="Check whether the backend process is alive",
+    response_model=HealthResponse,
+)
 async def health_check():
     return {"status": "ok"}
 
@@ -36,6 +48,7 @@ async def _check_redis():
 @router.get(
     "/ready",
     summary="Check whether required backend dependencies are available",
+    response_model=ReadinessResponse,
     responses={
         503: {
             "model": ReadinessUnavailable,

@@ -85,11 +85,16 @@
 - `GET /api/v2/bugs/space/{space_id}/by-link/{link_uuid}`
 
 ### `app/src/analytics`
+- `GET /api/v2/analytics/space/{space_id}/quality`
+- `GET /api/v2/analytics/space/{space_id}/quality/results`
+- `GET /api/v2/analytics/space/{space_id}/time`
 - `GET /api/v2/analytics/space/{space_id}/bugs`
 - `GET /api/v2/analytics/space/{space_id}/bugs/by-run`
 - `GET /api/v2/analytics/space/{space_id}/bugs/by-suite`
 
 Linked-defect analytics use explicit UUID links only and require space membership. Bug/run joins enforce the same space. Each bug list item contains at most 25 `result_links`; `link_count` remains the full count and `result_links_truncated` indicates omitted navigation pairs.
+
+Quality and time endpoints require current space membership and share their service with MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends`. The paginated quality-results route/tool returns run/result source IDs for one UTC week and suite. Historical suite attribution uses `testcase_snapshot.suite_id`; unresolved legacy attribution is grouped as `Unknown / mixed suite`. The single run timer is attributed once by `test_run.suite_id`, never once per case suite.
 
 ### `app/src/comments`
 - `GET /api/v1/comment/{bug_id}`

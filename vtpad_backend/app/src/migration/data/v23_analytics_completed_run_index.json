@@ -1,0 +1,9 @@
+{
+  "transactional": false,
+  "cleanup_invalid_indexes": [
+    "idx_test_run_completed_space_time"
+  ],
+  "data": [
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_test_run_completed_space_time ON test_run (space_id, completed_at DESC, id DESC) WHERE status = 'completed' AND completed_at IS NOT NULL"
+  ]
+}

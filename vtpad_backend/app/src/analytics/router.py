@@ -1,4 +1,5 @@
 from typing import Literal
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -43,6 +44,52 @@ async def _validate_bug_filters(space_id: UUID, run_id: UUID | None, suite_id: U
         raise HTTPException(status_code=404, detail='not found')
     if suite_id is not None and not await TestSuiteModel.filter(id=suite_id, space_id=space_id).exists():
         raise HTTPException(status_code=404, detail='not found')
+
+
+async def _validate_analytics_suite(space_id: UUID, suite_id: UUID | None) -> None:
+    if suite_id is not None and not await TestSuiteModel.filter(id=suite_id, space_id=space_id).exists():
+        raise HTTPException(status_code=404, detail='not found')
+
+
+@router.get('/space/{space_id}/quality', dependencies=[Depends(bearer), Depends(check_user_into_space)])
+async def get_quality_trends(
+    space_id: UUID,
+    suite_id: UUID | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+):
+    await _validate_analytics_suite(space_id, suite_id)
+    return await AnalyticsService.get_quality_trends(
+        str(space_id), str(suite_id) if suite_id else None, start_date, end_date
+    )
+
+
+@router.get('/space/{space_id}/time', dependencies=[Depends(bearer), Depends(check_user_into_space)])
+async def get_time_trends(
+    space_id: UUID,
+    suite_id: UUID | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+):
+    await _validate_analytics_suite(space_id, suite_id)
+    return await AnalyticsService.get_time_trends(
+        str(space_id), str(suite_id) if suite_id else None, start_date, end_date
+    )
+
+
+@router.get('/space/{space_id}/quality/results', dependencies=[Depends(bearer), Depends(check_user_into_space)])
+async def get_quality_results(
+    space_id: UUID,
+    suite_id: UUID,
+    week_start: date,
+    status: Literal['passed', 'failed', 'blocked', 'skipped'] | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+):
+    await _validate_analytics_suite(space_id, suite_id)
+    return await AnalyticsService.get_quality_results(
+        str(space_id), str(suite_id), week_start, page, page_size, status
+    )
 
 
 @router.get('/space/{space_id}/bugs', dependencies=[Depends(bearer), Depends(check_user_into_space)])

@@ -112,8 +112,8 @@ BD2 completed in `69bd146`. JSON v1 and CSV v1 are available through shared REST
 - [x] Harden Tech Docs CRUD and traceability with space membership, same-space parent checks, and cycle protection
 
 ### Analytics — Later
-- [ ] Expand analytics beyond the existing dashboard, suite coverage, and space-level statistics
-- [ ] Use recorded case and run execution times for duration and trend analysis
+- [x] Expand analytics beyond the existing dashboard, suite coverage, and space-level statistics — weekly per-suite failed rates and recurrent failures; REST/MCP use the same service.
+- [x] Use recorded case and run execution times for duration and trend analysis — snapshot estimates, result durations, measured coverage, and run timer intervals with UTC buckets and single-suite timer attribution.
 
 ---
 

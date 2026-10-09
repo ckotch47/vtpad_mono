@@ -1,3 +1,8 @@
+from datetime import date
+from uuid import UUID
+
+from fastapi import HTTPException
+
 from ..core import mcp
 from ..utils import _get_user_id, _case_to_dict
 from fastmcp.server.dependencies import get_http_request
@@ -22,6 +27,7 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
 
@@ -73,3 +79,83 @@ async def get_analytics_space(space_id: str) -> dict:
         Stats: cases, suites, runs, latest results breakdown
     """
     return await AnalyticsService.get_space_stats(space_id)
+
+
+def _parse_analytics_date(value: str | None) -> date | None:
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail='dates must use YYYY-MM-DD') from exc
+
+
+async def _authorize_analytics_request(space_id: str, suite_id: str | None) -> None:
+    try:
+        UUID(space_id)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=422, detail='space_id must be a UUID') from exc
+    AnalyticsService._validate_suite_filter(suite_id)
+    request = get_http_request()
+    await check_user_into_space(space_id, request)
+    if suite_id is not None and not await TestSuiteModel.filter(id=suite_id, space_id=space_id).exists():
+        raise HTTPException(status_code=404, detail='not found')
+
+
+@mcp.tool()
+async def get_quality_trends(
+    space_id: str,
+    suite_id: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
+    """Get weekly failed rates and recurrent failures for a space or suite.
+
+    Dates are inclusive UTC calendar dates in YYYY-MM-DD format. With no dates,
+    the service uses the latest twelve complete Monday-to-Sunday weeks.
+    """
+    await _authorize_analytics_request(space_id, suite_id)
+    return await AnalyticsService.get_quality_trends(
+        space_id, suite_id, _parse_analytics_date(start_date), _parse_analytics_date(end_date)
+    )
+
+
+@mcp.tool()
+async def get_quality_results(
+    space_id: str,
+    suite_id: str,
+    week_start: str,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> dict:
+    """Get a paginated source-result drill-down for one UTC Monday week.
+
+    Returned run/result IDs are the rows contributing to the suite's failed-rate
+    denominator. `not_run` results are excluded, matching the aggregate.
+    """
+    await _authorize_analytics_request(space_id, suite_id)
+    parsed_week_start = _parse_analytics_date(week_start)
+    if parsed_week_start is None:
+        raise HTTPException(status_code=422, detail='week_start is required')
+    return await AnalyticsService.get_quality_results(
+        space_id, suite_id, parsed_week_start, page, page_size, status
+    )
+
+
+@mcp.tool()
+async def get_time_trends(
+    space_id: str,
+    suite_id: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
+    """Get estimated, measured case and active run time for completed runs.
+
+    Dates are inclusive UTC calendar dates in YYYY-MM-DD format. Ranges up to
+    31 days use daily buckets; longer ranges use Monday-based UTC weeks.
+    """
+    await _authorize_analytics_request(space_id, suite_id)
+    return await AnalyticsService.get_time_trends(
+        space_id, suite_id, _parse_analytics_date(start_date), _parse_analytics_date(end_date)
+    )

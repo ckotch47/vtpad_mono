@@ -47,7 +47,7 @@
 - Основной текст не выходит за диапазон размеров (типографический baseline).
 - Нет явных layout-breaks (перекрытия, обрезка ключевых блоков).
 - Spaces drawer открывается и закрывается без перекрытия первой строки; пустые имена отображаются как `Unnamed space`, поиск по ним не падает.
-- На desktop верхняя строка содержит переключатель drawer, вкладки Spaces и меню профиля; проверить active Space, доступ к Notifications/profile/company users и поиск Spaces через drawer. Переключение Spaces и открытие/закрытие drawer не должны перезагружать страницу.
+- На desktop верхняя строка содержит переключатель drawer, разделы текущего Space (Dashboard, Test Suites, Test Cases, Test Runs, Test Plans, Tech Docs, Bugs) и меню профиля. Проверить активный раздел на списке и детальной странице, переход по разделам сохраняет текущий Space и не перезагружает страницу; смена Space доступна через drawer. Также проверить доступ к Notifications/profile/company users и поиск Spaces через drawer.
 - На desktop подписи фильтров Test Cases остаются читаемыми; поиск и фильтры продолжают менять выдачу, а `New Test Case` заметна и не перекрывает фильтры.
 - Иконки-действия имеют доступные имена, а при клавиатурной навигации виден фокус.
 - Cmd/Ctrl+S сохраняет только активную форму; в поиске и вне формы не перехватывает браузерное действие.
@@ -68,7 +68,7 @@
 - В Suites проверить split-pane и URL-backed selection: список слева, выбранная деталь справа; edit/archive доступны отдельными кнопками.
 - Проверить loading, initial error, permission-denied и empty/no-match; Retry/Clear доступны только в подходящих состояниях.
 - Проверить поиск/фильтры и переход по ссылке без полной перезагрузки страницы; сохранять текущие query/route semantics.
-- В общей шапке проверить переключение между вкладками Spaces, переключатель drawer и профиль на desktop; проверить, что текущий Space виден и дополнительные пространства доступны при переполнении.
+- В общей шапке проверить переключение между разделами текущего Space, переключатель drawer и профиль на desktop; переход между разделами сохраняет текущий Space, а список других Spaces доступен через drawer.
 - Эта проверка desktop-only; мобильная верстка и mobile smoke исключены по указанию пользователя.
 - Desktop UI/UX coherence retest (2026-10-09, `1276x718`): Cases, Suites, Plans, Runs, and Bugs lists rendered with primary actions/filters and rows visible. Bugs `New Bug` is in the page toolbar and the table contains only bug rows; its Filter button opens the filter panel. Selecting a suite/section keeps the split view on one page; the section title appears once and its menu exposes `More actions for API` to accessibility. Run detail `Refresh time` keeps the same route and updates within the Vue view. The Spaces drawer collapses to an accessible `Open spaces navigation` button and reopens without navigation. No product records or filters were changed. Still pending: `1440x900`, keyboard-only focus and activation/tooltip checks, and loading/error/permission fixtures. Mobile is explicitly excluded.
 

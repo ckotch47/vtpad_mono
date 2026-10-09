@@ -19,21 +19,20 @@
           @click="drawer = mdAndUp ? !drawer : true"
         />
         <v-tabs
-          v-if="mdAndUp && spaces.length"
-          class="spaces-navigation-tabs"
-          :model-value="activeSpaceId"
+          v-if="mdAndUp && isSpaceSectionRoute"
+          class="space-section-navigation-tabs"
+          :model-value="route.meta.tabValue"
           show-arrows
           align-tabs="start"
           density="compact"
         >
           <v-tab
-            v-for="space in spaces"
-            :key="space.id"
-            :to="`/space/${space.id}/dashboard`"
-            :value="String(space.id)"
-            :aria-label="spaceName(space)"
+            v-for="section in spaceNavigationSections"
+            :key="section.value"
+            :to="`/space/${route.params.spaceId}/${section.path}`"
+            :value="section.value"
           >
-            {{ spaceName(space) }}
+            {{ section.label }}
           </v-tab>
         </v-tabs>
         <v-spacer />
@@ -92,7 +91,6 @@ import { useDisplay } from 'vuetify'
 import ProfileLeftComponent from '@/components/leftAsideMain/ProfileLeftComponent.vue'
 import SpacesListComponent from '@/components/leftAsideMain/SpacesListComponent.vue'
 import CommandPaletteComponent from '@/components/common/commandPaletteComponent.vue'
-import { spaceService } from '@/services'
 import 'vue3-toastify/dist/index.css'
 
 const route = useRoute()
@@ -102,44 +100,21 @@ const isPublicRoute = computed(() => route.meta?.isPublic === true)
 
 const routerReady = ref(false)
 const drawer = ref(null)
-const spaceId = ref(null)
-const routerMeta = ref({})
 const authToken = ref(undefined)
 const showShortcuts = ref(false)
 const commandPalette = ref(null)
-const spaces = ref([])
-const spacesLoaded = ref(false)
-const spacesLoading = ref(false)
-const activeSpaceId = computed(() => {
-  const routeSpaceId = route.params.spaceId ?? route.params.id
-  return spaces.value.some(space => String(space.id) === String(routeSpaceId)) ? String(routeSpaceId) : ''
-})
-
-function loadSpaces() {
-  if (!authToken.value) {
-    spaces.value = []
-    spacesLoaded.value = false
-    return
-  }
-  if (spacesLoaded.value || spacesLoading.value) return
-  spacesLoading.value = true
-  const requestToken = authToken.value
-  spaceService.list().then(res => {
-    if (authToken.value === requestToken && !isPublicRoute.value) {
-      spaces.value = Array.isArray(res.data) ? res.data : []
-    }
-  }).catch(() => {
-    if (authToken.value === requestToken && !isPublicRoute.value) spaces.value = []
-  }).finally(() => {
-    if (authToken.value === requestToken && !isPublicRoute.value) spacesLoaded.value = true
-    spacesLoading.value = false
-  })
-}
-
-function spaceName(space) {
-  const name = typeof space?.name === 'string' ? space.name.trim() : ''
-  return !name || ['null', 'undefined'].includes(name.toLocaleLowerCase()) ? 'Unnamed space' : name
-}
+const spaceNavigationSections = [
+  { label: 'Dashboard', value: 'dashboard', path: 'dashboard' },
+  { label: 'Test Suites', value: 'test-suites', path: 'test-suites' },
+  { label: 'Test Cases', value: 'test-cases', path: 'test-cases' },
+  { label: 'Test Runs', value: 'test-runs', path: 'test-runs' },
+  { label: 'Test Plans', value: 'test-plans', path: 'test-plans' },
+  { label: 'Tech Docs', value: 'tech-docs', path: 'tech-docs' },
+  { label: 'Bugs', value: 'bugs', path: 'bugs' },
+]
+const isSpaceSectionRoute = computed(() =>
+  Boolean(route.params.spaceId) && spaceNavigationSections.some(section => section.value === route.meta?.tabValue),
+)
 
 function checkAuth() {
   if (isPublicRoute.value) {
@@ -149,13 +124,6 @@ function checkAuth() {
   authToken.value = localStorage.getItem('auth_token')
   if (!authToken.value && location.pathname !== '/auth' && location.pathname !== '/404') {
     location.href = '/auth'
-  }
-}
-
-function updateRouteMeta() {
-  routerMeta.value = router.currentRoute.value
-  if (route.params?.id) {
-    spaceId.value = route.params.id
   }
 }
 
@@ -203,8 +171,6 @@ onMounted(async () => {
   await router.isReady()
   routerReady.value = true
   checkAuth()
-  loadSpaces()
-  updateRouteMeta()
   if (!isPublicRoute.value) document.addEventListener('keydown', onKeydown, true)
 })
 
@@ -213,16 +179,12 @@ onUnmounted(() => {
 })
 
 watch(route, () => {
-  updateRouteMeta()
   if (isPublicRoute.value) {
     authToken.value = null
-    spaces.value = []
-    spacesLoaded.value = false
     showShortcuts.value = false
     document.removeEventListener('keydown', onKeydown, true)
   } else {
     checkAuth()
-    loadSpaces()
     document.addEventListener('keydown', onKeydown, true)
   }
 }, { deep: true })
@@ -234,9 +196,9 @@ watch(route, () => {
   padding-inline: 12px;
 }
 
-.spaces-navigation-tabs {
+.space-section-navigation-tabs {
   min-width: 0;
-  max-width: calc(100vw - 220px);
+  max-width: calc(100vw - 300px);
   flex: 1 1 auto;
 }
 

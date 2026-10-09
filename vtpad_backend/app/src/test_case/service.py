@@ -522,6 +522,25 @@ class TestCaseService:
                 raise HTTPException(status_code=404, detail="Test case not found")
             if not data and tag_values is None and custom_field_values is None:
                 return testcase
+            from ..section.model import SectionModel
+            from ..test_suite.model import TestSuiteModel
+
+            target_suite_id = data.get("suite_id", str(testcase.suite_id) if testcase.suite_id else None)
+            target_section_id = data.get("section_id", str(testcase.section_id) if testcase.section_id else None)
+            if target_suite_id:
+                target_suite = await TestSuiteModel.filter(id=target_suite_id).using_db(connection).first()
+                if not target_suite or str(target_suite.space_id) != str(testcase.space_id):
+                    raise HTTPException(status_code=404, detail="Test case destination not found")
+            if target_section_id:
+                target_section = await SectionModel.filter(id=target_section_id).using_db(connection).first()
+                target_section_suite = (
+                    await TestSuiteModel.filter(id=target_section.suite_id).using_db(connection).first()
+                    if target_section else None
+                )
+                if not target_section_suite or str(target_section_suite.space_id) != str(testcase.space_id):
+                    raise HTTPException(status_code=404, detail="Test case destination not found")
+                if str(target_section.suite_id) != str(target_suite_id):
+                    raise HTTPException(status_code=422, detail="Section must belong to destination suite")
             if data:
                 await TestCaseModel.filter(id=testcase_id).using_db(connection).update(**data)
             if tag_values is not None:
@@ -636,6 +655,12 @@ class TestCaseService:
         if dto.sort_before_id:
             before = await TestCaseService.get_by_id(dto.sort_before_id)
             target = await TestCaseService.get_by_id(testcase_id)
+            if (
+                str(before.space_id) != str(target.space_id)
+                or str(before.suite_id) != str(target.suite_id)
+                or str(before.section_id) != str(target.section_id)
+            ):
+                raise HTTPException(status_code=422, detail="Cases must be reordered within the same section")
             await TestCaseModel.filter(id=dto.sort_before_id).update(sort=target.sort)
             await TestCaseModel.filter(id=testcase_id).update(sort=before.sort)
 

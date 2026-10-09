@@ -6,9 +6,17 @@ from starlette.requests import Request
 from tortoise import Tortoise
 
 from app.src.common.crypto import user_payload
+from app.src.common.space_capabilities import require_request_space_capability
 
 
-async def check_user_into_space(space_id: uuid.UUID | str = None, request: Request = None):
+async def check_user_into_space(
+    space_id: uuid.UUID | str = None,
+    request: Request = None,
+    capability: str | None = None,
+):
+    if capability is not None:
+        await require_request_space_capability(str(space_id), request, capability)
+        return
     conn = Tortoise.get_connection('default')
     # MCPAuthMiddleware records API-token authentication under an MCP-specific
     # key. REST requests retain their existing JWT decoding path.

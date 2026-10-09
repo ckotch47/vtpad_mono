@@ -4,7 +4,10 @@ import json
 from typing import Any
 
 from fastapi import HTTPException
+from starlette.requests import Request
 from tortoise import Tortoise
+
+from .crypto import user_payload
 
 
 SPACE_WRITE_CAPABILITIES = (
@@ -108,3 +111,21 @@ async def require_space_capability(
     capabilities = await get_space_capabilities(user_id, space_id)
     if not capabilities[capability]:
         raise HTTPException(status_code=403, detail="not have right")
+
+
+async def require_request_space_capability(
+    space_id: str,
+    request: Request,
+    capability: str,
+) -> None:
+    """Resolve the actor from the authenticated REST or MCP request and enforce a write right."""
+    user_id = getattr(request.state, "mcp_authenticated_user_id", None)
+    if user_id is None:
+        authorization = request.headers.get("authorization", "")
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            raise HTTPException(status_code=401, detail="not authenticated")
+        user_id = user_payload(token).get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="not authenticated")
+    await require_space_capability(str(user_id), str(space_id), capability)

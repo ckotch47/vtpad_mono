@@ -15,9 +15,9 @@ router = APIRouter(
 )
 
 
-async def _require_testcase_access(testcase_id: str, request: Request):
+async def _require_testcase_access(testcase_id: str, request: Request, capability: str | None = None):
     testcase = await TestCaseService.get_by_id(testcase_id)
-    await check_user_into_space(str(testcase.space_id), request)
+    await check_user_into_space(str(testcase.space_id), request, capability=capability)
     return testcase
 
 
@@ -83,21 +83,21 @@ async def get_by_id(testcase_id: str, request: Request):
 
 @router.post('/', dependencies=[Depends(bearer)])
 async def create(dto: TestCaseCreateDto, request: Request, token: str = Depends(bearer)):
-    await check_user_into_space(dto.space_id, request)
+    await check_user_into_space(dto.space_id, request, capability="cases")
     case = await TestCaseService.create(dto, token)
     return await TestCaseService.serialize_case(case)
 
 
 @router.patch('/{testcase_id}', dependencies=[Depends(bearer)])
 async def update(testcase_id: str, dto: TestCaseUpdateDto, request: Request, token: str = Depends(bearer)):
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="cases")
     case = await TestCaseService.update(testcase_id, dto, token)
     return await TestCaseService.serialize_case(case)
 
 
 @router.post('/{testcase_id}/move', dependencies=[Depends(bearer)])
 async def move_testcase(testcase_id: str, dto: TestCaseMoveDto, request: Request):
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="cases")
     moved = await TestCaseService.move(testcase_id, dto)
     return {
         'id': str(moved.id),
@@ -109,13 +109,13 @@ async def move_testcase(testcase_id: str, dto: TestCaseMoveDto, request: Request
 
 @router.delete('/{testcase_id}', dependencies=[Depends(bearer)])
 async def delete(testcase_id: str, request: Request):
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="cases")
     return await TestCaseService.delete(testcase_id)
 
 
 @router.patch('/sort/{testcase_id}', dependencies=[Depends(bearer)])
 async def update_sort(testcase_id: str, dto: TestCaseSortDto, request: Request):
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="cases")
     return await TestCaseService.update_sort(testcase_id, dto)
 
 
@@ -140,7 +140,7 @@ async def get_tech_docs(testcase_id: str, request: Request):
 @router.put('/{testcase_id}/tech-docs', dependencies=[Depends(bearer)])
 async def replace_tech_docs(testcase_id: str, dto: TestCaseTechDocsReplaceDto, request: Request):
     from ..traceability.service import TraceabilityService
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="traceability")
     return await TraceabilityService.replace_docs_for_testcase(testcase_id, dto.tech_doc_ids)
 
 
@@ -164,13 +164,13 @@ async def get_version(testcase_id: str, version_id: str, request: Request):
 
 @router.post('/{testcase_id}/versions/{version_id}/restore', dependencies=[Depends(bearer)])
 async def restore_version(testcase_id: str, version_id: str, request: Request, token: str = Depends(bearer)):
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="cases")
     case = await TestCaseService.restore_version(testcase_id, version_id, token)
     return await TestCaseService.serialize_case(case)
 
 
 @router.post('/{testcase_id}/duplicate', dependencies=[Depends(bearer)])
 async def duplicate_testcase(testcase_id: str, request: Request, token: str = Depends(bearer)):
-    await _require_testcase_access(testcase_id, request)
+    await _require_testcase_access(testcase_id, request, capability="cases")
     case = await TestCaseService.duplicate(testcase_id, token)
     return await TestCaseService.serialize_case(case)

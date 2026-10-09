@@ -154,6 +154,14 @@ Desktop UIX r1 retest (2026-10-09): UIX-001–004 passed on the observed run, sp
 
 Desktop UI/UX retest (2026-10-09, before UXN-001 fix): the previous fixed toggle overlapped the Test Cases Tags filter and its inner button lacked an accessible name; the drawer showed “No spaces” while the cases list request returned HTTP 500. Implementation evidence is recorded in the current commit; rerun the viewport and long-page checks above when the local service has usable route data. Data-dependent states and mobile remain outside this check.
 
+Desktop UI/UX execution (2026-10-09, after UXN-001 and list framing changes):
+- On the authenticated local app, the Spaces toggle exposes the accessible name `Open spaces navigation`. Keyboard focus reaches it, Enter opens the drawer, and the drawer close control returns to the same Run detail URL. Pointer open/close also worked without route change.
+- Run detail showed its group map fixed below the shell while the case list scrolled. Selecting Security moved focus to that group heading and updated the current-group indicator. The displayed calendar elapsed value advanced from `3179h 18m` to `3179h 20m` while the Run URL stayed unchanged; this historical run has no tracked active/paused intervals, so those states were not exercised.
+- Cases, Suites, Plans, Runs, and Bugs rendered their common heading/toolbar/list hierarchy with populated data. The Suites detail showed the section list on the left and selected section cases on the right. Cases search for `GET /health` updated the query and matching results in place. Bugs search showed `No matching bugs` for an unmatched query and clearing it restored the list.
+- This root-session browser pass used the available `853x820` desktop-app viewport. A parallel source/visual review observed Cases at `1276x718` and Suites/Plans/Runs/Bugs at `1440x900`, but those routes were not all rechecked after the final commit. The full route-by-viewport matrix (`1276x718`, `1440x900`), complete keyboard traversal of each filter/action, error/403/loading fixtures, and mobile remain not_run.
+- During the parallel smoke, a blank bug `VHC-1` was accidentally created. The frontend proxy was confirmed to target the backend on port `8000`, whose configured DB was the disposable `vtpad_su6_runtime_20261009`. After confirming the exact empty-title row and that it had no linked results, tags, or comments, that one test row was removed from the disposable DB. No production database was touched.
+- Verdict: targeted desktop checks passed; full UI/UX acceptance remains partial until the remaining viewport and keyboard/error-state cases above are exercised.
+
 7. Bugs (если включено в текущем контуре)
 - List загрузка.
 - Создание бага.

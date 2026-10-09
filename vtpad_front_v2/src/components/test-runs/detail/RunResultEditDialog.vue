@@ -9,7 +9,7 @@
       <v-card-title class="d-flex align-center">
         <span>Update Result</span>
         <v-spacer />
-        <v-btn v-if="result.status === 'failed'" color="error" size="small" prepend-icon="mdi-bug" @click="$emit('create-bug')">
+        <v-btn v-if="canLinkBugs && result.status === 'failed'" color="error" size="small" prepend-icon="mdi-bug" @click="$emit('create-bug')">
           Create Bug
         </v-btn>
       </v-card-title>
@@ -37,6 +37,7 @@
         />
         <v-textarea :model-value="result.comment" label="Comment" rows="2" class="mb-2" @update:model-value="updateField('comment', $event)" />
         <v-autocomplete
+          v-if="canLinkBugs"
           :model-value="(result.linked_bugs || []).map(bug => bug.id)"
           :items="spaceBugs"
           item-title="short_name"
@@ -68,7 +69,8 @@ const props = defineProps({
   result: { type: Object, default: null },
   spaceBugs: { type: Array, default: () => [] },
   saving: { type: Boolean, default: false },
-  hasUnsavedChanges: { type: Boolean, default: false }
+  hasUnsavedChanges: { type: Boolean, default: false },
+  canLinkBugs: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue', 'update:result', 'save', 'create-bug'])

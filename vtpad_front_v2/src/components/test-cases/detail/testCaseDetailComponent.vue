@@ -17,6 +17,7 @@
       <v-chip size="small" :color="priorityColor(testcase.priority)" class="mr-2">{{ priorityLabel(testcase.priority) }}</v-chip>
       <v-chip size="small" :color="statusColor(testcase.status)">{{ testcase.status }}</v-chip>
       <v-btn
+        v-if="canEditCases"
         icon
         class="ml-2"
         :to="`/space/${spaceId}/test-cases/${caseId}/edit`"
@@ -273,7 +274,7 @@
                     </tbody>
                   </v-table>
                   <div class="d-flex justify-end mt-3">
-                    <v-btn color="primary" variant="tonal" :loading="restoringVersion" @click="restoreVersionB">
+                    <v-btn v-if="canEditCases" color="primary" variant="tonal" :loading="restoringVersion" @click="restoreVersionB">
                       Restore v{{ versionB.version_number }} as new version
                     </v-btn>
                   </div>
@@ -338,12 +339,15 @@ import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
 import { testCaseService } from '@/services'
 import { sanitizeHtml } from '@/utils/sanitize'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const log = useLogger('app')
 const route = useRoute()
 const api = useApi()
+const capabilityStore = useSpaceCapabilitiesStore()
 
 const spaceId = computed(() => route.params.spaceId)
+const canEditCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
 const caseId = route.params.caseId
 
 const loader = ref(true)
@@ -545,6 +549,7 @@ function formatDuration(seconds) {
 }
 
 onMounted(() => {
+  capabilityStore.load(spaceId.value)
   loadCase()
 })
 </script>

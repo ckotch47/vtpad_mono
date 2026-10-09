@@ -12,6 +12,13 @@
     <v-progress-linear color="primary" indeterminate />
   </div>
 
+  <v-container v-else-if="!canEditCases" class="mx-auto custom-container max-width-1500 pa-6">
+    <v-alert type="info" variant="tonal" title="Read-only access">
+      You can view this test case, but you cannot edit it.
+      <v-btn class="ml-2" variant="text" :to="`/space/${spaceId}/test-cases/${caseId}`">View test case</v-btn>
+    </v-alert>
+  </v-container>
+
   <v-container v-else fluid class="mx-auto custom-container max-width-1500 pa-6">
     <v-row>
       <v-col cols="12" md="9">
@@ -217,12 +224,15 @@ import { useApi } from '@/composables/useApi'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
 import { testCaseService } from '@/services'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const router = useRouter()
 const api = useApi()
+const capabilityStore = useSpaceCapabilitiesStore()
 
 const spaceId = computed(() => route.params.spaceId)
+const canEditCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
 const caseId = route.params.caseId
 const draftKey = `case-draft-${caseId}`
 
@@ -354,6 +364,9 @@ watch(form, () => {
 }, { deep: true })
 
 onMounted(() => {
-  loadCase()
+  capabilityStore.load(spaceId.value).then(() => {
+    loader.value = false
+    if (canEditCases.value) loadCase()
+  }).catch(() => { loader.value = false })
 })
 </script>

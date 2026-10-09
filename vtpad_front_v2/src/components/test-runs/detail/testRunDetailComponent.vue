@@ -35,7 +35,7 @@
             {{ run.status }}
           </v-chip>
           <v-btn
-            v-if="publicRunLinksEnabled"
+            v-if="publicRunLinksEnabled && canManageRuns"
             class="ml-2"
             color="primary"
             variant="outlined"
@@ -71,14 +71,14 @@
     <v-container fluid class="py-0">
       <v-row>
         <v-col>
-          <v-btn v-if="run.status === 'draft'" color="primary" prepend-icon="mdi-play" class="mr-2" @click="startRun">
+          <v-btn v-if="canManageRuns && run.status === 'draft'" color="primary" prepend-icon="mdi-play" class="mr-2" @click="startRun">
             Start Run
           </v-btn>
-          <v-btn v-if="run.status === 'active'" color="success" prepend-icon="mdi-check" class="mr-2" @click="completeRun">
+          <v-btn v-if="canManageRuns && run.status === 'active'" color="success" prepend-icon="mdi-check" class="mr-2" @click="completeRun">
             Complete Run
           </v-btn>
           <v-btn
-            v-if="run.status === 'active' && run.timer?.state === 'running'"
+            v-if="canManageRuns && run.status === 'active' && run.timer?.state === 'running'"
             color="warning"
             prepend-icon="mdi-pause"
             :loading="timerActionLoading"
@@ -86,7 +86,7 @@
             @click="changeTimerState('pause')"
           >Pause</v-btn>
           <v-btn
-            v-if="run.status === 'active' && run.timer?.state === 'paused'"
+            v-if="canManageRuns && run.status === 'active' && run.timer?.state === 'paused'"
             color="success"
             prepend-icon="mdi-play"
             :loading="timerActionLoading"
@@ -109,10 +109,10 @@
           </v-btn-toggle>
         </v-col>
         <v-col cols="12" md="7" class="d-flex justify-md-end align-center ga-2">
-          <span class="text-caption">{{ selectedResultIds.length }} selected</span>
+          <span v-if="canEditResults" class="text-caption">{{ selectedResultIds.length }} selected</span>
           <v-btn size="small" variant="text" :disabled="!nextNotRunResult" @click="goToNextNotRun">Next not run</v-btn>
-          <v-select v-model="bulkStatus" :items="bulkStatuses" label="Set selected to" density="compact" hide-details style="max-width: 170px" :disabled="run.status !== 'active' || !selectedResultIds.length" />
-          <v-btn size="small" color="primary" :loading="bulkUpdating" :disabled="run.status !== 'active' || !selectedResultIds.length" @click="bulkUpdateResults">Apply</v-btn>
+          <v-select v-if="canEditResults" v-model="bulkStatus" :items="bulkStatuses" label="Set selected to" density="compact" hide-details style="max-width: 170px" :disabled="run.status !== 'active' || !selectedResultIds.length" />
+          <v-btn v-if="canEditResults" size="small" color="primary" :loading="bulkUpdating" :disabled="run.status !== 'active' || !selectedResultIds.length" @click="bulkUpdateResults">Apply</v-btn>
         </v-col>
       </v-row>
       <v-row v-if="groupedResults.length">
@@ -201,14 +201,16 @@
                 <v-list-item :id="`result-${result.id}`" v-for="result in group.results" :key="result.id" class="result-item">
                   <template #prepend>
                     <v-checkbox-btn
+                      v-if="canEditResults"
                       v-model="selectedResultIds"
                       :value="result.id"
-                      :disabled="run.status !== 'active'"
+                      :disabled="!canEditResults || run.status !== 'active'"
                       :aria-label="`Select ${result.testcase?.title || 'test case'}`"
                     />
                     <v-tooltip :text="`Change status to ${statusLabel(nextStatus(result.status))}`" location="top">
                       <template #activator="{ props: tooltipProps }">
                         <v-btn
+                          v-if="canEditResults"
                           v-bind="tooltipProps"
                           icon
                           size="small"
@@ -296,6 +298,7 @@
                       #{{ bugId }}
                     </v-chip>
                     <v-btn
+                      v-if="canEditResults"
                       icon
                       size="x-small"
                       variant="text"
@@ -334,6 +337,7 @@
       :result="editingResult"
       :space-bugs="spaceBugs"
       :saving="savingResult"
+      :can-link-bugs="canLinkBugs"
       :has-unsaved-changes="resultEditDirty"
       @update:result="editingResult = $event"
       @save="saveResult"
@@ -343,6 +347,7 @@
     <case-view-dialog v-model="caseDialogOpen" :test-case="selectedCase" @edit="caseDialogOpen = false" />
 
     <quick-bug-dialog
+      v-if="canLinkBugs"
       :model-value="bugModal"
       :bug="newBug"
       :saving="creatingBug"
@@ -378,12 +383,17 @@ import QuickBugDialog from './QuickBugDialog.vue'
 import RunComparisonDialog from './RunComparisonDialog.vue'
 import PublicRunLinkDialog from './PublicRunLinkDialog.vue'
 import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const log = useLogger('testRunDetail')
 const route = useRoute()
+const capabilityStore = useSpaceCapabilitiesStore()
 
 const spaceId = computed(() => route.params.spaceId)
 const runId = computed(() => route.params.runId)
+const canManageRuns = computed(() => capabilityStore.can(spaceId.value, 'runs'))
+const canEditResults = computed(() => capabilityStore.can(spaceId.value, 'results'))
+const canLinkBugs = computed(() => capabilityStore.can(spaceId.value, 'run_bug_links'))
 
 const run = ref({})
 const comparisonOpen = ref(false)
@@ -593,6 +603,10 @@ watch(runId, async (newRunId, previousRunId) => {
   currentGroupId.value = null
   await loadRun()
 })
+
+watch(spaceId, (id) => {
+  if (id && id !== 'undefined') capabilityStore.load(id)
+}, { immediate: true })
 
 async function refreshTimer() {
   if (timerRefreshLoading.value) return

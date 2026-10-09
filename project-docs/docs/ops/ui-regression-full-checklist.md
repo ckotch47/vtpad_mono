@@ -107,6 +107,7 @@
 - Completing a run notifies only its creator; runs without a creator produce no recipient notification.
 - Repeated or concurrent completion requests create one notification, not duplicates.
 - The notification contains no run title/status, bug details, or user data; its “Open run” action navigates with Vue Router and marks the item read without a page reload.
+- After opening an unread notification, the global unread badge refreshes immediately; “Read all” clears the badge without a page reload.
 - If the referenced run is no longer accessible, opening it returns the normal access/not-found state and reveals no run details.
 - The unread counter and SSE toast update for `RUN_COMPLETED`; the toast uses generic text and does not disclose run metadata.
 

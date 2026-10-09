@@ -9,12 +9,12 @@
   <div v-if="!loader">
     <v-list v-if="items">
       <v-list-item
-        v-for="item in items"
-        :key="item.id"
-        :value="item.id"
-        :prepend-icon="!item.read ? 'mdi-vector-point' : 'mdi'"
-        class="notification-list--item"
-        @click="readNotification(item.id)"
+      v-for="item in items"
+      :key="item.id"
+      :to="completedRunRoute(item) || undefined"
+      :prepend-icon="!item.read ? 'mdi-vector-point' : 'mdi'"
+      class="notification-list--item"
+      @click="readNotification(item.id)"
       >
         <notification-list-item-update-component v-if="item.event === 'UPDATE'" :elem="item" />
         <notification-list-item-comment-component v-if="item.event === 'COMMENT'" :elem="item" />
@@ -55,9 +55,20 @@ const infinityScrollBtn = ref(null)
 
 function readAllNotification() {
   notificationService.markAllRead().then(() => {
+    items.value = items.value.map(item => ({ ...item, read: true }))
+    window.dispatchEvent(new Event('vtpad:notification-count-refresh'))
     loader.value = true
     getNotification()
   })
+}
+
+function completedRunRoute(item) {
+  if (item.event !== 'RUN_COMPLETED') return null
+  const route = item.data?.route
+  if (typeof route !== 'string') return null
+
+  const match = route.match(/^\/space\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/test-runs\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
+  return match ? route : null
 }
 
 function getNotification(append = false) {
@@ -84,7 +95,11 @@ function getNotification(append = false) {
 function readNotification(event) {
   notificationService.markRead(event).then(res => {
     if (res.status && res.status === 200) {
-      items.value.find(value => value.id === event).read = true
+      const item = items.value.find(value => value.id === event)
+      if (item && !item.read) {
+        item.read = true
+        window.dispatchEvent(new Event('vtpad:notification-count-refresh'))
+      }
     }
   })
 }

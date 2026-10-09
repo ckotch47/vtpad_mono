@@ -25,7 +25,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { notificationService } from '@/services'
 import { toast } from 'vue3-toastify'
 import { EventSource } from 'extended-eventsource'
@@ -35,10 +35,13 @@ const audio = ref(new Audio('/ring.mp3'))
 
 function getNotificationCount() {
   notificationService.unreadCount().then(res => {
-    if (res.data) {
-      unreadCount.value = res.data
-    }
+    const count = Number(res.data)
+    if (Number.isFinite(count) && count >= 0) unreadCount.value = count
   })
+}
+
+function refreshNotificationCount() {
+  getNotificationCount()
 }
 
 function sseNotification() {
@@ -88,6 +91,11 @@ function showToast(text) {
 onMounted(() => {
   sseNotification()
   getNotificationCount()
+  window.addEventListener('vtpad:notification-count-refresh', refreshNotificationCount)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('vtpad:notification-count-refresh', refreshNotificationCount)
 })
 </script>
 

@@ -7,7 +7,7 @@
 - Evidence: source inspection of the shared Vue shell, Suites, Cases, Plans and Runs lists on 2026-10-09; informed by the desktop UI/UX audit in `.memory/result/20261009T011352Z-desktop-uiux-audit.md`
 - Scope: desktop shared navigation plus list interaction for Test Suites, Test Cases, Test Plans and Test Runs; list toolbar for Cases and Plans
 - Mobile and mobile-specific implementation/testing are excluded by explicit user instruction
-- No implementation is authorized until the user approves this exact revision
+- Implementation was authorized by approval of this exact revision; see Approval below
 
 ## Outcome
 

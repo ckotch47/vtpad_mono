@@ -7,6 +7,11 @@
   </div>
 
   <div v-if="!loader">
+    <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
+      {{ items.length ? 'Notifications could not be refreshed. Existing notifications are still shown.' : 'Notifications could not be loaded.' }}
+      <v-btn size="small" variant="text" @click="getNotification(offset > 0)">Retry</v-btn>
+    </v-alert>
+
     <v-list v-if="items">
       <v-list-item
       v-for="item in items"
@@ -48,6 +53,7 @@ import NotificationListItemRunCompletedComponent from '@/components/notification
 const loader = ref(true)
 const items = ref([])
 const isInfiniteScroll = ref(false)
+const loadError = ref(false)
 const pageItems = ref(20)
 const limit = ref(20)
 const offset = ref(0)
@@ -57,7 +63,7 @@ function readAllNotification() {
   notificationService.markAllRead().then(() => {
     items.value = items.value.map(item => ({ ...item, read: true }))
     window.dispatchEvent(new Event('vtpad:notification-count-refresh'))
-    loader.value = true
+    offset.value = 0
     getNotification()
   })
 }
@@ -72,6 +78,8 @@ function completedRunRoute(item) {
 }
 
 function getNotification(append = false) {
+  loader.value = items.value.length === 0
+  loadError.value = false
   notificationService.list({
     limit: limit.value,
     skip: offset.value
@@ -88,6 +96,9 @@ function getNotification(append = false) {
         items.value = res.data
       }
     }
+  }).catch(() => {
+    loadError.value = true
+  }).finally(() => {
     loader.value = false
   })
 }

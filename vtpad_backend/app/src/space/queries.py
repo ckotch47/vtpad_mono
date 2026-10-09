@@ -2,6 +2,7 @@ import json
 from fastapi import HTTPException
 from tortoise import Tortoise
 from ..spacesuser.model import SpacesUserModel, SpacesUserRole
+from ..common.space_capabilities import get_space_capabilities
 import logging
 logger = logging.getLogger(__name__)
 async def get_space_by_id(user: dict, space_id: str):
@@ -14,10 +15,10 @@ async def get_space_by_id(user: dict, space_id: str):
 
     try:
         temp['right'] = json.loads(temp['right'])
-        return temp
     except Exception as e:
         logger.error('Unexpected error: %s', e, exc_info=True)
-        return temp
+    temp['capabilities'] = await get_space_capabilities(str(user.get('id')), str(space_id))
+    return temp
 async def get_user_for_space(space_id: str):
     conn = Tortoise.get_connection("default")
 

@@ -211,6 +211,7 @@ MCP работает как Streamable HTTP по `/api/v1/mcp`: сервер п�
 MCP tools in `app/src/mcp/tools/*` are not classic REST endpoints, but they are part of public integration surface.
 
 Current behavior constraints (synced with code):
+- Space capabilities are available in `GET /api/v1/space/{space_id}` and through MCP `get_space_capabilities(space_id)`; both expose the same server-derived per-domain write booleans.
 - `get_space_suites` transforms items returned by `TestSuiteService.get_by_space(...)` as dictionaries.
 - MCP `search_test_cases` accepts the same type/status/suite/priority/tag filters and one-based `page`/`limit` pagination as the REST case list; `suite_id="none"` searches unassigned cases. It returns the requested page as a list, preserving the MCP result shape. `get_space_suites` accepts optional `search`, `status`, and one-based `page`/`limit`, and checks access to `space_id` before querying; it also preserves its list result shape.
 - MCP plan tools provide equivalent read/write access plus `preview_test_plan_selection`; create/update accept `suite_ids` and typed `filters`, and list `case_count` is computed by the shared resolver.

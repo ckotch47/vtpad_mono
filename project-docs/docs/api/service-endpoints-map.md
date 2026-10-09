@@ -51,7 +51,7 @@
 | --- | --- | --- | --- |
 | GET | `/api/v1/space` | JWT | список spaces |
 | POST | `/api/v1/space` | JWT | создание space |
-| GET | `/api/v1/space/{space_id}` | JWT + space check | детали space |
+| GET | `/api/v1/space/{space_id}` | JWT + space check | детали space, включая effective `capabilities` для текущего пользователя |
 | GET | `/api/v1/space/{space_id}/users` | JWT + space check | пользователи space |
 | PUT | `/api/v1/space/{space_id}` | JWT + space check | обновление space |
 | PUT | `/api/v1/space/{space_id}/user` | JWT + space check + owner / active company admin | добавление активного пользователя той же company; повторный запрос возвращает актуальный список участников |

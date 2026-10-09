@@ -11,4 +11,5 @@ class GetSpaceByIdRto(BaseModel):
     role: SpacesUserRole | str | None = None
     sort: int | None = None
     short_name: str | None = None
-    right: object
+    right: object | None = None
+    capabilities: dict[str, bool]

@@ -22,6 +22,7 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.space_capabilities import get_space_capabilities as resolve_space_capabilities
 import logging
 logger = logging.getLogger(__name__)
 
@@ -42,3 +43,9 @@ async def get_spaces() -> list[dict]:
             "short_name": s.short_name,
         })
     return items
+
+
+@mcp.tool()
+async def get_space_capabilities(space_id: str) -> dict[str, bool]:
+    """Return effective write capabilities for the authenticated user in a space."""
+    return await resolve_space_capabilities(_get_user_id(), space_id)

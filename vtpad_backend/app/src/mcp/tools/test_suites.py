@@ -145,7 +145,9 @@ async def create_suite(
         Created suite details
     """
     from ...test_suite.dto import TestSuiteCreateDto
-    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    request = get_http_request()
+    await check_user_into_space(space_id, request, capability="suites")
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
 
     dto = TestSuiteCreateDto(space_id=space_id, name=name, description=description)
     suite = await TestSuiteService.create(dto, token)
@@ -174,6 +176,8 @@ async def update_suite(
     Returns:
         Updated suite details
     """
+    suite_record = await TestSuiteService.get_by_id(suite_id)
+    await check_user_into_space(str(suite_record.space_id), get_http_request(), capability="suites")
     dto = TestSuiteUpdateDto(
         name=name,
         description=description,
@@ -198,6 +202,8 @@ async def delete_suite(suite_id: str) -> dict:
     Returns:
         Success status
     """
+    suite = await TestSuiteService.get_by_id(suite_id)
+    await check_user_into_space(str(suite.space_id), get_http_request(), capability="suites")
     await TestSuiteService.delete(suite_id)
     return {"deleted": True, "id": suite_id}
 
@@ -213,6 +219,8 @@ async def hard_delete_suite(suite_id: str) -> dict:
     Returns:
         Success status
     """
+    suite = await TestSuiteService.get_by_id(suite_id)
+    await check_user_into_space(str(suite.space_id), get_http_request(), capability="suites")
     cases = await TestCaseModel.filter(suite_id=suite_id).all()
     for case in cases:
         await _delete_case_cascade(str(case.id))

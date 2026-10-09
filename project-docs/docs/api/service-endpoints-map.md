@@ -108,6 +108,10 @@
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
 | GET | `/api/v2/test-suite/space/{space_id}` | JWT + space check | paginated list; `search` uses PostgreSQL full-text rank (`name` A, `description` B), with `id` tie-break; `status` supports active, archived, all |
+| POST | `/api/v2/test-suite/` | JWT + `suites` capability | creates suite in the target space |
+| PATCH | `/api/v2/test-suite/{suite_id}` | JWT + `suites` capability | updates suite in its current space |
+| DELETE | `/api/v2/test-suite/{suite_id}` | JWT + `suites` capability | archives suite |
+| PATCH | `/api/v2/test-suite/sort/{suite_id}` | JWT + `suites` capability | reorders suites only within the same space |
 | GET | `/api/v2/test-plan/space/{space_id}` | JWT + space check | paginated plans; includes `suite_ids`, `case_ids`, stored typed `filters`, and the resolved `case_count` |
 | POST | `/api/v2/test-plan/preview-selection` | JWT + space check | validates same-space sources and typed testcase custom-field filters; returns selected count and up to 100 case IDs using the same resolver as saved plans and run creation |
 | GET | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | gets plan configuration after checking space access |
@@ -184,10 +188,10 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 | --- | --- | --- | --- |
 | GET | `/api/v2/section/suite/{suite_id}` | JWT | секции suite |
 | GET | `/api/v2/section/suite/{suite_id}/tree` | JWT | дерево секций suite |
-| POST | `/api/v2/section/` | JWT | создание секции |
-| PATCH | `/api/v2/section/{section_id}` | JWT | обновление секции |
-| DELETE | `/api/v2/section/{section_id}` | JWT | удаление секции |
-| PATCH | `/api/v2/section/sort/{section_id}` | JWT + suite space check | body задаёт ровно один `sort_before_id` или `sort_after_id`; neighbor должен быть sibling в той же suite и parent. Возвращает упорядоченный список siblings. Неверный body — 422; self/non-sibling — 422; неучастник space — 403. Порядок записывается атомарно. MCP counterpart: `sort_sections` с теми же проверками. |
+| POST | `/api/v2/section/` | JWT + `sections` capability | создаёт секцию в suite; parent должен быть той же suite |
+| PATCH | `/api/v2/section/{section_id}` | JWT + `sections` capability | обновляет секцию; parent должен быть той же suite |
+| DELETE | `/api/v2/section/{section_id}` | JWT + `sections` capability | удаляет секцию |
+| PATCH | `/api/v2/section/sort/{section_id}` | JWT + `sections` capability | body задаёт ровно один `sort_before_id` или `sort_after_id`; neighbor должен быть sibling в той же suite и parent. Возвращает упорядоченный список siblings. Неверный body — 422; self/non-sibling — 422; нет capability — 403. Порядок записывается атомарно. MCP counterpart: `sort_sections` с теми же проверками. |
 | GET | `/api/v2/tech-doc/space/{space_id}` | JWT + space check | список Tech Docs в space |
 | GET | `/api/v2/tech-doc/space/{space_id}/tree` | JWT + space check | дерево Tech Docs в space |
 | GET | `/api/v2/tech-doc/{doc_id}` | JWT + space check | получает документ после проверки доступа к его space |

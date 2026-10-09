@@ -22,6 +22,7 @@ from ...section.dto import SectionSortDto, SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,10 @@ async def create_section(
     """
     from ...section.dto import SectionCreateDto
     from ...section.service import SectionService
-    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    request = get_http_request()
+    suite = await TestSuiteService.get_by_id(suite_id)
+    await check_user_into_space(str(suite.space_id), request, capability="sections")
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
 
     dto = SectionCreateDto(suite_id=suite_id, name=name, parent_id=parent_id)
     section = await SectionService.create(dto, token)
@@ -74,6 +78,9 @@ async def update_section(
     Returns:
         Updated section details
     """
+    section = await SectionService.get_by_id(section_id)
+    suite = await TestSuiteService.get_by_id(str(section.suite_id))
+    await check_user_into_space(str(suite.space_id), get_http_request(), capability="sections")
     dto = SectionUpdateDto(
         name=name,
         description=description,
@@ -98,6 +105,9 @@ async def delete_section(section_id: str) -> dict:
     Returns:
         Success status
     """
+    section = await SectionService.get_by_id(section_id)
+    suite = await TestSuiteService.get_by_id(str(section.suite_id))
+    await check_user_into_space(str(suite.space_id), get_http_request(), capability="sections")
     await SectionService.delete(section_id)
     return {"deleted": True, "id": section_id}
 
@@ -151,6 +161,9 @@ async def hard_delete_section(section_id: str) -> dict:
     Returns:
         Success status
     """
+    section = await SectionService.get_by_id(section_id)
+    suite = await TestSuiteService.get_by_id(str(section.suite_id))
+    await check_user_into_space(str(suite.space_id), get_http_request(), capability="sections")
     await TestCaseModel.filter(section_id=section_id).update(section_id=None)
     await EmbeddingService.delete_embeddings('section', section_id)
     await SectionModel.filter(id=section_id).delete()

@@ -160,12 +160,16 @@ class TestSuiteService:
         if dto.sort_before_id:
             before = await TestSuiteService.get_by_id(dto.sort_before_id)
             target = await TestSuiteService.get_by_id(suite_id)
+            if str(before.space_id) != str(target.space_id):
+                raise HTTPException(status_code=422, detail="Suites must be reordered within the same space")
             await TestSuiteModel.filter(id=dto.sort_before_id).update(sort=target.sort)
             await TestSuiteModel.filter(id=suite_id).update(sort=before.sort)
 
         if dto.sort_after_id:
             after = await TestSuiteService.get_by_id(dto.sort_after_id)
             target = await TestSuiteService.get_by_id(suite_id)
+            if str(after.space_id) != str(target.space_id):
+                raise HTTPException(status_code=422, detail="Suites must be reordered within the same space")
             await TestSuiteModel.filter(id=dto.sort_after_id).update(sort=target.sort)
             await TestSuiteModel.filter(id=suite_id).update(sort=after.sort)
 

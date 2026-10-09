@@ -27,26 +27,36 @@ async def get_by_space(
     return await TestSuiteService.get_by_space(space_id, page, page_size, sort_by, sort_order, search, status)
 
 
+async def _require_suite_capability(suite_id: str, request: Request):
+    suite = await TestSuiteService.get_by_id(suite_id)
+    await check_user_into_space(str(suite.space_id), request, capability="suites")
+    return suite
+
+
 @router.get('/{suite_id}', dependencies=[Depends(bearer)])
 async def get_by_id(suite_id: str):
     return await TestSuiteService.get_by_id(suite_id)
 
 
 @router.post('/', dependencies=[Depends(bearer)])
-async def create(dto: TestSuiteCreateDto, token: str = Depends(bearer)):
+async def create(dto: TestSuiteCreateDto, request: Request, token: str = Depends(bearer)):
+    await check_user_into_space(dto.space_id, request, capability="suites")
     return await TestSuiteService.create(dto, token)
 
 
 @router.patch('/{suite_id}', dependencies=[Depends(bearer)])
-async def update(suite_id: str, dto: TestSuiteUpdateDto):
+async def update(suite_id: str, dto: TestSuiteUpdateDto, request: Request):
+    await _require_suite_capability(suite_id, request)
     return await TestSuiteService.update(suite_id, dto)
 
 
 @router.delete('/{suite_id}', dependencies=[Depends(bearer)])
-async def delete(suite_id: str):
+async def delete(suite_id: str, request: Request):
+    await _require_suite_capability(suite_id, request)
     return await TestSuiteService.delete(suite_id)
 
 
 @router.patch('/sort/{suite_id}', dependencies=[Depends(bearer)])
-async def update_sort(suite_id: str, dto: TestSuiteSortDto):
+async def update_sort(suite_id: str, dto: TestSuiteSortDto, request: Request):
+    await _require_suite_capability(suite_id, request)
     return await TestSuiteService.update_sort(suite_id, dto)

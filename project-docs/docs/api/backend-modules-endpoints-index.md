@@ -140,7 +140,16 @@ Quality and time endpoints require current space membership and share their serv
 - `POST /api/v2/section/`
 - `PATCH /api/v2/section/{section_id}`
 - `DELETE /api/v2/section/{section_id}`
-- `PATCH /api/v2/section/sort/{section_id}` — JSON body contains exactly one of `sort_before_id` or `sort_after_id`; neighbor must have the same suite and parent; requires suite space membership; returns ordered siblings.
+- `PATCH /api/v2/section/sort/{section_id}` — JSON body contains exactly one of `sort_before_id` or `sort_after_id`; neighbor must have the same suite and parent; requires the `sections` write capability; returns ordered siblings.
+
+### `app/src/test_suite`
+- `GET /api/v2/test-suite/space/{space_id}`
+- `POST /api/v2/test-suite/`
+- `PATCH /api/v2/test-suite/{suite_id}`
+- `DELETE /api/v2/test-suite/{suite_id}`
+- `PATCH /api/v2/test-suite/sort/{suite_id}`
+
+All suite writes require the server-derived `suites` capability. REST and MCP suite update/delete/hard-delete operations resolve the suite's space before mutation; reorder references must remain in that same space.
 
 ### `app/src/checklist`
 - `GET /api/v1/checklist/list/{space_id}`

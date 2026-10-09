@@ -13,6 +13,13 @@ from ..test_suite.model import TestSuiteModel
 class SectionService:
     @staticmethod
     async def create(dto: SectionCreateDto, token: str) -> SectionModel:
+        suite = await TestSuiteModel.get_or_none(id=dto.suite_id)
+        if not suite:
+            raise HTTPException(status_code=404, detail="Test suite not found")
+        if dto.parent_id:
+            parent = await SectionModel.get_or_none(id=dto.parent_id)
+            if not parent or str(parent.suite_id) != str(suite.id):
+                raise HTTPException(status_code=404, detail="Parent section not found")
         user_id = await get_user_id_by_token(token)
         last = await SectionModel.filter(suite_id=dto.suite_id, parent_id=dto.parent_id).order_by('-sort').first()
         sort = (last.sort + 10) if last else 10
@@ -80,9 +87,13 @@ class SectionService:
 
     @staticmethod
     async def update(section_id: str, dto: SectionUpdateDto) -> SectionModel:
-        await SectionService.get_by_id(section_id)
+        section = await SectionService.get_by_id(section_id)
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
+        if data.get("parent_id"):
+            parent = await SectionModel.get_or_none(id=data["parent_id"])
+            if not parent or str(parent.suite_id) != str(section.suite_id):
+                raise HTTPException(status_code=404, detail="Parent section not found")
         if data:
             await SectionModel.filter(id=section_id).update(**data)
         return await SectionService.get_by_id(section_id)
@@ -108,7 +119,7 @@ class SectionService:
         suite = await TestSuiteModel.get_or_none(id=suite_id)
         if not suite:
             raise HTTPException(status_code=404, detail='Test suite not found')
-        await check_user_into_space(str(suite.space_id), request)
+        await check_user_into_space(str(suite.space_id), request, capability="sections")
 
         async with in_transaction() as connection:
             # Lock the suite row as a serialization point for all reorder requests

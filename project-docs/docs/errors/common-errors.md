@@ -39,6 +39,7 @@
 | `422` на ошибочном JSON-запросе | Ответ содержит детали валидации; backend log записывает только method/path и число ошибок, без входных значений | `app/main.py` |
 | `404` при добавлении источника test plan | Suite или testcase отсутствует либо относится к другому space | `app/src/test_plan/service.py` |
 | `404`/`422` при обновлении или перемещении testcase | Назначенная suite/section отсутствует, относится к другому space или section принадлежит другой suite; проверка выполняется до записи | `app/src/test_case/service.py` |
+| `403` при изменении suite/section | Пользователь не имеет `suites`/`sections` capability; parent section и reorder neighbor должны принадлежать target suite | `app/src/test_suite`, `app/src/section`, `app/src/common/space_capabilities.py` |
 | Пустой экран после открытия `/` или входа | Главная страница и успешная авторизация переходили на `/space` без `spaceId`; существует только маршрут `/space/:spaceId` | `vtpad_front_v2/src/pages/index.vue`, `vtpad_front_v2/src/components/auth/authComponent.vue` |
 
 ## Исправленные дефекты

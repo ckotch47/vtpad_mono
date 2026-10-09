@@ -34,7 +34,7 @@
 - `PUT /api/v1/space/{space_id}`
 - `PUT /api/v1/space/{space_id}/user`
 - `DELETE /api/v1/space/{space_id}/user/{user_id}`
-- `PATCH /api/v1/space/{space_id}/user/{user_id}`
+- `PATCH /api/v1/space/{space_id}/user/{user_id}` — owner/active same-company admin may explicitly set `readOnly`, `manageBugs`, and `editTechDocs`; false values are persisted.
 - `PUT /api/v1/space/{space_id}/user-make-owner/{user_id}`
 - `DELETE /api/v1/space/{space_id}`
 - `GET /api/v1/space/{space_id}/all_runs`

@@ -1,22 +1,28 @@
 <template>
-  <div class="overlay-picker-wrap">
-    <v-btn class="user-right--btn" text="Right" color="amber" />
-    <v-select
-      v-model="selectRight"
-      class="show-one overlay-picker-input"
-      :items="right"
-      item-value="name"
-      item-title="title"
-      variant="underlined"
-      multiple
-      @update:modelValue="updateRight"
-    />
-  </div>
+  <v-menu :close-on-content-click="false">
+    <template #activator="{ props: menuProps }">
+      <v-btn v-bind="menuProps" class="user-right--btn" text="Rights" color="amber" />
+    </template>
+    <v-card min-width="280" class="pa-3">
+      <v-card-title class="text-subtitle-1 px-1">Space access</v-card-title>
+      <v-checkbox
+        v-for="right in rights"
+        :key="right.name"
+        v-model="selectedRights"
+        :value="right.name"
+        :label="right.title"
+        density="compact"
+        hide-details
+      />
+      <v-btn class="mt-3" color="primary" block :loading="saving" @click="updateRight">Save rights</v-btn>
+    </v-card>
+  </v-menu>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
 import { spaceService } from '@/services'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const props = defineProps({
   userRight: { type: Object, default: () => ({}) },
@@ -25,63 +31,44 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['updateUserRightEmit'])
+const capabilities = useSpaceCapabilitiesStore()
+const saving = ref(false)
 
-const right = ref([
-  { title: 'edit pads', value: false, name: 'editPads' },
-  { title: 'edit items', value: false, name: 'editItems' },
-  { title: 'edit runs', value: false, name: 'editRuns' },
-  { title: 'edit notes', value: false, name: 'editNotes' },
-  { title: 'close bugs', value: false, name: 'closeBugs' },
-  { title: 'edit tags', value: false, name: 'editTags' }
-])
-
-const rightObj = ref({
-  editPads: false,
-  editItems: false,
-  editRuns: false,
-  editNotes: false,
-  closeBugs: false,
-  editTags: false
-})
-
-const selectRight = ref([])
+const rights = [
+  { title: 'Read only', name: 'readOnly' },
+  { title: 'Edit test suites and plans', name: 'editPads' },
+  { title: 'Edit test cases and sections', name: 'editItems' },
+  { title: 'Edit test runs and results', name: 'editRuns' },
+  { title: 'Manage bugs', name: 'manageBugs' },
+  { title: 'Edit Tech Docs', name: 'editTechDocs' },
+  { title: 'Edit tags', name: 'editTags' },
+  { title: 'Close or reopen bugs', name: 'closeBugs' },
+  { title: 'Edit notes', name: 'editNotes' }
+]
+const selectedRights = ref([])
 
 watch(() => props.userRight, (val) => {
   if (!val) return
-  selectRight.value = []
-  for (const elem of right.value) {
-    elem.value = val[elem.name] ?? false
-    if (elem.value) {
-      selectRight.value.push(elem.name)
-    }
-  }
+  const rightsObject = typeof val === 'string' ? JSON.parse(val || '{}') : val
+  selectedRights.value = rights.filter(({ name }) => {
+    const defaultValue = ['manageBugs', 'editTechDocs'].includes(name)
+    return (rightsObject?.[name] ?? defaultValue) === true
+  }).map(({ name }) => name)
 }, { immediate: true })
 
-function updateRight() {
-  for (const elem of selectRight.value) {
-    const rightElem = right.value.find(r => r.name === elem)
-    if (rightElem) {
-      rightElem.value = true
-      rightObj.value[rightElem.name] = rightElem.value
-    }
-  }
-  spaceService.updateUser(props.spaceId, props.userId, rightObj.value).then(() => {
+async function updateRight() {
+  const selected = new Set(selectedRights.value)
+  const rightObj = Object.fromEntries(rights.map(({ name }) => [name, selected.has(name)]))
+  saving.value = true
+  try {
+    await spaceService.updateUser(props.spaceId, props.userId, rightObj)
+    await capabilities.load(props.spaceId, { force: true })
     emit('updateUserRightEmit')
-  })
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
 <style scoped>
-.overlay-picker-wrap {
-  position: relative;
-  display: inline-block;
-  cursor: pointer;
-}
-
-.overlay-picker-input {
-  opacity: 0;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-}
 </style>

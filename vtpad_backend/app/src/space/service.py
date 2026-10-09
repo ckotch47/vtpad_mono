@@ -188,8 +188,13 @@ class SpaceService:
 
     @staticmethod
     async def update_user_rules_in_space(space_id: str, user_id: str, dto: UpdateUserRulesForSpaceDto):
-        temp: dict = (await SpacesUserModel.filter(spaceId=space_id, userId=user_id).get()).right
+        member = await SpacesUserModel.filter(spaceId=space_id, userId=user_id).get_or_none()
+        if member is None:
+            raise HTTPException(status_code=404, detail="Space member not found")
+        temp: dict = dict(member.right or {})
 
+        if dto.readOnly is not None:
+            temp['readOnly'] = dto.readOnly
         if dto.editPads is not None:
             temp['editPads'] = dto.editPads
         if dto.editRuns is not None:
@@ -202,6 +207,10 @@ class SpaceService:
             temp['closeBugs'] = dto.closeBugs
         if dto.editTags is not None:
             temp['editTags'] = dto.editTags
+        if dto.manageBugs is not None:
+            temp['manageBugs'] = dto.manageBugs
+        if dto.editTechDocs is not None:
+            temp['editTechDocs'] = dto.editTechDocs
 
         await SpacesUserModel.filter(spaceId=space_id, userId=user_id).update(right=temp)
         return await SpaceService.get_user_for_space(space_id)

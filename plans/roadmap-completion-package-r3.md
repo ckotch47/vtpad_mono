@@ -73,6 +73,8 @@ TE1–TE5, RN1–RN2, SU1–SU4, TC2, DD1–DD4, BD3 и базовые suite/cas
 
 Добавить транзакционно обновляемый `tsvector` и GIN index. Для cases индексировать title/short_name (weight A), description/preconditions (B), steps/expected_results (C); для suites — name/description (A/B). Использовать PostgreSQL `simple` config, parameterized `websearch_to_tsquery`, ranking с tie-break `id`, space/permission filters и прежние category/status/suite filters. Пустой query сохраняет прежний список. Backfill и trigger/update paths проверяются после create/edit/restore/import. Эквивалентный поиск доступен REST и MCP.
 
+**Статус BD1, 2026-10-09 — выполнено и проверено на disposable clone:** добавлены weighted `tsvector`, trigger-maintained updates, backfill и GIN indexes; REST и MCP используют общий поиск с ранжированием, точным short-name поиском, фильтрами и пагинацией. Проверены create/update/restore и trigger paths, REST/MCP поведение, миграция и целостность индексов. На крупнейшем space клона (1 339 кейсов) `EXPLAIN ANALYZE` подтвердил использование GIN для полнотекстовой ветки и отдельного индекса для точного short name; выполнение — 0.510 ms. Backend после сборки стартовал, `/openapi.json` вернул 200. Независимый code review — pass. Основная БД не мигрировалась.
+
 
 ## Этап 4 — custom fields, plans, import/export и analytics
 

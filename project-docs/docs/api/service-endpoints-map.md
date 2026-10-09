@@ -100,6 +100,7 @@
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
+| GET | `/api/v2/test-suite/space/{space_id}` | JWT + space check | paginated list; `search` uses PostgreSQL full-text rank (`name` A, `description` B), with `id` tie-break; `status` supports active, archived, all |
 | POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с suite, root→leaf `section_path` и `source_hash`; путь учитывается при проверке устаревшего preview |
 | POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов для cases любого статуса; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`, `status`; возвращает nullable `created_by` с `{id, username}` и `completed_at` |
@@ -118,7 +119,7 @@
 | DELETE | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper с теми же active-run и ambiguity проверками |
 | POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + space check | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
-| GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами `priority` и повторяющимся `tags`; несколько тегов работают как AND |
+| GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами type/status/suite/priority/tags; при непустом `search` PostgreSQL `simple` full-text rank: title/short_name A, description/preconditions B, steps/expected C, legacy searchable postconditions/external_id/link D; одинаковый rank упорядочивается по `id`; повторяющиеся `tags` работают как AND |
 | GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты меток кейсов в space |
 | GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом и метками |
 | GET | `/api/v2/test-case/section/{section_id}` | JWT + section suite space check | список кейсов section с приоритетом и метками |

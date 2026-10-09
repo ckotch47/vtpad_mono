@@ -192,6 +192,7 @@ MCP tools in `app/src/mcp/tools/*` are not classic REST endpoints, but they are 
 
 Current behavior constraints (synced with code):
 - `get_space_suites` transforms items returned by `TestSuiteService.get_by_space(...)` as dictionaries.
+- MCP `search_test_cases` accepts the same type/status/suite/priority/tag filters and one-based `page`/`limit` pagination as the REST case list; `suite_id="none"` searches unassigned cases. It returns the requested page as a list, preserving the MCP result shape. `get_space_suites` accepts optional `search`, `status`, and one-based `page`/`limit`, and checks access to `space_id` before querying; it also preserves its list result shape.
 - `create_test_plan` uses Bearer token from `Authorization` header when calling `TestPlanService.create(...)`.
 - `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
 - `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
@@ -234,6 +235,8 @@ All REST routes require JWT and space access. Create/update reject a parent docu
 
 ### `app/src/test_case`
 - `GET /api/v2/test-case/space/{space_id}` supports `priority` and repeated `tags` filters (AND semantics) and returns priority and tag labels.
+- A non-empty `search` on the case space list uses the trigger-maintained PostgreSQL `simple` full-text vector, ranks title/short name above description/preconditions and steps/expected results, and orders equal ranks by case ID. An exact short-name match also handles hyphenated identifiers such as `TC-123`. Whitespace-only input preserves the ordinary list sort. Legacy searchable fields postconditions, external ID, and link remain indexed at the lowest weight. If a document would exceed PostgreSQL's 1 MiB tsvector limit, its vector is retried using the first 8,192 characters of each indexed field so the write can still succeed.
+- `GET /api/v2/test-suite/space/{space_id}` requires space access; non-empty `search` ranks suite name above description and breaks ties by suite ID. REST and MCP suite listing use the same service and search semantics.
 - `GET /api/v2/test-case/space/{space_id}/tags` returns tag options scoped to the space.
 - `GET /api/v2/test-case/suite/{suite_id}` and `/section/{section_id}` require access to the owning suite's space and return cases with priority and tags.
 - `GET /api/v2/test-case/{testcase_id}` and case create/update responses expose `priority` and `tags`.

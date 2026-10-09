@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from typing import Optional
+from tortoise import Tortoise
 
-from tortoise.expressions import Q
 from tortoise.functions import Count
 
 from .model import TestSuiteModel, TestSuiteStatus
@@ -34,6 +34,7 @@ class TestSuiteService:
         search: Optional[str] = None,
         status: Optional[str] = None
     ) -> dict:
+        normalized_search = search.strip() if isinstance(search, str) else ''
         filters = {'space_id': space_id}
         if status == 'archived':
             filters['status'] = TestSuiteStatus.archived
@@ -42,13 +43,52 @@ class TestSuiteService:
         else:
             filters['status'] = TestSuiteStatus.active
 
-        q = TestSuiteModel.filter(**filters)
-        if search:
-            q = q.filter(Q(name__icontains=search) | Q(description__icontains=search))
-
-        result = await paginate(
-            q.prefetch_related('created_by'), page, page_size, sort_by, sort_order
-        )
+        if normalized_search:
+            params = [space_id, normalized_search]
+            conditions = [
+                'test_suite.space_id = $1',
+                "test_suite.search_vector @@ websearch_to_tsquery('simple', $2)",
+            ]
+            if status != 'all':
+                suite_status = (
+                    TestSuiteStatus.archived if status == 'archived'
+                    else TestSuiteStatus.active
+                )
+                params.append(suite_status.value)
+                conditions.append(f'test_suite.status = ${len(params)}')
+            where_sql = ' AND '.join(conditions)
+            connection = Tortoise.get_connection('default')
+            count_rows = await connection.execute_query_dict(
+                f'SELECT count(*) AS total FROM test_suite WHERE {where_sql}', params
+            )
+            total = count_rows[0]['total']
+            page_params = [*params, page_size, (page - 1) * page_size]
+            rows = await connection.execute_query_dict(
+                "SELECT test_suite.id, ts_rank(test_suite.search_vector, "
+                "websearch_to_tsquery('simple', $2)) AS rank "
+                f'FROM test_suite WHERE {where_sql} '
+                f'ORDER BY rank DESC, test_suite.id ASC LIMIT ${len(params) + 1} '
+                f'OFFSET ${len(params) + 2}',
+                page_params,
+            )
+            suite_ids = [str(row['id']) for row in rows]
+            suites = await TestSuiteModel.filter(id__in=suite_ids).prefetch_related(
+                'created_by'
+            ) if suite_ids else []
+            suites_by_id = {str(suite.id): suite for suite in suites}
+            items = [suites_by_id[suite_id] for suite_id in suite_ids if suite_id in suites_by_id]
+            result = {
+                'items': items,
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'pages': (total + page_size - 1) // page_size,
+            }
+        else:
+            q = TestSuiteModel.filter(**filters)
+            result = await paginate(
+                q.prefetch_related('created_by'), page, page_size, sort_by, sort_order
+            )
         items = result['items']
         suite_ids = [str(s.id) for s in items]
 

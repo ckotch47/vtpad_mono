@@ -49,31 +49,36 @@ async def search_test_cases(
     query: str,
     space_id: str,
     limit: int = 10,
+    page: int = 1,
     type_filter: str | None = None,
     status_filter: str | None = None,
+    suite_id: str | None = None,
     priority_filter: str | None = None,
     tags: list[str] | None = None,
 ) -> list[dict]:
-    """Search test cases by text query (title, short_name) in a space.
+    """Search one space's cases using PostgreSQL full-text relevance ranking.
 
     Args:
-        query: Search string (searches in title and short_name)
+        query: Full-text query; empty or whitespace-only returns the normal list order
         space_id: UUID of the space to search in
         limit: Maximum number of results (default 10)
+        page: One-based result page (default 1)
         type_filter: Optional filter by type: manual | automated | checklist
         status_filter: Optional filter by status: draft | active | deprecated
+        suite_id: Optional suite UUID; use "none" for cases without a suite
 
     Returns:
-        List of test cases matching the query
+        List of matching cases, ordered by relevance and then stable case ID
     """
     await _require_space_access(space_id)
     result = await TestCaseService.get_by_space(
         space_id=space_id,
         type_filter=type_filter,
         status_filter=status_filter,
+        suite_id=suite_id,
         priority_filter=priority_filter,
         tag_filters=tags,
-        page=1,
+        page=page,
         page_size=limit,
         search=query,
         sort_by="created_at",

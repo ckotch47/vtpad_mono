@@ -1,0 +1,8 @@
+{
+  "transactional": true,
+  "data": [
+    "UPDATE test_case SET search_vector = build_test_case_search_vector(title, short_name, text, preconditions, steps, expected_results, postconditions, external_id, link) WHERE search_vector IS NULL",
+    "UPDATE test_suite SET search_vector = build_test_suite_search_vector(name, description) WHERE search_vector IS NULL",
+    "DO $$ BEGIN IF EXISTS (SELECT 1 FROM test_case WHERE search_vector IS NULL) THEN RAISE EXCEPTION 'test_case search vector backfill incomplete'; END IF; IF EXISTS (SELECT 1 FROM test_suite WHERE search_vector IS NULL) THEN RAISE EXCEPTION 'test_suite search vector backfill incomplete'; END IF; END $$"
+  ]
+}

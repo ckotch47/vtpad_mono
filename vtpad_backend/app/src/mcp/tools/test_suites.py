@@ -88,20 +88,32 @@ async def get_suite_tree(suite_id: str) -> dict | None:
         return {"error": str(e)}
 
 @mcp.tool()
-async def get_space_suites(space_id: str, limit: int = 25) -> list[dict]:
-    """List test suites in a space.
+async def get_space_suites(
+    space_id: str,
+    limit: int = 25,
+    search: str | None = None,
+    status: str | None = None,
+    page: int = 1,
+) -> list[dict]:
+    """List or full-text search test suites in an authorized space.
 
     Args:
         space_id: UUID of the space
-        limit: Maximum number of results
+        limit: Maximum number of results per page
+        search: Optional full-text query for suite name and description
+        status: Optional suite status: active, archived, or all
+        page: One-based result page
 
     Returns:
         List of test suites
     """
+    await check_user_into_space(space_id, get_http_request())
     result = await TestSuiteService.get_by_space(
         space_id=space_id,
-        page=1,
+        page=page,
         page_size=limit,
+        search=search,
+        status=status,
     )
     items = []
     for s in result.get("items", []):

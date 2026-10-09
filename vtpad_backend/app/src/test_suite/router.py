@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from .service import TestSuiteService
 from .dto import *
 from ..common.crypto import bearer
+from ..common.right_guard import check_user_into_space
 
 router = APIRouter(
     prefix='/v2/test-suite',
@@ -14,6 +15,7 @@ router = APIRouter(
 @router.get('/space/{space_id}', dependencies=[Depends(bearer)])
 async def get_by_space(
     space_id: str,
+    request: Request,
     page: int = 1,
     page_size: int = 25,
     sort_by: Optional[str] = 'created_at',
@@ -21,6 +23,7 @@ async def get_by_space(
     search: Optional[str] = None,
     status: Optional[str] = None
 ):
+    await check_user_into_space(space_id, request)
     return await TestSuiteService.get_by_space(space_id, page, page_size, sort_by, sort_order, search, status)
 
 

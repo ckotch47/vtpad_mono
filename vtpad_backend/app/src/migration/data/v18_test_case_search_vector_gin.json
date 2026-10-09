@@ -1,0 +1,14 @@
+{
+  "transactional": false,
+  "cleanup_invalid_indexes": [
+    "test_case_search_vector_gin_idx",
+    "test_suite_search_vector_gin_idx",
+    "test_case_short_name_lower_idx"
+  ],
+  "data": [
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS test_case_search_vector_gin_idx ON test_case USING GIN (search_vector)",
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS test_suite_search_vector_gin_idx ON test_suite USING GIN (search_vector)",
+    "CREATE INDEX CONCURRENTLY IF NOT EXISTS test_case_short_name_lower_idx ON test_case USING BTREE (lower(short_name)) WHERE short_name IS NOT NULL",
+    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid JOIN pg_namespace n ON n.oid = idx.relnamespace JOIN pg_class tbl ON tbl.oid = i.indrelid JOIN pg_am am ON am.oid = idx.relam JOIN pg_attribute a ON a.attrelid = tbl.oid AND a.attnum = i.indkey[0] WHERE n.nspname = 'public' AND idx.relname = 'test_case_search_vector_gin_idx' AND tbl.oid = 'public.test_case'::regclass AND am.amname = 'gin' AND i.indisvalid AND i.indisready AND i.indnatts = 1 AND a.attname = 'search_vector') THEN RAISE EXCEPTION 'test_case search GIN index definition validation failed'; END IF; IF NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid JOIN pg_namespace n ON n.oid = idx.relnamespace JOIN pg_class tbl ON tbl.oid = i.indrelid JOIN pg_am am ON am.oid = idx.relam JOIN pg_attribute a ON a.attrelid = tbl.oid AND a.attnum = i.indkey[0] WHERE n.nspname = 'public' AND idx.relname = 'test_suite_search_vector_gin_idx' AND tbl.oid = 'public.test_suite'::regclass AND am.amname = 'gin' AND i.indisvalid AND i.indisready AND i.indnatts = 1 AND a.attname = 'search_vector') THEN RAISE EXCEPTION 'test_suite search GIN index definition validation failed'; END IF; IF NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid JOIN pg_namespace n ON n.oid = idx.relnamespace JOIN pg_class tbl ON tbl.oid = i.indrelid JOIN pg_am am ON am.oid = idx.relam WHERE n.nspname = 'public' AND idx.relname = 'test_case_short_name_lower_idx' AND tbl.oid = 'public.test_case'::regclass AND am.amname = 'btree' AND i.indisvalid AND i.indisready AND i.indnatts = 1 AND i.indkey[0] = 0 AND pg_get_expr(i.indexprs, i.indrelid) = 'lower((short_name)::text)' AND pg_get_expr(i.indpred, i.indrelid) = '(short_name IS NOT NULL)') THEN RAISE EXCEPTION 'test_case short-name index definition validation failed'; END IF; END $$"
+  ]
+}

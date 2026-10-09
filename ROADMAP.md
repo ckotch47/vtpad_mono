@@ -105,7 +105,7 @@ DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separate
 - [ ] Improve mobile responsiveness (deferred by user instruction on 2026-10-09; excluded from this roadmap pass)
 
 ### Backend and Data
-- [ ] Add PostgreSQL full-text search with `tsvector`
+- [x] Add PostgreSQL full-text search with `tsvector`
 - [ ] Add CSV/JSON import and export for suites and cases
 - [x] Harden Tech Docs CRUD and traceability with space membership, same-space parent checks, and cycle protection
 

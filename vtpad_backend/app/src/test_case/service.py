@@ -1,7 +1,6 @@
 from fastapi import HTTPException
 from typing import Optional
 
-from tortoise.expressions import Q
 from tortoise import Tortoise
 from tortoise.transactions import in_transaction
 
@@ -16,6 +15,140 @@ from ..common.pagination import paginate
 
 
 class TestCaseService:
+    @staticmethod
+    def _serialize_list_item(testcase: TestCaseModel, tags: list[str]) -> dict:
+        return {
+            'id': str(testcase.id),
+            'title': testcase.title,
+            'text': testcase.text,
+            'steps': testcase.steps,
+            'expected_results': testcase.expected_results,
+            'preconditions': testcase.preconditions,
+            'postconditions': testcase.postconditions,
+            'sort': testcase.sort,
+            'short_name': testcase.short_name,
+            'link': testcase.link,
+            'type': testcase.type,
+            'status': testcase.status,
+            'priority': testcase.priority,
+            'tags': tags,
+            'external_id': testcase.external_id,
+            'estimated_duration_seconds': testcase.estimated_duration_seconds,
+            'space_id': str(testcase.space_id),
+            'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
+            'suite': {
+                'id': str(testcase.suite.id),
+                'name': testcase.suite.name,
+            } if testcase.suite else None,
+            'section_id': str(testcase.section_id) if testcase.section_id else None,
+            'created_by_id': str(testcase.created_by_id) if testcase.created_by_id else None,
+            'created_by': {
+                'id': str(testcase.created_by.id),
+                'username': testcase.created_by.username,
+            } if testcase.created_by else None,
+            'created_at': testcase.created_at.isoformat() if testcase.created_at else None,
+            'updated_at': testcase.updated_at.isoformat() if testcase.updated_at else None,
+        }
+
+    @staticmethod
+    async def _get_full_text_page(
+        space_id: str,
+        search: str,
+        type_filter: Optional[str],
+        status_filter: Optional[str],
+        suite_id: Optional[str],
+        priority_filter: Optional[str],
+        tag_filters: Optional[list[str]],
+        page: int,
+        page_size: int,
+    ) -> dict:
+        """Search one space through its trigger-maintained PostgreSQL vector."""
+        params: list = [space_id, search]
+        filter_conditions = ['test_case.space_id = $1']
+        exact_identifier = (
+            "numnode(websearch_to_tsquery('simple', $2)) > 0 "
+            "AND lower(test_case.short_name) = lower($2)"
+        )
+
+        def add_filter(column: str, value) -> None:
+            params.append(value.value if hasattr(value, 'value') else value)
+            filter_conditions.append(f'test_case.{column} = ${len(params)}')
+
+        if type_filter:
+            add_filter('type', type_filter)
+        if status_filter:
+            add_filter('status', status_filter)
+        if priority_filter:
+            if priority_filter not in {item.value for item in TestCasePriority}:
+                raise HTTPException(status_code=422, detail="priority must be P0, P1, P2, or P3")
+            add_filter('priority', priority_filter)
+        if suite_id == 'none':
+            filter_conditions.append('test_case.suite_id IS NULL')
+        elif suite_id:
+            add_filter('suite_id', suite_id)
+
+        normalized_tags = [
+            tag.casefold() for tag in TestCaseService._normalize_tags(tag_filters)
+        ]
+        if normalized_tags:
+            params.append(normalized_tags)
+            tag_param = len(params)
+            filter_conditions.append(
+                '(SELECT count(DISTINCT tag.normalized_name) '
+                'FROM test_case_tag_link AS link '
+                'JOIN test_case_tag AS tag ON tag.id = link.tag_id '
+                f'WHERE link.testcase_id = test_case.id AND tag.space_id = test_case.space_id '
+                f'AND tag.normalized_name = ANY(${tag_param}::text[])) = ${tag_param + 1}'
+            )
+            params.append(len(normalized_tags))
+
+        filter_sql = ' AND '.join(filter_conditions)
+        where_sql = (
+            f"{filter_sql} AND (test_case.search_vector @@ "
+            "websearch_to_tsquery('simple', $2) "
+            f"OR ({exact_identifier}))"
+        )
+        connection = Tortoise.get_connection('default')
+        count_rows = await connection.execute_query_dict(
+            f'SELECT count(*) AS total FROM test_case WHERE {where_sql}', params
+        )
+        total = count_rows[0]['total']
+
+        page_params = [*params, page_size, (page - 1) * page_size]
+        rows = await connection.execute_query_dict(
+            "SELECT test_case.id, ts_rank(test_case.search_vector, "
+            "websearch_to_tsquery('simple', $2)) AS rank "
+            f'FROM test_case WHERE {filter_sql} '
+            "AND test_case.search_vector @@ websearch_to_tsquery('simple', $2) "
+            f'AND NOT ({exact_identifier}) '
+            'UNION ALL '
+            "SELECT test_case.id, ts_rank(test_case.search_vector, "
+            "websearch_to_tsquery('simple', $2)) + 2.0 AS rank "
+            f'FROM test_case WHERE {filter_sql} AND ({exact_identifier}) '
+            f'ORDER BY rank DESC, id ASC LIMIT ${len(params) + 1} '
+            f'OFFSET ${len(params) + 2}',
+            page_params,
+        )
+        case_ids = [str(row['id']) for row in rows]
+        cases = await TestCaseModel.filter(id__in=case_ids).prefetch_related(
+            'suite', 'created_by'
+        ) if case_ids else []
+        cases_by_id = {str(case.id): case for case in cases}
+        ordered_cases = [cases_by_id[case_id] for case_id in case_ids if case_id in cases_by_id]
+        tags_by_case = await TestCaseService.get_tags_for_cases(case_ids)
+        return {
+            'items': [
+                TestCaseService._serialize_list_item(
+                    testcase, tags_by_case.get(str(testcase.id), [])
+                )
+                for testcase in ordered_cases
+            ],
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'pages': (total + page_size - 1) // page_size,
+        }
+
     @staticmethod
     def _normalize_tags(tags: Optional[list[str]]) -> list[str]:
         distinct: dict[str, str] = {}
@@ -195,6 +328,20 @@ class TestCaseService:
         priority_filter: Optional[str] = None,
         tag_filters: Optional[list[str]] = None,
     ) -> dict:
+        normalized_search = search.strip() if isinstance(search, str) else ''
+        if normalized_search:
+            return await TestCaseService._get_full_text_page(
+                space_id=space_id,
+                search=normalized_search,
+                type_filter=type_filter,
+                status_filter=status_filter,
+                suite_id=suite_id,
+                priority_filter=priority_filter,
+                tag_filters=tag_filters,
+                page=page,
+                page_size=page_size,
+            )
+
         q = TestCaseModel.filter(space_id=space_id)
         if type_filter:
             q = q.filter(type=type_filter)
@@ -211,20 +358,6 @@ class TestCaseService:
             q = q.filter(suite_id__isnull=True)
         elif suite_id:
             q = q.filter(suite_id=suite_id)
-        if search:
-            search_q = (
-                Q(title__icontains=search)
-                | Q(short_name__icontains=search)
-                | Q(text__icontains=search)
-                | Q(steps__icontains=search)
-                | Q(expected_results__icontains=search)
-                | Q(preconditions__icontains=search)
-                | Q(postconditions__icontains=search)
-                | Q(external_id__icontains=search)
-                | Q(link__icontains=search)
-            )
-            q = q.filter(search_q)
-
         result = await paginate(
             q.prefetch_related('suite', 'created_by'), page, page_size, sort_by, sort_order
         )
@@ -232,38 +365,9 @@ class TestCaseService:
         return {
             **result,
             'items': [
-                {
-                    'id': str(testcase.id),
-                    'title': testcase.title,
-                    'text': testcase.text,
-                    'steps': testcase.steps,
-                    'expected_results': testcase.expected_results,
-                    'preconditions': testcase.preconditions,
-                    'postconditions': testcase.postconditions,
-                    'sort': testcase.sort,
-                    'short_name': testcase.short_name,
-                    'link': testcase.link,
-                    'type': testcase.type,
-                    'status': testcase.status,
-                    'priority': testcase.priority,
-                    'tags': tags_by_case.get(str(testcase.id), []),
-                    'external_id': testcase.external_id,
-                    'estimated_duration_seconds': testcase.estimated_duration_seconds,
-                    'space_id': str(testcase.space_id),
-                    'suite_id': str(testcase.suite_id) if testcase.suite_id else None,
-                    'suite': {
-                        'id': str(testcase.suite.id),
-                        'name': testcase.suite.name,
-                    } if testcase.suite else None,
-                    'section_id': str(testcase.section_id) if testcase.section_id else None,
-                    'created_by_id': str(testcase.created_by_id) if testcase.created_by_id else None,
-                    'created_by': {
-                        'id': str(testcase.created_by.id),
-                        'username': testcase.created_by.username,
-                    } if testcase.created_by else None,
-                    'created_at': testcase.created_at.isoformat() if testcase.created_at else None,
-                    'updated_at': testcase.updated_at.isoformat() if testcase.updated_at else None,
-                }
+                TestCaseService._serialize_list_item(
+                    testcase, tags_by_case.get(str(testcase.id), [])
+                )
                 for testcase in result['items']
             ],
         }

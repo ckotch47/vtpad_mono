@@ -28,6 +28,7 @@
 | Комментарий в модалке бага не сохраняется | Отсутствует `bug.id` или отправляется пустой HTML (`<p></p>`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalCommentComponent.vue` |
 | `403` или лог-ошибка в уведомлениях при отсутствии assigner | Background task пытался создать notification с пустым `assigner_id` | `vtpad_backend/app/src/bug/service.py`, `vtpad_backend/app/src/comments/service.py` |
 | `401` после долгого простоя | Access token expired, refresh failed | `app/src/auth/service.py`, Redis |
+| `403` при чтении списка suites | REST и MCP проверяют membership/роль в запрошенном space до поиска; клиенту нужно выбрать доступный space | `app/src/test_suite/router.py`, `app/src/mcp/tools/test_suites.py` |
 | Пустой экран после открытия `/` или входа | Главная страница и успешная авторизация переходили на `/space` без `spaceId`; существует только маршрут `/space/:spaceId` | `vtpad_front_v2/src/pages/index.vue`, `vtpad_front_v2/src/components/auth/authComponent.vue` |
 
 ## Исправленные дефекты

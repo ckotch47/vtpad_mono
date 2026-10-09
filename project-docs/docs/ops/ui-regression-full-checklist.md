@@ -57,6 +57,16 @@
 
 ### 2. Full Functional (основной регресс)
 
+0a. Consistent desktop list framing (Cases, Suites, Plans, Runs, Bugs)
+- На viewport `1276x718` и `1440x900` сверить одинаковую иерархию: page heading, toolbar с фильтрами и действиями, затем список; нет наложения, обрезанных названий или горизонтального переполнения.
+- Проверить, что `ListPageToolbar` не скрывает доменные фильтры: Cases type/status/priority/tags/suite, Suites search/status/sort, Plans/Runs search, Bugs search и filter dialog сохраняют прежнюю выдачу/query behavior.
+- Клавиатурой пройти фильтры, primary actions, заголовок записи и каждое row action; ссылки открывают details, действия имеют описательные accessible names и видимый focus.
+- В Bugs проверить, что `Create…` — кнопка и открывает тот же draft flow; заголовок bug открывает существующее окно без сохранения.
+- В Suites проверить split-pane и URL-backed selection: список слева, выбранная деталь справа; edit/archive доступны отдельными кнопками.
+- Проверить loading, initial error, permission-denied и empty/no-match; Retry/Clear доступны только в подходящих состояниях.
+- Проверить поиск/фильтры и переход по ссылке без полной перезагрузки страницы; сохранять текущие query/route semantics.
+- Эта проверка desktop-only; мобильная верстка и mobile smoke исключены по указанию пользователя.
+
 0. Shared list loading (UX2, desktop)
 - На cases, suites, runs, plans, bugs и Tech Docs замедлить initial response в QA-среде: скелетон занимает место списка, а доступные search/filter controls остаются видимыми и доступными.
 - При обновлении после успешной загрузки проверить, что существующие строки/дерево остаются на месте, а индикатор прогресса не подменяет их начальным скелетоном.

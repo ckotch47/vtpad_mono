@@ -1,6 +1,7 @@
 <template>
   <div>
-    <v-toolbar density="compact" class="list-toolbar ">
+    <list-page-toolbar>
+      <template #filters>
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
@@ -8,15 +9,17 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2 list-filter-search"
+        class="list-filter-search"
         clearable
         @update:model-value="onSearch"
       />
-      <v-spacer />
+      </template>
+      <template #actions>
       <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
         New Plan
       </v-btn>
-    </v-toolbar>
+      </template>
+    </list-page-toolbar>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
       {{ loadErrorStatus === 403 ? 'You do not have permission to view test plans in this space.' : plans.length ? 'Test plans could not be refreshed. Existing results are still shown.' : 'Test plans could not be loaded.' }}
@@ -41,7 +44,6 @@
       :loading="loading"
       item-value="id"
       @update:options="loadPlans"
-      @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-plans/${item.id}`)"
     >
       <template #no-data>
         <contextual-empty-state
@@ -60,7 +62,7 @@
         />
       </template>
       <template v-slot:[`item.name`]="{ item }">
-        <span class="font-weight-medium">{{ item.name }}</span>
+        <router-link class="list-row-link" :to="`/space/${spaceId}/test-plans/${item.id}`" :aria-label="`Open test plan ${item.name}`">{{ item.name }}</router-link>
       </template>
       <template v-slot:[`item.case_count`]="{ item }">
         <v-chip size="small" color="primary">{{ item.case_count || 0 }}</v-chip>
@@ -81,9 +83,7 @@
         {{ formatDate(item.created_at) }}
       </template>
       <template v-slot:[`item.actions`]="{ item }">
-        <v-btn icon size="small" variant="text" @click.stop="deletePlan(item.id)">
-          <v-icon color="error">mdi-delete</v-icon>
-        </v-btn>
+        <v-btn icon="mdi-delete" size="small" variant="text" color="error" :aria-label="`Delete ${item.name}`" :title="`Delete ${item.name}`" @click.stop="deletePlan(item.id)" />
       </template>
       </v-data-table-server>
     </div>
@@ -135,6 +135,7 @@ import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { testPlanService, testSuiteService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 import PlanCaseFilters from './PlanCaseFilters.vue'
 
 const log = useLogger('app')
@@ -336,13 +337,15 @@ function formatDate(date) {
 </script>
 
 <style scoped>
-.list-toolbar {
-  gap: 8px;
+.list-filter-search {
+  flex: 1 1 320px;
+  min-width: 220px;
+  max-width: 520px;
 }
 
-.list-filter-search {
-  max-width: 320px;
-}
+.list-row-link { color: inherit; font-weight: 500; text-decoration: none; }
+.list-row-link:hover { text-decoration: underline; }
+.list-row-link:focus-visible { border-radius: 2px; outline: 2px solid currentColor; outline-offset: 2px; }
 
 .creator-cell {
   display: flex;

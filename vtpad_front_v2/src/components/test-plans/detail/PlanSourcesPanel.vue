@@ -166,7 +166,12 @@
           </v-list-item-subtitle>
         </v-list-item>
       </v-list>
-      <v-empty-state v-else icon="mdi-play-circle-outline" text="No runs yet. Create one from the button above." />
+      <contextual-empty-state
+        v-else
+        icon="mdi-play-circle-outline"
+        title="No runs yet"
+        text="Create a run from this plan to track its execution."
+      />
     </v-card-text>
   </v-card>
 </template>

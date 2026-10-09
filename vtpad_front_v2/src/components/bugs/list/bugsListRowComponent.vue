@@ -7,7 +7,9 @@
         {{ item.external_link ? item.external_link.split('/').pop() : '' }}
       </a>
     </td>
-    <td class="title" @click="$emit('openBug')">{{ item.title }}</td>
+    <td class="title">
+      <v-btn class="bug-title-action" variant="text" :aria-label="`Open bug ${item.title || item.external_link?.split('/').pop() || item.id}`" @click="$emit('openBug')">{{ item.title }}</v-btn>
+    </td>
     <td class="text-no-wrap username-no-wrap" :class="settings.compact ? 'text-center username-compact' : ''">
       <v-avatar
         v-if="item.assigner_id"
@@ -63,4 +65,16 @@ defineEmits(['ClickTagEmit', 'openBug'])
 </script>
 
 <style lang="scss">
+.bug-title-action {
+  justify-content: flex-start;
+  padding-inline: 0;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+}
+.bug-title-action :deep(.v-btn__content) { white-space: normal; }
+.bug-title-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 </style>

@@ -1,6 +1,7 @@
 <template>
   <div class="suite-navigation">
-    <div class="suite-navigation__toolbar">
+    <list-page-toolbar class="suite-navigation__toolbar">
+      <template #filters>
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
@@ -35,10 +36,13 @@
         variant="solo"
         aria-label="Sort test suites"
       />
-      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" block @click="openCreate = true">
+      </template>
+      <template #actions>
+      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
         New Test Suite
       </v-btn>
-    </div>
+      </template>
+    </list-page-toolbar>
 
     <nav class="suite-navigation__list" aria-label="Test suites" :aria-busy="initialLoading || tableLoading">
       <list-loading-skeleton
@@ -60,7 +64,6 @@
         <v-list-item
           v-for="item in suites"
           :key="item.id"
-          :to="suiteRoute(item.id)"
           :active="String(route.params.suiteId || '') === String(item.id)"
           active-color="primary"
           rounded="lg"
@@ -73,7 +76,7 @@
             </v-icon>
           </template>
           <v-list-item-title class="suite-navigation__title">
-            {{ item.name }}
+            <router-link class="suite-navigation__link" :to="suiteRoute(item.id)">{{ item.name }}</router-link>
           </v-list-item-title>
           <v-list-item-subtitle class="suite-navigation__subtitle">
             <span>{{ item.cases_count || 0 }} cases</span>
@@ -107,18 +110,15 @@
           </template>
         </v-list-item>
       </v-list>
-      <v-empty-state
+      <contextual-empty-state
         v-else-if="!initialLoading && !loadError"
         icon="mdi-folder-search-outline"
         :title="search || filterStatus ? 'No matching suites' : 'No test suites yet'"
         :text="search || filterStatus ? 'Try changing the search or status filter.' : 'Create a suite to start organizing test cases.'"
+        :action-label="search || filterStatus ? 'Clear filters' : ''"
+        @action="search = ''; filterStatus = ''; onFilterChange()"
         class="suite-navigation__empty"
-      >
-        <template #actions>
-          <v-btn v-if="search || filterStatus" variant="tonal" color="primary" @click="search = ''; filterStatus = ''; onFilterChange()">Clear filters</v-btn>
-          <span v-else class="text-caption text-medium-emphasis">Use New Test Suite above if you have permission to create suites.</span>
-        </template>
-      </v-empty-state>
+      />
     </nav>
 
     <div v-if="pageCount > 1" class="suite-navigation__pagination">
@@ -194,6 +194,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { testSuiteService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 
 const emit = defineEmits(['suite-changed'])
 
@@ -450,10 +451,14 @@ onBeforeUnmount(() => {
 }
 
 .suite-navigation__toolbar {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.suite-navigation__toolbar :deep(.list-page-toolbar__filters > *) {
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
 .suite-navigation__list {
@@ -477,6 +482,10 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.suite-navigation__link { color: inherit; text-decoration: none; }
+.suite-navigation__link:hover { text-decoration: underline; }
+.suite-navigation__link:focus-visible { border-radius: 2px; outline: 2px solid currentColor; outline-offset: 2px; }
 
 .suite-navigation__subtitle {
   display: flex;

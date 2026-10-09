@@ -1,6 +1,7 @@
 <template>
   <div>
-    <v-toolbar density="compact" class="list-toolbar">
+    <list-page-toolbar>
+      <template #filters>
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
@@ -8,15 +9,17 @@
         density="compact"
         hide-details
         variant="solo"
-        class="mx-2 list-filter-search"
+        class="list-filter-search"
         clearable
         @update:model-value="onSearch"
       />
-      <v-spacer />
+      </template>
+      <template #actions>
       <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
         New Test Run
       </v-btn>
-    </v-toolbar>
+      </template>
+    </list-page-toolbar>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
       {{ loadErrorStatus === 403 ? 'You do not have permission to view test runs in this space.' : runs.length ? 'Test runs could not be refreshed. Existing results are still shown.' : 'Test runs could not be loaded.' }}
@@ -41,7 +44,6 @@
       :page="page"
       hover
       @update:options="loadRuns"
-      @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-runs/${item.id}`)"
     >
       <template #no-data>
         <contextual-empty-state
@@ -65,6 +67,9 @@
           <span class="text-capitalize">{{ item.status }}</span>
         </v-chip>
       </template>
+      <template v-slot:[`item.name`]="{ item }">
+        <router-link class="list-row-link" :to="`/space/${spaceId}/test-runs/${item.id}`" :aria-label="`Open test run ${item.name}`">{{ item.name }}</router-link>
+      </template>
       <template v-slot:[`item.created_by`]="{ item }">
         <div v-if="item.created_by?.username" class="creator-cell">
           <v-avatar color="grey" size="24">
@@ -78,7 +83,7 @@
         {{ formatDate(item.created_at) }}
       </template>
       <template v-slot:[`item.actions`]="{ item }">
-        <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click.stop="deleteRun(item)" />
+        <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" :aria-label="`Delete ${item.name}`" :title="`Delete ${item.name}`" @click.stop="deleteRun(item)" />
       </template>
       </v-data-table-server>
     </div>
@@ -159,6 +164,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { testRunService, testSuiteService, testPlanService, testCaseService, milestoneService, environmentService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
@@ -381,13 +387,15 @@ function deleteRun(item) {
 </script>
 
 <style scoped>
-.list-toolbar {
-  gap: 8px;
+.list-filter-search {
+  flex: 1 1 320px;
+  min-width: 220px;
+  max-width: 520px;
 }
 
-.list-filter-search {
-  max-width: 320px;
-}
+.list-row-link { color: inherit; font-weight: 500; text-decoration: none; }
+.list-row-link:hover { text-decoration: underline; }
+.list-row-link:focus-visible { border-radius: 2px; outline: 2px solid currentColor; outline-offset: 2px; }
 
 .creator-cell {
   display: flex;

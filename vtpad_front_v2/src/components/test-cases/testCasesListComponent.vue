@@ -1,7 +1,7 @@
 <template>
   <div>
-    <v-card variant="outlined" class="list-toolbar mb-4">
-      <v-card-text class="pa-3">
+    <list-page-toolbar>
+      <template #filters>
         <div class="list-toolbar__filter-row">
           <v-text-field
             v-model="search"
@@ -83,23 +83,15 @@
             class="list-filter-sm"
             @update:model-value="onFilterChange"
           />
-          <div class="list-toolbar__actions">
-            <v-btn v-if="selectedCases.length" size="small" variant="text" color="error" @click="bulkDelete">
-              Delete ({{ selectedCases.length }})
-            </v-btn>
-            <v-btn v-if="selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">
-              Change Status ({{ selectedCases.length }})
-            </v-btn>
-            <v-btn v-if="loadErrorStatus !== 403" variant="outlined" @click="openTemplates = true">
-              Case Templates
-            </v-btn>
-            <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
-              New Test Case
-            </v-btn>
-          </div>
         </div>
-      </v-card-text>
-    </v-card>
+      </template>
+      <template #actions>
+        <v-btn v-if="selectedCases.length" size="small" variant="text" color="error" @click="bulkDelete">Delete ({{ selectedCases.length }})</v-btn>
+        <v-btn v-if="selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">Change Status ({{ selectedCases.length }})</v-btn>
+        <v-btn v-if="loadErrorStatus !== 403" variant="outlined" @click="openTemplates = true">Case Templates</v-btn>
+        <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">New Test Case</v-btn>
+      </template>
+    </list-page-toolbar>
 
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3" role="alert">
       {{ loadErrorStatus === 403 ? 'You do not have permission to view test cases in this space.' : cases.length ? 'Test cases could not be refreshed. Existing results are still shown.' : 'Test cases could not be loaded.' }}
@@ -128,7 +120,6 @@
       show-select
       item-value="id"
       @update:options="loadCases"
-      @click:row="(event, { item }) => $router.push(`/space/${spaceId}/test-cases/${item.id}`)"
     >
       <template #no-data>
         <contextual-empty-state
@@ -145,6 +136,11 @@
           title="No test cases yet"
           text="Use New Test Case when you have permission to add cases to this space."
         />
+      </template>
+      <template v-slot:[`item.title`]="{ item }">
+        <router-link class="list-row-link" :to="`/space/${spaceId}/test-cases/${item.id}`" :aria-label="`Open test case ${item.title}`">
+          {{ item.title }}
+        </router-link>
       </template>
       <template v-slot:[`item.type`]="{ item }">
         <v-chip size="small" :color="typeColor(item.type)">{{ item.type }}</v-chip>
@@ -345,6 +341,7 @@ import { testCaseService, testCaseTemplateService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 import CaseTemplatesDialog from '@/components/test-cases/CaseTemplatesDialog.vue'
 
 const route = useRoute()
@@ -732,15 +729,12 @@ watch(openCreate, (isOpen) => {
 </script>
 
 <style scoped>
-.list-toolbar {
-  border-radius: 12px;
-}
-
 .list-toolbar__filter-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  flex: 1 1 100%;
 }
 
 .list-filter-search {
@@ -760,17 +754,12 @@ watch(openCreate, (isOpen) => {
 }
 
 .list-toolbar__filter-row--secondary {
-  margin-top: 12px;
+  margin-top: 0;
 }
 
-.list-toolbar__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex: 1 1 420px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
+.list-row-link { color: inherit; font-weight: 500; text-decoration: none; }
+.list-row-link:hover { text-decoration: underline; }
+.list-row-link:focus-visible { border-radius: 2px; outline: 2px solid currentColor; outline-offset: 2px; }
 
 .creator-cell {
   display: flex;

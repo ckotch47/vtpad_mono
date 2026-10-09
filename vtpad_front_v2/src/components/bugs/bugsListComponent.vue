@@ -1,7 +1,8 @@
 <template>
   <page-header-component title="Bugs" />
 
-  <v-toolbar density="compact" class="list-toolbar ">
+  <list-page-toolbar>
+    <template #filters>
     <v-text-field
       v-model="search"
       prepend-inner-icon="mdi-magnify"
@@ -9,16 +10,18 @@
       density="compact"
       hide-details
       variant="solo"
-      class="mx-2 list-filter-search"
+      class="list-filter-search"
       clearable
       @update:model-value="onSearch"
     />
-    <v-spacer />
+    </template>
+    <template #actions>
     <v-btn variant="outlined" text="Filter" @click="isModalFilter = true" />
     <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" class="ml-2" @click="createBug">
       New Bug
     </v-btn>
-  </v-toolbar>
+    </template>
+  </list-page-toolbar>
 
   <bugs-modal-filter-component
     v-if="isModalFilter"
@@ -83,6 +86,7 @@ import { bugService } from '@/services'
 import BugsModalComponent from '@/components/bugs/modal/bugsModalComponent.vue'
 import BugsDataTable from './BugsDataTable.vue'
 import PageHeaderComponent from '@/components/common/pageHeaderComponent.vue'
+import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 const route = useRoute()
 const store = useAppStore()
 
@@ -317,12 +321,10 @@ function updateBugInList(bug) {
 </script>
 
 <style scoped>
-.list-toolbar {
-  gap: 8px;
-}
-
 .list-filter-search {
-  max-width: 320px;
+  flex: 1 1 320px;
+  min-width: 220px;
+  max-width: 520px;
 }
 </style>
 

@@ -77,7 +77,9 @@
         </tr>
         <tr v-if="items.length">
           <td />
-          <td class="title color-state--OPEN" @click="$emit('create-bug')">Create…</td>
+          <td class="title color-state--OPEN">
+            <v-btn class="bug-create-action" variant="text" color="primary" aria-label="Create a bug" @click="$emit('create-bug')">Create…</v-btn>
+          </td>
           <td class="username-compact" />
           <td class="color-state--OPEN"><span class="color-state--OPEN">OPEN</span></td>
           <td />
@@ -143,6 +145,12 @@ defineEmits(['change-filter', 'create-bug', 'open-bug', 'click-tag', 'retry'])
   overflow-y: auto;
   max-width: 100%;
 }
+.bug-create-action {
+  padding-inline: 0;
+  min-width: 0;
+  text-transform: none;
+}
+.bug-create-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .bugs-table {
   tr:hover {
     background-color: rgba(var(--v-border-color), var(--v-hover-opacity));

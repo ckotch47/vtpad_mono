@@ -47,6 +47,7 @@
 - Основной текст не выходит за диапазон размеров (типографический baseline).
 - Нет явных layout-breaks (перекрытия, обрезка ключевых блоков).
 - Spaces drawer открывается и закрывается без перекрытия первой строки; пустые имена отображаются как `Unnamed space`, поиск по ним не падает.
+- На desktop Spaces toggle находится в зарезервированной общей верхней строке на основных маршрутах. Проверить доступное имя `Open spaces navigation`, видимый клавиатурный фокус, открытие/закрытие pointer и клавиатурой без изменения URL/перезагрузки; при открытом drawer toggle не лежит поверх строк Space. Выполнить на viewport `1276x718` и `904x799`; на длинном Run detail проверить после прокрутки.
 - На desktop подписи фильтров Test Cases остаются читаемыми; поиск и фильтры продолжают менять выдачу.
 - Иконки-действия имеют доступные имена, а при клавиатурной навигации виден фокус.
 - Cmd/Ctrl+S сохраняет только активную форму; в поиске и вне формы не перехватывает браузерное действие.
@@ -141,7 +142,7 @@
 
 Desktop UIX r1 retest (2026-10-09): UIX-001–004 passed on the observed run, spaces drawer, cases list, and Tech Docs with existing pages. The cases search returned matching rows without a full page navigation. Keyboard focus on a Tech Docs row revealed its action menu and a visible focus outline. UIX-005 accessible names are present; pointer-hover tooltip behavior was not manually observed. A successful empty Tech Docs tree and Tech Docs load-error fixture were unavailable. Test Plan detail and the empty Test Runs list opened; the testcase edit form opened but showed an existing 404 toast for tag options. The Bugs detail path had no populated detail fixture; the read-only “Create…” row opens a draft form, which was closed without saving. No testcase, run, plan, bug, or Tech Docs record was saved during this retest.
 
-Desktop UI/UX retest (2026-10-09): on the current Test Cases page, the Spaces toggle was visible and keyboard-focusable; its focus ring was visible, and Enter opened the drawer without changing the route. Clicking the drawer close control returned to the same route. The toggle is still positioned over the left edge of the Tags filter and its nested focusable button has no accessible name in the AX tree, despite the wrapper carrying `aria-label`; see `plans/ui-ux-consistency-package-r2.md`. The drawer showed “No spaces”, and the cases list request returned HTTP 500, so data-dependent states and cross-screen live comparison were not run. The UI/UX source audit found inconsistent list/filter framing between Cases, Plans, Runs, and Bugs; inconsistent action semantics/names; and one Plan Sources empty state outside the shared pattern. See `plans/ui-list-consistency-package-r1.md`. Mobile was excluded.
+Desktop UI/UX retest (2026-10-09, before UXN-001 fix): the previous fixed toggle overlapped the Test Cases Tags filter and its inner button lacked an accessible name; the drawer showed “No spaces” while the cases list request returned HTTP 500. Implementation evidence is recorded in the current commit; rerun the viewport and long-page checks above when the local service has usable route data. Data-dependent states and mobile remain outside this check.
 
 7. Bugs (если включено в текущем контуре)
 - List загрузка.

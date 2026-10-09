@@ -1,15 +1,23 @@
 <template>
   <v-app>
-    <v-fab
-      v-if="authToken && !drawer"
-      id="spaces-navigation-toggle"
-      class="me-4 menu-show--main"
-      icon="mdi-menu"
-      aria-label="Open spaces navigation"
-      aria-controls="spaces-navigation"
-      title="Open spaces navigation"
-      @click="drawer = !drawer"
-    />
+    <v-app-bar
+      v-if="authToken"
+      class="spaces-navigation-shell"
+      flat
+      height="56"
+    >
+      <v-btn
+        v-if="!drawer"
+        id="spaces-navigation-toggle"
+        class="spaces-navigation-toggle ms-2"
+        icon="mdi-menu"
+        aria-label="Open spaces navigation"
+        aria-controls="spaces-navigation"
+        :aria-expanded="String(Boolean(drawer))"
+        title="Open spaces navigation"
+        @click="drawer = true"
+      />
+    </v-app-bar>
 
     <v-navigation-drawer
       id="spaces-navigation"
@@ -136,11 +144,13 @@ watch(route, updateRouteMeta, { deep: true })
 </script>
 
 <style lang="scss">
-.menu-show--main {
-  position: fixed !important;
-  top: 200px;
-  left: 12px;
-  z-index: 1200 !important;
+.spaces-navigation-shell {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.spaces-navigation-toggle {
+  min-width: 48px;
+  min-height: 48px;
 }
 
 body::-webkit-scrollbar,

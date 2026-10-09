@@ -8,16 +8,36 @@
         height="56"
       >
         <v-btn
-          v-if="!drawer"
+          v-if="mdAndUp || !drawer"
           id="spaces-navigation-toggle"
           class="spaces-navigation-toggle menu-show--main ms-2"
-          icon="mdi-menu"
-          aria-label="Open spaces navigation"
+          :icon="drawer ? 'mdi-menu-open' : 'mdi-menu'"
+          :aria-label="drawer ? 'Close spaces navigation' : 'Open spaces navigation'"
           aria-controls="spaces-navigation"
           :aria-expanded="String(Boolean(drawer))"
-          title="Open spaces navigation"
-          @click="drawer = true"
+          :title="drawer ? 'Close spaces navigation' : 'Open spaces navigation'"
+          @click="drawer = mdAndUp ? !drawer : true"
         />
+        <v-tabs
+          v-if="mdAndUp && spaces.length"
+          class="spaces-navigation-tabs"
+          :model-value="activeSpaceId"
+          show-arrows
+          align-tabs="start"
+          density="compact"
+        >
+          <v-tab
+            v-for="space in spaces"
+            :key="space.id"
+            :to="`/space/${space.id}/dashboard`"
+            :value="String(space.id)"
+            :aria-label="spaceName(space)"
+          >
+            {{ spaceName(space) }}
+          </v-tab>
+        </v-tabs>
+        <v-spacer />
+        <profile-left-component v-if="mdAndUp" compact class="spaces-navigation-profile" />
       </v-app-bar>
 
       <v-navigation-drawer
@@ -26,7 +46,11 @@
         v-model="drawer"
         width="300"
       >
-        <profile-left-component @hide-left-menu="drawer = !drawer" />
+        <profile-left-component
+          v-if="!mdAndUp"
+          class="spaces-navigation-mobile-profile"
+          @hide-left-menu="drawer = !drawer"
+        />
         <spaces-list-component />
       </v-navigation-drawer>
 
@@ -64,13 +88,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import ProfileLeftComponent from '@/components/leftAsideMain/ProfileLeftComponent.vue'
 import SpacesListComponent from '@/components/leftAsideMain/SpacesListComponent.vue'
 import CommandPaletteComponent from '@/components/common/commandPaletteComponent.vue'
+import { spaceService } from '@/services'
 import 'vue3-toastify/dist/index.css'
 
 const route = useRoute()
 const router = useRouter()
+const { mdAndUp } = useDisplay()
 const isPublicRoute = computed(() => route.meta?.isPublic === true)
 
 const routerReady = ref(false)
@@ -80,6 +107,39 @@ const routerMeta = ref({})
 const authToken = ref(undefined)
 const showShortcuts = ref(false)
 const commandPalette = ref(null)
+const spaces = ref([])
+const spacesLoaded = ref(false)
+const spacesLoading = ref(false)
+const activeSpaceId = computed(() => {
+  const routeSpaceId = route.params.spaceId ?? route.params.id
+  return spaces.value.some(space => String(space.id) === String(routeSpaceId)) ? String(routeSpaceId) : ''
+})
+
+function loadSpaces() {
+  if (!authToken.value) {
+    spaces.value = []
+    spacesLoaded.value = false
+    return
+  }
+  if (spacesLoaded.value || spacesLoading.value) return
+  spacesLoading.value = true
+  const requestToken = authToken.value
+  spaceService.list().then(res => {
+    if (authToken.value === requestToken && !isPublicRoute.value) {
+      spaces.value = Array.isArray(res.data) ? res.data : []
+    }
+  }).catch(() => {
+    if (authToken.value === requestToken && !isPublicRoute.value) spaces.value = []
+  }).finally(() => {
+    if (authToken.value === requestToken && !isPublicRoute.value) spacesLoaded.value = true
+    spacesLoading.value = false
+  })
+}
+
+function spaceName(space) {
+  const name = typeof space?.name === 'string' ? space.name.trim() : ''
+  return !name || ['null', 'undefined'].includes(name.toLocaleLowerCase()) ? 'Unnamed space' : name
+}
 
 function checkAuth() {
   if (isPublicRoute.value) {
@@ -143,6 +203,7 @@ onMounted(async () => {
   await router.isReady()
   routerReady.value = true
   checkAuth()
+  loadSpaces()
   updateRouteMeta()
   if (!isPublicRoute.value) document.addEventListener('keydown', onKeydown, true)
 })
@@ -155,10 +216,13 @@ watch(route, () => {
   updateRouteMeta()
   if (isPublicRoute.value) {
     authToken.value = null
+    spaces.value = []
+    spacesLoaded.value = false
     showShortcuts.value = false
     document.removeEventListener('keydown', onKeydown, true)
   } else {
     checkAuth()
+    loadSpaces()
     document.addEventListener('keydown', onKeydown, true)
   }
 }, { deep: true })
@@ -167,6 +231,18 @@ watch(route, () => {
 <style lang="scss">
 .spaces-navigation-shell {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding-inline: 12px;
+}
+
+.spaces-navigation-tabs {
+  min-width: 0;
+  max-width: calc(100vw - 220px);
+  flex: 1 1 auto;
+}
+
+.spaces-navigation-profile {
+  flex: 0 0 auto;
+  margin-left: 8px;
 }
 
 .spaces-navigation-toggle {
@@ -175,6 +251,11 @@ watch(route, () => {
 }
 
 @media (min-width: 960px) {
+  .spaces-navigation-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   .menu-show--main {
     left: -24px;
   }

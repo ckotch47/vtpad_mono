@@ -492,7 +492,12 @@ class BugsService:
     async def update_bug(bug: UpdateBugDto, bug_id: str, user: dict, background_tasks: BackgroundTasks):
         temp = await BugsService._get_bug_or_404(bug_id)
 
-        if bug.state == StateBugEnum.closed or bug.state == StateBugEnum.hold:
+        state_changed = bug.state is not None and bug.state != temp.state
+        closing_or_holding = bug.state in (StateBugEnum.closed, StateBugEnum.hold)
+        reopening = bug.state == StateBugEnum.reopen or (
+            state_changed and temp.state in (StateBugEnum.closed, StateBugEnum.hold)
+        )
+        if state_changed and (closing_or_holding or reopening):
             await BugsService.check_user_for_update_bug_state_open_bug(bug_id, user)
 
         estimate_date = BugsService._prepare_estimate_date(bug.estimate_date)
@@ -615,7 +620,12 @@ class BugsService:
     @staticmethod
     async def check_user_update_bug_v2(bug_id: str, user: dict, state: StateBugEnum):
         bug = await BugsService._get_bug_or_404(bug_id)
-        if state == StateBugEnum.closed or state == StateBugEnum.hold:
+        state_changed = state is not None and state != bug.state
+        closing_or_holding = state in (StateBugEnum.closed, StateBugEnum.hold)
+        reopening = state == StateBugEnum.reopen or (
+            state_changed and bug.state in (StateBugEnum.closed, StateBugEnum.hold)
+        )
+        if state_changed and (closing_or_holding or reopening):
             await require_space_right(str(user.get('id')), str(bug.spaces_id), 'closeBugs')
         return True
 

@@ -110,7 +110,7 @@ Comment create/update/delete require `bug_comments` on the parent bug space; upd
 - `DELETE /api/v1/comment/{comment_id}`
 
 ### `app/src/tag`
-Tag create/update/delete require the server-derived `tags` capability.
+Tag create/update/delete require the server-derived `tags` capability. Bug state changes to `CLOSED`, `HOLD`, or `REOPEN`, and transitions out of `CLOSED`/`HOLD`, require the additional `closeBugs` right. The capability response also includes `close_bugs`, which requires bug write access plus that stored right and is overridden by `readOnly`; owners and active same-company company admins receive it.
 - `GET /api/v1/tag/{space_id}`
 - `PUT /api/v1/tag/{tag_id}`
 - `POST /api/v1/tag/{space_id}`
@@ -224,7 +224,7 @@ MCP работает как Streamable HTTP по `/api/v1/mcp`: сервер п�
 MCP tools in `app/src/mcp/tools/*` are not classic REST endpoints, but they are part of public integration surface.
 
 Current behavior constraints (synced with code):
-- Space capabilities are available in `GET /api/v1/space/{space_id}` and through MCP `get_space_capabilities(space_id)`; both expose the same server-derived per-domain write booleans.
+- Space capabilities are available in `GET /api/v1/space/{space_id}` and through MCP `get_space_capabilities(space_id)`; both expose the same server-derived per-domain write booleans, including `close_bugs` (requires bug write access plus `closeBugs`).
 - `get_space_suites` transforms items returned by `TestSuiteService.get_by_space(...)` as dictionaries.
 - MCP `search_test_cases` accepts the same type/status/suite/priority/tag filters and one-based `page`/`limit` pagination as the REST case list; `suite_id="none"` searches unassigned cases. It returns the requested page as a list, preserving the MCP result shape. `get_space_suites` accepts optional `search`, `status`, and one-based `page`/`limit`, and checks access to `space_id` before querying; it also preserves its list result shape.
 - MCP plan tools provide equivalent read/write access plus `preview_test_plan_selection`; create/update accept `suite_ids` and typed `filters`, and list `case_count` is computed by the shared resolver.

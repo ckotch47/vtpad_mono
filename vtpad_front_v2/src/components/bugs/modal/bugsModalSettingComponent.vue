@@ -21,7 +21,8 @@
     :model-value="bug.state"
     class="select-custom"
     label="State"
-    :items="filter.state"
+    :items="availableStates"
+    :disabled="stateLocked"
     variant="outlined"
     @update:modelValue="updateBug('state', $event)"
   />
@@ -52,18 +53,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { bugService } from '@/services'
 
 const props = defineProps({
   bug: Object,
   filter: Object,
+  canCloseBugs: { type: Boolean, default: false },
   canEditTags: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['updateBug'])
 
 const dateVModel = ref(undefined)
+const stateLocked = computed(() => !props.canCloseBugs && ['CLOSED', 'HOLD'].includes(String(props.bug?.state || '').toUpperCase()))
+const availableStates = computed(() => {
+  const states = props.filter?.state || []
+  if (props.canCloseBugs) return states
+  return states.filter(state => !['CLOSED', 'HOLD', 'REOPEN'].includes(String(state).toUpperCase()))
+})
 
 onMounted(() => {
   dateVModel.value = props.bug.estimate_date ? String(props.bug.estimate_date).slice(0, 10) : undefined

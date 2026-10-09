@@ -9,6 +9,7 @@ const EMPTY_CAPABILITIES = Object.freeze({
   runs: false,
   results: false,
   bugs: false,
+  close_bugs: false,
   bug_comments: false,
   tags: false,
   tech_docs: false,

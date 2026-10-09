@@ -72,6 +72,7 @@
     :bug-item="store.openBug"
     :filters="filter"
     :can-manage-bugs="canManageBugs"
+    :can-close-bugs="canCloseBugs"
     :can-manage-comments="canManageComments"
     :can-edit-tags="canEditTags"
     @close-bug-modal="closeBugModal()"
@@ -96,6 +97,7 @@ const capabilityStore = useSpaceCapabilitiesStore()
 
 const spaceId = computed(() => route.params.spaceId)
 const canManageBugs = computed(() => capabilityStore.can(spaceId.value, 'bugs'))
+const canCloseBugs = computed(() => capabilityStore.can(spaceId.value, 'close_bugs'))
 const canManageComments = computed(() => capabilityStore.can(spaceId.value, 'bug_comments'))
 const canEditTags = computed(() => capabilityStore.can(spaceId.value, 'tags'))
 

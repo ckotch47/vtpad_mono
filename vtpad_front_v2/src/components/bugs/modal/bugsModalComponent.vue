@@ -73,6 +73,7 @@
             :bug="openBugElem"
             :filter="filters"
             :can-edit-tags="canEditTags"
+            :can-close-bugs="canCloseBugs"
             @update-bug="updateBug"
           />
         </div>
@@ -94,6 +95,7 @@ const props = defineProps({
   isActive: Boolean,
   bugItem: Object,
   canManageBugs: { type: Boolean, default: false },
+  canCloseBugs: { type: Boolean, default: false },
   canManageComments: { type: Boolean, default: false },
   canEditTags: { type: Boolean, default: false },
   filters: Object,

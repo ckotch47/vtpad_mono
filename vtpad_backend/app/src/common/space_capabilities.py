@@ -23,6 +23,7 @@ SPACE_WRITE_CAPABILITIES = (
     "tech_docs",
     "traceability",
     "run_bug_links",
+    "close_bugs",
 )
 
 
@@ -54,6 +55,7 @@ def _capabilities_from_rights(rights: dict[str, Any]) -> dict[str, bool]:
         "runs": can_write and can_write_runs,
         "results": can_write and can_write_runs,
         "bugs": can_write and can_write_bugs,
+        "close_bugs": can_write and can_write_bugs and rights.get("closeBugs") is True,
         "bug_comments": can_write and can_write_bugs,
         "tags": can_write and rights.get("editTags") is True,
         "tech_docs": can_write and can_write_tech_docs,

@@ -10,7 +10,7 @@
         <v-btn
           v-if="!drawer"
           id="spaces-navigation-toggle"
-          class="spaces-navigation-toggle ms-2"
+          class="spaces-navigation-toggle menu-show--main ms-2"
           icon="mdi-menu"
           aria-label="Open spaces navigation"
           aria-controls="spaces-navigation"
@@ -172,6 +172,12 @@ watch(route, () => {
 .spaces-navigation-toggle {
   min-width: 48px;
   min-height: 48px;
+}
+
+@media (min-width: 960px) {
+  .menu-show--main {
+    left: -24px;
+  }
 }
 
 body::-webkit-scrollbar,

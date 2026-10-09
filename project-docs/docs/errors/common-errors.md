@@ -37,6 +37,7 @@
 
 ## Исправленные дефекты
 
+- Проверка роли компании больше не передаёт JWT payload в logging API: ранее это вызывало formatting traceback и записывало email, user ID, company ID и срок токена в логи.
 - `413` при загрузке portable JSON/CSV: файл превышает 5 MiB. Также применяются лимиты 10,000 rows, 5,000 cases и 20 уровней секций.
 - `404` при экспорте с malformed или foreign-space `suite_id`: API не раскрывает, существует ли suite вне выбранного space. Некорректный `space_id` также не приводит к ошибке БД.
 - `415` при preview/import: `format` не `json`/`csv` или `Content-Type` не соответствует формату.

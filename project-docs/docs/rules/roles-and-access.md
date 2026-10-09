@@ -33,6 +33,7 @@
 - `Depends(bearer)` — проверка JWT access token.
 - `Depends(check_user_into_space)` — проверка членства в space.
 - Роль `admin` — через `roles_decorator.py` и `roles_enum.py`.
+- Проверки роли не должны записывать JWT payload, email, идентификаторы компании или срок токена в application logs.
 
 ## Источники в коде
 

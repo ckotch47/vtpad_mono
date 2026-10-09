@@ -19,7 +19,7 @@ def get_keys(enum_role):
 async def check_role_admin(user_payload: dict, available_role: list[RolesEnum]):
     available_role = get_keys(available_role)
 
-    logger.warning(user_payload, available_role)
+    logger.debug("Checking company role access; required roles: %s", available_role)
 
     if RolesEnum.MAIN_ADMIN in available_role and user_payload.get('id') == config.main_admin_id:
         return True

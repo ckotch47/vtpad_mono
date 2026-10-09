@@ -79,6 +79,11 @@
 - Create/Edit: проверить manual и checklist представления; при type-switch hidden `preconditions`/`expected_results` сохраняются после save и version restore.
 - Mixed run: checklist и manual отображают соответствующие метки; snapshot сохраняет type и исходные значения.
 - Create: создание нового кейса.
+- Case templates (desktop): открыть управление, создать шаблон, выбрать его в списке и обновить content; проверить, что правка добавляет версию, а metadata/content показываются для выбранной версии.
+- Case template editor: проверить Ctrl/Cmd+S сохранение активной формы, Esc с подтверждением при dirty draft и блокировку Esc на время сохранения; чистая форма закрывается без подтверждения.
+- Create from template: при пустом title выбор шаблона подставляет default title; ранее введённый title сохраняется. Проверить реактивное копирование type, priority, estimate, description и полей содержания, возможность их редактировать и отсутствие перезагрузки страницы.
+- Create cancellation: выбрать шаблон с задержанным GET, закрыть create dialog и снова открыть его. Проверить, что поздний ответ не меняет новый draft, а selector и Create снова доступны.
+- Template isolation: создать кейс из выбранного шаблона, обновить шаблон, затем убедиться, что уже созданный кейс не меняется. Tags и custom-field values остаются обычными полями кейса и не берутся из шаблона.
 - Edit: изменение полей + сохранение.
 - Duplicate: дублирование.
 - Bulk: массовая смена статуса.

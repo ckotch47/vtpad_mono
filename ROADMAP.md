@@ -124,7 +124,7 @@ BD2 completed in `69bd146`. JSON v1 and CSV v1 are available through shared REST
 - [x] Test automation integration (CI/CD webhooks) — REST/MCP lifecycle and callback share a secured service; v24/v25 migrations add allowlists, idempotency, provenance and redacted audit. Disposable-clone smoke and independent API/security reviews passed.
 - [x] Requirements traceability matrix — REST/MCP share the same space-scoped matrix service; disposable DB smoke and independent API/security review passed.
 - [x] Custom fields for test cases — typed values, required-field validation, version/run snapshots, REST/MCP parity, and delete cleanup implemented and verified on a disposable database.
-- Test case templates
+- [~] Test case templates — REST/MCP and desktop management/create-from-template UI implemented; frontend lint/build passed. Desktop runtime/browser acceptance is pending the FI6 backend rebuild.
 - Notifications for run completion
 - Email reports
 - Public share links for runs

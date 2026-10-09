@@ -90,6 +90,9 @@
             <v-btn v-if="selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">
               Change Status ({{ selectedCases.length }})
             </v-btn>
+            <v-btn v-if="loadErrorStatus !== 403" variant="outlined" @click="openTemplates = true">
+              Case Templates
+            </v-btn>
             <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
               New Test Case
             </v-btn>
@@ -186,7 +189,9 @@
       </v-data-table-server>
     </div>
 
-    <v-dialog v-model="openCreate" max-width="700">
+    <case-templates-dialog v-model="openTemplates" :space-id="String(spaceId)" />
+
+    <v-dialog v-model="openCreate" max-width="900">
       <v-card
         data-keyboard-save-scope
         :data-keyboard-escape-confirm="isCreateDirty ? 'Discard unsaved test case changes?' : null"
@@ -197,7 +202,31 @@
           <v-alert v-if="createError" type="error" variant="tonal" density="compact" class="mb-4" role="alert">
             The test case could not be created. Check the fields and try again.
           </v-alert>
-          <v-text-field v-model="newCase.title" label="Title" required />
+          <v-select
+            v-if="caseTemplates.length"
+            v-model="selectedTemplateId"
+            :items="caseTemplates"
+            item-title="name"
+            item-value="id"
+            label="Start from a template (optional)"
+            :loading="loadingCaseTemplates || applyingTemplate"
+            :disabled="loadingCaseTemplates || applyingTemplate"
+            hint="Template content is copied into this draft and can be edited before creating the case."
+            persistent-hint
+            @update:model-value="applyCaseTemplate"
+          />
+          <v-alert v-if="caseTemplateLoadError || templateApplyError" type="warning" variant="tonal" density="compact" class="mb-3" role="alert">
+            Case templates could not be loaded.
+            <v-btn v-if="templateApplyError && selectedTemplateId" size="small" variant="text" @click="applyCaseTemplate(selectedTemplateId)">Retry</v-btn>
+            <v-btn v-else size="small" variant="text" @click="loadCaseTemplates">Retry</v-btn>
+          </v-alert>
+          <v-alert v-else-if="!loadingCaseTemplates && !caseTemplates.length" type="info" variant="tonal" density="compact" class="mb-3">
+            No templates are available in this space. You can create one with Case Templates.
+          </v-alert>
+          <v-alert v-if="appliedTemplate" type="info" variant="tonal" density="compact" class="mb-3">
+            Copied “{{ appliedTemplate.name }}” version {{ appliedTemplate.version }}. Review or change these values; this draft is independent of the template.
+          </v-alert>
+          <v-text-field v-model="newCase.title" label="Title" required @update:model-value="caseTitleTouched = true" />
           <v-select v-model="newCase.type" :items="['manual','checklist','automated']" label="Type" />
           <v-row>
             <v-col cols="4">
@@ -208,6 +237,17 @@
               <div v-if="tagOptionsError" class="text-caption text-warning">Existing tags could not be loaded. You can still enter tag labels.</div>
             </v-col>
           </v-row>
+          <v-text-field
+            v-model="newCase.estimated_duration_seconds"
+            label="Estimated duration (seconds)"
+            type="number"
+            min="0"
+            step="1"
+            clearable
+            :rules="[nonNegativeIntegerRule]"
+            hint="Leave empty when no estimate is available. Zero is a valid estimate."
+            persistent-hint
+          />
           <div class="text-subtitle-1 mb-2">Description</div>
           <editor-component
             :text="newCase.text"
@@ -257,6 +297,15 @@
               place-holder-editor="Enter expected results..."
               @editor-update="newCase.expected_results = $event"
             />
+            <div class="text-subtitle-1 mt-4 mb-2">Postconditions</div>
+            <editor-component
+              :text="newCase.postconditions"
+              :edit="true"
+              :show-menu-fixed="true"
+              accessible-label="Postconditions"
+              place-holder-editor="Enter postconditions..."
+              @editor-update="newCase.postconditions = $event"
+            />
           </template>
           <custom-field-values-component
             ref="createCustomFieldForm"
@@ -268,7 +317,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn text @click="openCreate = false" :disabled="creating">Cancel</v-btn>
-          <v-btn color="primary" data-keyboard-save-action @click="createCase" :loading="creating" :disabled="creating || createCustomFieldForm?.loading">Create</v-btn>
+          <v-btn color="primary" data-keyboard-save-action @click="createCase" :loading="creating" :disabled="creating || applyingTemplate || createCustomFieldForm?.loading">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -292,10 +341,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { testCaseService } from '@/services'
+import { testCaseService, testCaseTemplateService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import CaseTemplatesDialog from '@/components/test-cases/CaseTemplatesDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -324,6 +374,8 @@ const priorityOptions = [
   { title: 'P2 · Normal', value: 'P2' },
   { title: 'P3 · Low', value: 'P3' }
 ]
+const nonNegativeIntegerRule = value => value === '' || value === null || value === undefined ||
+  (Number.isInteger(Number(value)) && Number(value) >= 0) || 'Enter a whole number greater than or equal to zero'
 const filterPriority = ref('')
 const filterTags = ref([])
 const tagOptions = ref([])
@@ -336,7 +388,17 @@ const availableTagOptions = computed(() => [...new Set([...tagOptions.value, ...
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
-const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '', custom_fields: [] })
+const openTemplates = ref(false)
+const loadingCaseTemplates = ref(false)
+const caseTemplateLoadError = ref(false)
+const templateApplyError = ref(false)
+const caseTemplates = ref([])
+const selectedTemplateId = ref(null)
+const applyingTemplate = ref(false)
+const appliedTemplate = ref(null)
+const caseTitleTouched = ref(false)
+let templateSelectionRequestId = 0
+const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '', postconditions: '', estimated_duration_seconds: null, custom_fields: [] })
 const newCase = ref(emptyCase())
 const createCustomFieldForm = ref(null)
 const isCreateDirty = computed(() => JSON.stringify(newCase.value) !== JSON.stringify(emptyCase()))
@@ -473,14 +535,65 @@ function clearCaseFilters() {
   onFilterChange()
 }
 
+async function loadCaseTemplates() {
+  if (!spaceId.value) return
+  loadingCaseTemplates.value = true
+  caseTemplateLoadError.value = false
+  try {
+    const response = await testCaseTemplateService.listBySpace(spaceId.value, { page: 1, page_size: 100 })
+    caseTemplates.value = response.data?.items || []
+  } catch (_) {
+    caseTemplateLoadError.value = true
+  } finally {
+    loadingCaseTemplates.value = false
+  }
+}
+
+async function applyCaseTemplate(templateId) {
+  selectedTemplateId.value = templateId
+  templateApplyError.value = false
+  if (!templateId) return
+  const requestId = ++templateSelectionRequestId
+  applyingTemplate.value = true
+  templateApplyError.value = false
+  try {
+    const response = await testCaseTemplateService.getById(spaceId.value, templateId)
+    if (requestId !== templateSelectionRequestId) return
+    const template = response.data
+    const fields = template.fields || {}
+    const title = caseTitleTouched.value ? newCase.value.title : (fields.title || '')
+    newCase.value = {
+      ...newCase.value,
+      title,
+      text: fields.text ?? '',
+      preconditions: fields.preconditions ?? '',
+      steps: fields.steps ?? '',
+      expected_results: fields.expected_results ?? '',
+      postconditions: fields.postconditions ?? '',
+      type: fields.type || 'manual',
+      priority: fields.priority || 'P2',
+      estimated_duration_seconds: fields.estimated_duration_seconds ?? null
+    }
+    appliedTemplate.value = { name: template.name, version: template.current_version }
+  } catch (_) {
+    if (requestId === templateSelectionRequestId) templateApplyError.value = true
+  } finally {
+    if (requestId === templateSelectionRequestId) applyingTemplate.value = false
+  }
+}
+
 async function createCase() {
   const validation = await createCustomFieldForm.value?.validate()
   if (validation && !validation.valid) return
   creating.value = true
   createError.value = false
+  const estimatedDuration = newCase.value.estimated_duration_seconds
   testCaseService.create({
     ...newCase.value,
     priority: newCase.value.priority || 'P2',
+    estimated_duration_seconds: estimatedDuration === '' || estimatedDuration === null || estimatedDuration === undefined
+      ? null
+      : Number(estimatedDuration),
     tags: normalizeTags(newCase.value.tags),
     custom_fields: newCase.value.custom_fields || [],
     space_id: spaceId.value
@@ -596,7 +709,22 @@ watch(spaceId, () => {
 })
 
 watch(openCreate, (isOpen) => {
-  if (!isOpen && !creating.value) newCase.value = emptyCase()
+  if (isOpen) {
+    caseTitleTouched.value = false
+    selectedTemplateId.value = null
+    appliedTemplate.value = null
+    templateApplyError.value = false
+    applyingTemplate.value = false
+    loadCaseTemplates()
+  } else if (!creating.value) {
+    templateSelectionRequestId += 1
+    applyingTemplate.value = false
+    newCase.value = emptyCase()
+    selectedTemplateId.value = null
+    appliedTemplate.value = null
+    templateApplyError.value = false
+    caseTitleTouched.value = false
+  }
 })
 </script>
 

@@ -1,0 +1,12 @@
+{
+  "data": [
+    "CREATE TABLE IF NOT EXISTS email_report_snapshot (id UUID PRIMARY KEY, space_id UUID NOT NULL REFERENCES spacemodel(id) ON DELETE CASCADE, sender_user_id UUID NOT NULL REFERENCES usermodel(id) ON DELETE CASCADE, payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMPTZ NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS ix_email_report_snapshot_expiry ON email_report_snapshot (expires_at)",
+    "CREATE TABLE IF NOT EXISTS email_report_delivery (id UUID PRIMARY KEY, space_id UUID NOT NULL REFERENCES spacemodel(id) ON DELETE CASCADE, sender_user_id UUID NOT NULL REFERENCES usermodel(id) ON DELETE CASCADE, snapshot_id UUID NOT NULL REFERENCES email_report_snapshot(id) ON DELETE CASCADE, idempotency_key UUID NOT NULL, request_digest CHAR(64) NOT NULL, recipient_user_id UUID NOT NULL REFERENCES usermodel(id) ON DELETE CASCADE, status VARCHAR(16) NOT NULL, error_code VARCHAR(32) NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT uq_email_report_delivery_request UNIQUE (space_id, sender_user_id, idempotency_key, recipient_user_id))",
+    "CREATE INDEX IF NOT EXISTS ix_email_report_delivery_snapshot ON email_report_delivery (snapshot_id)",
+    "CREATE INDEX IF NOT EXISTS ix_email_report_delivery_recipient_time ON email_report_delivery (recipient_user_id, created_at DESC)",
+    "CREATE OR REPLACE FUNCTION prevent_email_report_snapshot_update() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'email report snapshots are immutable'; END $$",
+    "DROP TRIGGER IF EXISTS trg_email_report_snapshot_immutable ON email_report_snapshot",
+    "CREATE TRIGGER trg_email_report_snapshot_immutable BEFORE UPDATE ON email_report_snapshot FOR EACH ROW EXECUTE FUNCTION prevent_email_report_snapshot_update()"
+  ]
+}

@@ -23,6 +23,7 @@ import app.src.comments as comments_bug
 import app.src.tag as tag
 import app.src.notification as notification
 from app.src.qa_report import router as qa_report_router
+from app.src.email_report import router as email_report_router
 
 # new v2 modules
 import app.src.test_suite as test_suite
@@ -229,6 +230,7 @@ app_utils.register_router(
         user_company_router,
         router_company_admin,
         qa_report_router,
+        email_report_router,
 
         # new v2 routers
         test_suite.router,

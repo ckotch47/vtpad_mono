@@ -328,6 +328,9 @@ MCP подключён по Streamable HTTP на `/api/v1/mcp`; ответы JSO
 | --- | --- | --- | --- |
 | GET | `/api/qa-report/users` | JWT | пользователи для QA отчёта |
 | GET | `/api/qa-report/bug-list` | JWT | список багов для QA отчёта |
+| GET | `/api/qa-report/email/recipients/{space_id}` | JWT + доступ к space | активные участники space с адресом для выбора получателей email-отчёта |
+| POST | `/api/qa-report/email/preview` | JWT + доступ к space | создаёт ограниченный неизменяемый снимок QA-отчёта с allowlist полей на 24 часа |
+| POST | `/api/qa-report/email/send` | JWT + доступ к space + активное SMTP-конфигурирование | вручную отправляет отдельное письмо каждому выбранному активному участнику по snapshot; сверяет подтверждённые UI email с актуальными адресами и использует сохраняемый UI idempotency key |
 
 ### Notes
 

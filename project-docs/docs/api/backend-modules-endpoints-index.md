@@ -175,6 +175,11 @@ MCP работает как Streamable HTTP по `/api/v1/mcp`: сервер п�
 - `GET /api/qa-report/users`
 - `GET /api/qa-report/bug-list`
 
+### `app/src/email_report`
+- `GET /api/qa-report/email/recipients/{space_id}` — возвращает только активных пользователей с явным членством в указанном space.
+- `POST /api/qa-report/email/preview` — серверная выборка до 500 строк на секцию, allowlist полей, payload до 256 KiB, неизменяемый snapshot со сроком 24 часа.
+- `POST /api/qa-report/email/send` — до 10 получателей, только адреса из актуального членства; клиент передаёт подтверждённые адреса как compare-only constraint, а адрес доставки повторно берётся из БД. Отдельное HTML-письмо каждому, durable idempotency receipts; REST и MCP используют один сервис. После неопределённого сетевого результата UI сохраняет ключ запроса.
+
 ### `app/src/notes`
 - `GET /api/v1/notes/{space_id}`
 - `POST /api/v1/notes/{space_id}`

@@ -27,6 +27,7 @@ import app.src.notification as notification
 import app.utils.register_router as app_utils
 
 import app.src.qa_report.router as qa_report
+import app.src.email_report.router as email_report
 
 from app.src.admin import company_router, user_company_router, router_company_admin
 

@@ -41,6 +41,7 @@ import app.src.custom_field as custom_field
 import app.src.attachment as attachment
 import app.src.api_token as api_token
 import app.src.traceability as traceability
+import app.src.case_template as case_template
 # end import
 
 

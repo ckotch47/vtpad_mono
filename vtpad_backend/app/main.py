@@ -38,6 +38,8 @@ import app.src.tech_doc as tech_doc
 import app.src.test_plan as test_plan
 import app.src.analytics as analytics
 import app.src.traceability as traceability
+import app.src.case_template as case_template
+from app.src.case_template.middleware import CaseTemplateBodyLimitMiddleware
 import app.src.data_exchange as data_exchange
 import app.src.webhook_integration as webhook_integration
 
@@ -180,6 +182,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CaseTemplateBodyLimitMiddleware)
 
 ### profiler
 # app.add_middleware(CProfileMididleware, enable=True, server_app = app, filename='out.pstats', strip_dirs = False, sort_by='cumulative') #
@@ -244,6 +247,7 @@ app_utils.register_router(
         webhook_integration.router,
         traceability.router,
         traceability.tech_doc_router,
+        case_template.router,
 
     ], app, global_prefix='/api')
 

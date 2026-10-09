@@ -7,6 +7,25 @@ from .middleware import MCPAuthMiddleware
 from . import tools  # noqa: F401 — registers all tools via side-effect
 
 MCP_MAX_REQUEST_BYTES = 8 * 1024 * 1024
+MCP_TEMPLATE_MUTATION_MAX_BYTES = 1024 * 1024
+MCP_TEMPLATE_MUTATION_TOOLS = {
+    'create_test_case_template', 'update_test_case_template', 'use_test_case_template',
+}
+
+
+def _is_case_template_mutation(body: bytes) -> bool:
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    calls = payload if isinstance(payload, list) else [payload]
+    return any(
+        isinstance(call, dict)
+        and call.get('method') == 'tools/call'
+        and isinstance(call.get('params'), dict)
+        and call['params'].get('name') in MCP_TEMPLATE_MUTATION_TOOLS
+        for call in calls
+    )
 
 
 class MCPRequestBodyLimitMiddleware:
@@ -48,6 +67,9 @@ class MCPRequestBodyLimitMiddleware:
                 break
 
         body = b''.join(chunks)
+        if size > MCP_TEMPLATE_MUTATION_MAX_BYTES and scope.get('path', '').endswith('/mcp') and _is_case_template_mutation(body):
+            await self._reject(send, 'MCP case-template mutations are limited to 1 MiB')
+            return
         sent = False
 
         async def replay_receive():
@@ -60,8 +82,8 @@ class MCPRequestBodyLimitMiddleware:
         await self.app(scope, replay_receive, send)
 
     @staticmethod
-    async def _reject(send):
-        body = json.dumps({'detail': 'MCP request exceeds the 8 MiB transport limit'}).encode()
+    async def _reject(send, detail='MCP request exceeds the 8 MiB transport limit'):
+        body = json.dumps({'detail': detail}).encode()
         await send({'type': 'http.response.start', 'status': 413, 'headers': [
             (b'content-type', b'application/json'),
             (b'content-length', str(len(body)).encode()),

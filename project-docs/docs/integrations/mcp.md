@@ -17,6 +17,10 @@ MCP tools are registered through imports in `app/src/mcp/tools/__init__.py`; sec
 ## Traceability matrix
 
 `get_traceability_matrix(space_id, tech_doc_ids?)` calls the same read service as `GET /api/v2/traceability/space/{space_id}/matrix`. Omit `tech_doc_ids` to include all Tech Docs in the space; pass IDs to select requirements. The result contains linked cases, each case's latest result and run, per-requirement coverage, and explicit counts for requirements without cases and cases without results. Legacy cross-space links are excluded. Tech Doc rich text is returned in escaped `content_display` form, safe to render as text but without HTML formatting.
+
+## Case templates
+
+`list_test_case_templates`, `get_test_case_template`, `list_test_case_template_versions`, `get_test_case_template_version`, `create_test_case_template`, `update_test_case_template`, and `use_test_case_template` mirror the REST template endpoints and share their space-scoped service. List/read responses bound history to metadata and pages; selected-version reads return one content snapshot. Each content update creates an immutable numbered version when fields change. `use_test_case_template` requires the resulting case title and supports optional suite/section, version number, allowlisted field overrides, and up to 50 typed custom-field values (64 KiB serialized maximum), validated against definitions in the same space through the existing testcase creation path. REST mutations and MCP template mutation calls are limited to 1 MiB; other MCP tools retain their 8 MiB transport cap. Template content strings are limited to 32,768 characters, description to 4,096, serialized content to 128 KiB, estimated duration to 0–2,147,483,647 seconds, and each template to 100 versions. Custom fields are excluded from template content/version history. Templates and cases have no live reference, so updating a template never changes previously created cases.
 ### Data exchange
 
 - `export_space_data(space_id, format="json"|"csv", suite_ids?)`

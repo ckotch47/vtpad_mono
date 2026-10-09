@@ -1,0 +1,9 @@
+{
+  "data": [
+    "CREATE TABLE IF NOT EXISTS test_case_template (id UUID PRIMARY KEY, space_id UUID NOT NULL REFERENCES spacemodel(id) ON DELETE CASCADE, name VARCHAR(120) NOT NULL, normalized_name TEXT NOT NULL, description TEXT NULL, created_by_id UUID NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_test_case_template_space_name ON test_case_template (space_id, normalized_name)",
+    "CREATE INDEX IF NOT EXISTS ix_test_case_template_space_created ON test_case_template (space_id, created_at DESC)",
+    "CREATE TABLE IF NOT EXISTS test_case_template_version (id UUID PRIMARY KEY, template_id UUID NOT NULL REFERENCES test_case_template(id) ON DELETE CASCADE, version_number INTEGER NOT NULL CHECK (version_number > 0), content JSONB NOT NULL, created_by_id UUID NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT uq_test_case_template_version UNIQUE (template_id, version_number))",
+    "CREATE INDEX IF NOT EXISTS ix_test_case_template_version_latest ON test_case_template_version (template_id, version_number DESC)"
+  ]
+}

@@ -303,6 +303,15 @@ All definition/value routes require JWT and active access to the same space as t
 
 MCP preserves the legacy `move_test_case(case_id, suite_id=None, section_id=None)` signature, partial-update behavior, and testcase response shape for existing callers. New integrations should use `move_test_case_to_location(case_id, suite_id, section_id)` for explicit placement; both destination arguments are required, and callers must pass `section_id: null` to target the destination suite's virtual Default section. This new tool shares placement validation with the REST move endpoint and does not create a content version.
 
+### `app/src/case_template`
+- `GET/POST /api/v2/test-case-template/space/{space_id}` — list/create space-scoped templates.
+- `GET/PUT /api/v2/test-case-template/space/{space_id}/{template_id}` — read current content plus at most 10 metadata-only history entries / update metadata and append a content version when fields change.
+- `GET /api/v2/test-case-template/space/{space_id}/{template_id}/versions?page=1&page_size=20` — page version metadata (maximum 50 per page).
+- `GET /api/v2/test-case-template/space/{space_id}/{template_id}/versions/{version_number}` — read one selected immutable version.
+- `POST /api/v2/test-case-template/space/{space_id}/{template_id}/use` — create a new testcase from a selected version, required case title, optional allowlisted field overrides, and bounded typed custom-field values.
+
+REST and MCP tools use the same service and check space access before template lookup or writes. REST mutation bodies and MCP template mutation calls are capped at 1 MiB (MCP retains its separate 8 MiB cap for other tools). Content strings are capped at 32,768 characters each, description at 4,096, serialized template content at 128 KiB, and estimated duration at 0–2,147,483,647 seconds; custom fields are excluded from template content and versions. The `use` operation separately accepts at most 50 typed custom-field values with a 64 KiB serialized cap, validated by the existing testcase creation path against definitions in the same space. A template retains at most 100 immutable versions. Template versions contain only case title, text, preconditions, steps, expected results, postconditions, type, priority, and estimated duration. Template name is separate from case title. The use operation copies values into a new testcase through `TestCaseService.create`; no template reference is stored on a case, so later template updates cannot change existing cases.
+
 ### `app/src/traceability`
 - `GET /api/v2/traceability/space/{space_id}/matrix` — scoped requirement/case/latest-result coverage; shared REST/MCP service.
 - `GET/PUT /api/v2/tech-doc/{tech_doc_id}/test-cases`

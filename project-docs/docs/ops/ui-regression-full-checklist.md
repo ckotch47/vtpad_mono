@@ -103,12 +103,19 @@
 - Status transitions: проверка смены статусов/step results (если поддерживается UI).
 - Delete/archive (если доступно).
 
-3. Test Plans
+3. Run completion notifications (FI7)
+- Completing a run notifies only its creator; runs without a creator produce no recipient notification.
+- Repeated or concurrent completion requests create one notification, not duplicates.
+- The notification contains no run title/status, bug details, or user data; its “Open run” action navigates with Vue Router and marks the item read without a page reload.
+- If the referenced run is no longer accessible, opening it returns the normal access/not-found state and reveals no run details.
+- The unread counter and SSE toast update for `RUN_COMPLETED`; the toast uses generic text and does not disclose run metadata.
+
+4. Test Plans
 - List/Detail открываются.
 - Create/Edit/Delete тестового плана.
 - Связи с cases/runs корректно отображаются.
 
-4. Test Suites
+5. Test Suites
 - List/Detail открываются.
 - Create/Edit/Delete (или archive) тестового suite.
 - Sections/cases внутри suite: add/remove/rename.
@@ -118,7 +125,7 @@
 - SU5 read-only desktop smoke passed on 2026-10-09: matching query, hidden selected section with “Show selection”, no-match message, and clear restored all 5 sections. Nested sections, keyboard focus, and long-name layout still need manual verification.
 - SU6 dialog read-only desktop smoke passed on 2026-10-09: action opens for a case, `Default` and each suite section appear, another destination can be selected, and Cancel closes without changing data. REST move and same-location idempotency, MCP discovery and calls to Default/repeat/restore-source passed on disposable database `vtpad_su6_runtime_20261009`; the fixture returned to its original section. Both REST and MCP rejected a section from another suite in the same space; REST returned 422 for that mismatch and 404 for a foreign-space suite. Keyboard behavior remains to verify.
 
-5. Tech Docs
+6. Tech Docs
 - Tree загружается.
 - Поиск в sidebar работает.
 - Открытие doc из списка.
@@ -134,7 +141,7 @@ Desktop UIX r1 retest (2026-10-09): UIX-001–004 passed on the observed run, sp
 
 Desktop UI/UX retest (2026-10-09): on the current Test Cases page, the Spaces toggle was visible and keyboard-focusable; its focus ring was visible, and Enter opened the drawer without changing the route. Clicking the drawer close control returned to the same route. The toggle is still positioned over the left edge of the Tags filter and its nested focusable button has no accessible name in the AX tree, despite the wrapper carrying `aria-label`; see `plans/ui-ux-consistency-package-r2.md`. The drawer showed “No spaces”, and the cases list request returned HTTP 500, so data-dependent states and cross-screen live comparison were not run. The UI/UX source audit found inconsistent list/filter framing between Cases, Plans, Runs, and Bugs; inconsistent action semantics/names; and one Plan Sources empty state outside the shared pattern. See `plans/ui-list-consistency-package-r1.md`. Mobile was excluded.
 
-6. Bugs (если включено в текущем контуре)
+7. Bugs (если включено в текущем контуре)
 - List загрузка.
 - Создание бага.
 - Открытие modal/detail.

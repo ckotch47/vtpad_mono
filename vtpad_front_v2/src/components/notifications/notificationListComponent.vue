@@ -19,6 +19,7 @@
         <notification-list-item-update-component v-if="item.event === 'UPDATE'" :elem="item" />
         <notification-list-item-comment-component v-if="item.event === 'COMMENT'" :elem="item" />
         <notification-list-item-assign-component v-if="item.event === 'ASSIGN'" :elem="item" />
+        <notification-list-item-run-completed-component v-if="item.event === 'RUN_COMPLETED'" :elem="item" />
       </v-list-item>
     </v-list>
 
@@ -42,6 +43,7 @@ import { notificationService } from '@/services'
 import NotificationListItemAssignComponent from '@/components/notifications/listItem/notificationListItemAssignComponent.vue'
 import NotificationListItemCommentComponent from '@/components/notifications/listItem/notificationListItemCommentComponent.vue'
 import NotificationListItemUpdateComponent from '@/components/notifications/listItem/notificationListItemUpdateComponent.vue'
+import NotificationListItemRunCompletedComponent from '@/components/notifications/listItem/notificationListItemRunCompletedComponent.vue'
 
 const loader = ref(true)
 const items = ref([])

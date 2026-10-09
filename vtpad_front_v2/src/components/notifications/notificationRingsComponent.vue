@@ -30,11 +30,6 @@ import { notificationService } from '@/services'
 import { toast } from 'vue3-toastify'
 import { EventSource } from 'extended-eventsource'
 
-const props = defineProps({
-  count: Number,
-  userId: String
-})
-
 const unreadCount = ref(0)
 const audio = ref(new Audio('/ring.mp3'))
 
@@ -75,6 +70,10 @@ function subscribeEvents(eventSource) {
     if (res.short_name) {
       showToast(`New comment in ${res.short_name}`)
     }
+  }, { once: false })
+
+  eventSource.addEventListener('RUN_COMPLETED', () => {
+    showToast('A test run was completed')
   }, { once: false })
 }
 

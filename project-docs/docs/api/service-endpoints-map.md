@@ -362,6 +362,19 @@ The MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends` 
 
 Вход ограничен 5 MiB, 10,000 rows, 5,000 cases и 20 уровнями секций. При `right.readOnly=true` импорт отклоняется; owner и активный company admin сохраняют обход read-only ограничения. MCP использует те же операции и структуру ответа.
 
+### CI/CD webhooks (v2)
+
+| Method | Path | Auth/Access | Notes |
+| --- | --- | --- | --- |
+| POST | `/api/v2/webhooks/integrations` | JWT; space owner or active same-company admin and active space membership | Creates the integration, explicit run allowlist and external-result mappings. Returns the random credential once. |
+| GET | `/api/v2/webhooks/integrations/{integration_id}` | JWT; same lifecycle permission | Returns metadata, hash prefix and scope; never returns the credential. |
+| POST | `/api/v2/webhooks/integrations/{integration_id}/rotate` | JWT; same lifecycle permission | Atomically replaces the encrypted credential; returns new secret once. |
+| POST | `/api/v2/webhooks/integrations/{integration_id}/revoke` | JWT; same lifecycle permission | Revokes the credential. |
+| POST | `/api/v2/webhooks/integrations/{integration_id}/callback` | HMAC-SHA-256 signature | Signed JSON `{"results":[{"external_id":"...","status":"passed|failed|blocked|skipped|not_run","duration_seconds":0,"comment":"..."}]}`. 1 MiB / 1,000 result / 60 per minute limits; signed timestamp window ±300 seconds, unique nonce, integration-scoped idempotency. Only active allowlisted runs and mapped results can be updated. |
+
+The canonical signature message is uppercase method, exact request path, timestamp, nonce, and SHA-256 body digest separated by newlines. Credentials are 32 random bytes encrypted with AES-256-GCM under an HKDF-SHA-256 subkey from a separate `WEBHOOK_ENCRYPTION_KEY`; it must not reuse JWT `SECRET_KEY`. `WEBHOOK_ENCRYPTION_KEY_VERSION` identifies the active key, while `WEBHOOK_ENCRYPTION_KEYS` can hold a JSON version-to-base64 keyring for retained keys. MCP `process_webhook_event` supplies the same signed fields and calls the same use case. Run detail exposes safe result `source` provenance; a manual result edit or bug-link change clears it atomically. The 60/minute limit counts verified signed attempts, including rejected payloads and idempotency conflicts. Invalid-auth failures have a separate cap of 120 per integration per minute; after the cap, invalid-auth attempts receive 429 and do not consume the verified quota. Both journals aggregate only integration/minute/error-code and bounded counts. Request audit records retain only identifiers, outcome/error code and count for 30 days; the redacted failure buckets are retained for 24 hours. Nonces expire after 10 minutes and are cleaned opportunistically on subsequent requests, without a scheduler. Timestamp must be 1–12 ASCII digits; nonce must be 16–128 printable ASCII characters in both REST and MCP.
+Lifecycle access returns 404 for integrations outside the caller's active space membership, matching the response for unknown IDs; an unauthorized role within the same space receives 403.
+
 ## Источники в коде
 
 - `vtpad_backend/app/main.py`

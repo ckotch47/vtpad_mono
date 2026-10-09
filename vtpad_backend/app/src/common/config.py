@@ -58,5 +58,10 @@ class EnvConfig:
             )
         self.frontend_url = os.getenv('FRONTEND_URL')
         self.app_name = os.getenv('APP_NAME')
+        # Webhook credentials use an independently managed 32-byte base64 key.
+        # Never derive this key from SECRET_KEY/JWT configuration.
+        self.webhook_encryption_key = os.getenv('WEBHOOK_ENCRYPTION_KEY')
+        self.webhook_encryption_key_version = os.getenv('WEBHOOK_ENCRYPTION_KEY_VERSION', 'v1')
+        self.webhook_encryption_keys = os.getenv('WEBHOOK_ENCRYPTION_KEYS')
 
 conf = EnvConfig()

@@ -28,6 +28,7 @@ from ..bug.model import BugsModel
 from ..bug.service import BugsService
 from ..bug.dto.create_bug_dto import CreateBugDto
 from ..bug.enum import StateBugEnum
+from ..webhook_integration.model import WebhookResultProvenanceModel
 
 
 class TestRunService:
@@ -747,7 +748,7 @@ class TestRunService:
         }
 
     @staticmethod
-    def _serialize_result(r, legacy_location=None, linked_bugs=None):
+    def _serialize_result(r, legacy_location=None, linked_bugs=None, source=None):
         testcase = r.testcase
         snapshot = r.testcase_snapshot
         if snapshot:
@@ -799,6 +800,7 @@ class TestRunService:
             'testcase': testcase_data,
             'testcase_snapshot': snapshot,
             'executed_at': r.executed_at.isoformat() if r.executed_at else None,
+            'source': source,
         }
 
     @staticmethod
@@ -812,11 +814,21 @@ class TestRunService:
         ]
         legacy_locations = await TestRunService._resolve_case_locations(legacy_cases) if legacy_cases else {}
         bug_links_by_result = await TestResultService._get_linked_bugs([str(result.id) for result in results])
+        provenance_rows = await WebhookResultProvenanceModel.filter(
+            result_id__in=[result.id for result in results]
+        )
+        provenance_by_result = {str(item.result_id): item for item in provenance_rows}
         results_data = []
         for result in results:
             location = legacy_locations.get(str(result.testcase.id)) if not result.testcase_snapshot and result.testcase else None
             results_data.append(TestRunService._serialize_result(
-                result, location, bug_links_by_result.get(str(result.id), [])
+                result, location, bug_links_by_result.get(str(result.id), []),
+                ({
+                    'type': 'webhook', 'integration_id': str(provenance.integration_id),
+                    'integration_name': provenance.integration_name,
+                    'request_id': str(provenance.request_id),
+                    'updated_at': provenance.updated_at.isoformat(),
+                } if (provenance := provenance_by_result.get(str(result.id))) else None),
             ))
         return {
             'run': {
@@ -1019,7 +1031,17 @@ class TestRunService:
 
 class TestResultService:
     @staticmethod
-    async def _serialize_updated_result(result: TestResultModel) -> dict[str, Any]:
+    async def _clear_webhook_source(result_id: str, connection: Any) -> None:
+        await WebhookResultProvenanceModel.filter(
+            result_id=result_id
+        ).using_db(connection).delete()
+
+    @staticmethod
+    async def _serialize_updated_result(result: TestResultModel, using_db: Any = None) -> dict[str, Any]:
+        provenance_query = WebhookResultProvenanceModel.filter(result_id=result.id)
+        if using_db is not None:
+            provenance_query = provenance_query.using_db(using_db)
+        provenance = await provenance_query.first()
         return {
             "id": str(result.id),
             "status": result.status.value if hasattr(result.status, "value") else result.status,
@@ -1036,6 +1058,13 @@ class TestResultService:
             "executed_at": result.executed_at.isoformat() if result.executed_at else None,
             "created_at": result.created_at.isoformat() if result.created_at else None,
             "updated_at": result.updated_at.isoformat() if result.updated_at else None,
+            "source": ({
+                "type": "webhook",
+                "integration_id": str(provenance.integration_id),
+                "integration_name": provenance.integration_name,
+                "request_id": str(provenance.request_id),
+                "updated_at": provenance.updated_at.isoformat(),
+            } if provenance else None),
         }
 
     @staticmethod
@@ -1097,9 +1126,11 @@ class TestResultService:
             run, result = await TestResultService._lock_result_run(result_id, connection)
             await check_user_into_space(str(run.space_id), request)
             bug = await TestResultService._validate_linkable_bug(run, bug_uuid, connection)
-            await TestResultBugLinkModel.get_or_create(
+            _link, created = await TestResultBugLinkModel.get_or_create(
                 result_id=result.id, bug_uuid=bug.link_uuid, using_db=connection
             )
+            if created:
+                await TestResultService._clear_webhook_source(result.id, connection)
         return {
             "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
             "linked_bug_ids_raw": result.linked_bug_ids,
@@ -1112,9 +1143,11 @@ class TestResultService:
             run, result = await TestResultService._lock_result_run(result_id, connection)
             await check_user_into_space(str(run.space_id), request)
             await TestResultService._validate_linkable_bug(run, bug_uuid, connection)
-            await TestResultBugLinkModel.filter(
+            deleted = await TestResultBugLinkModel.filter(
                 result_id=result.id, bug_uuid=bug_uuid
             ).using_db(connection).delete()
+            if deleted:
+                await TestResultService._clear_webhook_source(result.id, connection)
         return {
             "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
             "linked_bug_ids_raw": result.linked_bug_ids,
@@ -1141,9 +1174,11 @@ class TestResultService:
             await check_user_into_space(str(run.space_id), request)
             bug_id = await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
             await TestResultService._validate_linkable_bug(run, bug_id, connection)
-            await TestResultBugLinkModel.get_or_create(
+            _link, created = await TestResultBugLinkModel.get_or_create(
                 result_id=result.id, bug_uuid=bug_id, using_db=connection
             )
+            if created:
+                await TestResultService._clear_webhook_source(result.id, connection)
         return {
             "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
             "linked_bug_ids_raw": result.linked_bug_ids,
@@ -1157,9 +1192,11 @@ class TestResultService:
             await check_user_into_space(str(run.space_id), request)
             bug_id = await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
             await TestResultService._validate_linkable_bug(run, bug_id, connection)
-            await TestResultBugLinkModel.filter(
+            deleted = await TestResultBugLinkModel.filter(
                 result_id=result.id, bug_uuid=bug_id
             ).using_db(connection).delete()
+            if deleted:
+                await TestResultService._clear_webhook_source(result.id, connection)
         return {
             "id": str(result.id), "linked_bug_ids": result.linked_bug_ids or [],
             "linked_bug_ids_raw": result.linked_bug_ids,
@@ -1183,8 +1220,11 @@ class TestResultService:
                     identifiers.append(bug_short_name)
             else:
                 identifiers = [value for value in identifiers if value != bug_short_name]
+            changed = identifiers != list(result.linked_bug_ids or [])
             await TestResultModel.filter(id=result.id).using_db(connection).update(linked_bug_ids=identifiers)
             result.linked_bug_ids = identifiers
+            if changed:
+                await TestResultService._clear_webhook_source(result.id, connection)
         return {
             "id": str(result.id),
             "linked_bug_ids": result.linked_bug_ids or [],
@@ -1246,6 +1286,7 @@ class TestResultService:
                     await TestResultBugLinkModel.get_or_create(
                         result_id=result.id, bug_uuid=bug.link_uuid, using_db=connection
                     )
+                    await TestResultService._clear_webhook_source(result.id, connection)
                     await TestResultBugCreateOperationModel.create(
                         operation_id=dto.operation_id,
                         actor_id=actor_id,
@@ -1325,8 +1366,9 @@ class TestResultService:
                     raise HTTPException(status_code=422, detail="Every linked bug must belong to the run space")
                 data['linked_bug_ids'] = identifiers
             if not data:
-                return await TestResultService._serialize_updated_result(result)
+                return await TestResultService._serialize_updated_result(result, using_db=connection)
             await TestResultModel.filter(id=result_id).using_db(connection).update(**data)
+            await WebhookResultProvenanceModel.filter(result_id=result_id).using_db(connection).delete()
         updated = await TestResultModel.get(id=result_id)
         return await TestResultService._serialize_updated_result(updated)
 
@@ -1356,6 +1398,7 @@ class TestResultService:
             target_status = TestResultService._parse_result_status(dto.status)
             update_data = {'status': target_status}
             await TestResultModel.filter(id__in=result_ids).using_db(connection).update(**update_data)
+            await WebhookResultProvenanceModel.filter(result_id__in=result_ids).using_db(connection).delete()
             changed_ids = [result.id for result in results if result.status != target_status]
             if changed_ids:
                 if target_status == TestResultStatus.not_run:

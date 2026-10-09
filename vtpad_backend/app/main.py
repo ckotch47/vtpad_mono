@@ -39,6 +39,7 @@ import app.src.test_plan as test_plan
 import app.src.analytics as analytics
 import app.src.traceability as traceability
 import app.src.data_exchange as data_exchange
+import app.src.webhook_integration as webhook_integration
 
 # MCP server
 from app.src.mcp.server import get_mcp_app
@@ -240,6 +241,7 @@ app_utils.register_router(
         test_plan.router,
         analytics.router,
         data_exchange.router,
+        webhook_integration.router,
         traceability.router,
         traceability.tech_doc_router,
 

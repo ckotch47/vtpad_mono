@@ -192,6 +192,8 @@ async def update_test_result(
     duration_seconds: int | None = None,
     linked_bug_ids: list[str] | None = None,
     clear_legacy_linked_bug_ids: bool = False,
+    clear_comment: bool = False,
+    clear_duration: bool = False,
 ) -> dict:
     """Update test result status and details.
 
@@ -200,6 +202,8 @@ async def update_test_result(
         status: Optional new status: passed | failed | skipped | blocked | not_run
         comment: Optional comment
         duration_seconds: Optional duration in seconds
+        clear_comment: Explicitly clear the comment when true
+        clear_duration: Explicitly clear the measured duration when true
         linked_bug_ids: Optional legacy short-name values; does not change UUID links
         clear_legacy_linked_bug_ids: Set the legacy JSON field to null
 
@@ -207,11 +211,13 @@ async def update_test_result(
         Updated result details
     """
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
-    dto_data = dict(
-        status=status,
-        comment=comment,
-        duration_seconds=duration_seconds,
-    )
+    dto_data = {}
+    if status is not None:
+        dto_data['status'] = status
+    if comment is not None or clear_comment:
+        dto_data['comment'] = None if clear_comment else comment
+    if duration_seconds is not None or clear_duration:
+        dto_data['duration_seconds'] = None if clear_duration else duration_seconds
     if linked_bug_ids is not None:
         dto_data["linked_bug_ids"] = linked_bug_ids
     elif clear_legacy_linked_bug_ids:

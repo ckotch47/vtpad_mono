@@ -25,6 +25,7 @@
 | python-dotenv 1.1.1 | `.env`-конфигурация для `pydantic-settings` и `fastmcp` |
 | python-multipart 0.0.32 | Multipart/form-data для upload/form endpoints и совместимость с `fastmcp-slim` |
 | python-jose + passlib | JWT и хеширование паролей |
+| cryptography 50.0.2 | AES-256-GCM credential encryption and HKDF-SHA-256 webhook subkeys |
 | redis (asyncio) | Клиент Redis |
 | fastapi-mail | SMTP-уведомления (опционально) |
 | prometheus-fastapi-instrumentator | Метрики |
@@ -63,3 +64,5 @@
 - `vtpad_backend/.env.example`
 - `docker-compose.litellm.yaml`
 - `litellm/config.yaml`
+
+Webhook encryption requires a separate 32-byte base64 `WEBHOOK_ENCRYPTION_KEY`; never reuse `SECRET_KEY`. Set `WEBHOOK_ENCRYPTION_KEY_VERSION` for the active key. During key rotation, `WEBHOOK_ENCRYPTION_KEYS` can hold a JSON object mapping retained key versions to base64 keys while older credentials remain encrypted under those keys.

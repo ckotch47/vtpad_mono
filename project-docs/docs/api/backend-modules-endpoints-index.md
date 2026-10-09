@@ -236,6 +236,17 @@ Every REST and MCP operation checks access to the plan's space. Plan sources are
 - `POST /api/v2/test-run/result/{result_id}/bugs` (quick create and link)
 - `PATCH /api/v2/test-run/result/bulk`
 
+Run detail results include nullable `source`. Webhook-sourced results contain only `type`, integration ID/name, request ID, and update time. Manual result edits clear provenance transactionally.
+
+### `app/src/webhook_integration`
+- `POST /api/v2/webhooks/integrations`
+- `GET /api/v2/webhooks/integrations/{integration_id}`
+- `POST /api/v2/webhooks/integrations/{integration_id}/rotate`
+- `POST /api/v2/webhooks/integrations/{integration_id}/revoke`
+- `POST /api/v2/webhooks/integrations/{integration_id}/callback` (signed callback; no JWT)
+
+MCP exposes `create_webhook_integration`, `get_webhook_integration`, `rotate_webhook_integration_credential`, `revoke_webhook_integration`, and `process_webhook_event`; each uses the corresponding shared service. Secrets are returned only once on create/rotate. Callback requests update only pre-mapped results in explicitly allowlisted active runs.
+
 Run creation snapshots the selected test cases in the same transaction as the new results. A suite, plan, or explicit case selection can include test cases of any status; source validation is limited to source and space membership. Results can be corrected while their run is active; returning a result to `not_run` clears execution attribution and timestamp. List responses for test runs, test cases, test suites and test plans, as well as testcase detail, include a nullable creator `{id, username}` without email.
 Run detail keeps the compatible `linked_bug_ids` field as an array and exposes the original legacy JSON as `linked_bug_ids_raw`, including `NULL`, duplicates, and ambiguous historical short names. New `linked_bugs` rows use `bugsmodel.link_uuid` and return `{id, short_name, title}`; REST and MCP use the same service. Legacy short-name link tools only work when exactly one bug in the run space has that name. Quick create takes a client-generated `operation_id`; matching retries return the original bug, mismatched reuse returns `409`, and retry after deletion of the original bug returns `410`. New bug short names are allocated while holding the space row lock; no uniqueness constraint is imposed on historical short names. Run detail also includes a shared timer summary (`state`, calendar/active/paused seconds and interval count), plus the sum of known case durations and measured/unmeasured result counts. Legacy runs without timer intervals report active and paused duration as unknown. The API calculates timer values from stored interval boundaries on request; there is no cron/background timer loop, and the UI refreshes on load, state changes, or explicit refresh. Estimated testcase duration is versioned and copied into each result snapshot; existing records remain `NULL`. New run snapshots and preview items include `suite_id`, `suite_name`, and the root-to-leaf `section_path` (`id`, `name`, `sort` per section). Existing `section` fields remain; old snapshots without a full path are served with only their known section.
 

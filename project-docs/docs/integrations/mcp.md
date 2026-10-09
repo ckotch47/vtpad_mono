@@ -20,3 +20,15 @@ MCP tools are registered through imports in `app/src/mcp/tools/__init__.py`; sec
 - `import_space_data(space_id, content, idempotency_key, format="json"|"csv")`
 
 These tools call the same service and return the same versioned content/preview/result shapes as REST. Imports are bounded, space-scoped, atomic, reject read-only collaborators, and replay the original outcome for a matching actor, space, idempotency key, and content. Import does not send case content to embedding providers. CSV export neutralizes formula-like text cells; portable files do not contain snapshots, run history, users, attachments, or secrets.
+
+`update_test_result` treats omitted `comment` and `duration_seconds` as unchanged, matching REST PATCH semantics. Set `clear_comment` or `clear_duration` to `true` to explicitly clear either value.
+
+### CI/CD webhooks
+
+- `create_webhook_integration(payload)`
+- `get_webhook_integration(integration_id)`
+- `rotate_webhook_integration_credential(integration_id)`
+- `revoke_webhook_integration(integration_id)`
+- `process_webhook_event(payload)`
+
+Management tools use the same owner/company-admin plus active membership checks as REST. The secret is returned only during create or rotate. `process_webhook_event` supplies `integration_id`, signed `method`, exact `path`, `timestamp`, `nonce`, `idempotency_key`, hex `signature`, and JSON `body`; it invokes the same bounded, allowlist-scoped service as the HTTP callback. The MCP HTTP transport rejects request bodies larger than 8 MiB before FastMCP parses tool arguments, and the webhook `body` field is limited to 1 MiB before UTF-8 encoding. Timestamp and nonce bounds match REST: 1–12 ASCII digits and 16–128 printable ASCII characters. The canonical path is `/api/v2/webhooks/integrations/{integration_id}/callback`. Result detail adds only safe source metadata; secrets and payloads are not part of the result representation. Verified signed attempts, including rejected payloads, count toward the 60/minute integration limit. Invalid-auth attempts have a separate 120/minute cap; after the cap they receive 429 without consuming the verified quota. Redacted audit records are retained for 30 days, failure buckets for 24 hours, and nonce rows for 10 minutes; cleanup is opportunistic and uses no scheduled job.

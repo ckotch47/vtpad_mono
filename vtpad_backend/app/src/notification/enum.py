@@ -5,3 +5,4 @@ class EventNotificationEnum(str, Enum):
     assign = 'ASSIGN'
     update = 'UPDATE'
     comment = 'COMMENT'
+    run_completed = 'RUN_COMPLETED'

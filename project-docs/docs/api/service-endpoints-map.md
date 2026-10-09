@@ -118,7 +118,7 @@
 | POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | переводит run из `draft` в `active` и открывает общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/pause` | JWT + space check | закрывает текущий общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/resume` | JWT + space check | открывает следующий общий timer interval |
-| POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | завершает active run и закрывает открытый timer interval |
+| POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | атомарно завершает active run, закрывает timer interval и создаёт одно уведомление `RUN_COMPLETED` создателю при наличии `created_by`; payload содержит только `run_id` и route |
 | PATCH | `/api/v2/test-run/result/{result_id}` | JWT + space check | меняет статус и детали результата только в active run; фактическая длительность `>= 0`, `NULL` означает «нет замера»; ответ включает массив `linked_bug_ids` и оригинал `linked_bug_ids_raw` |
 | POST | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + space check | идемпотентно связывает result с bug по `link_uuid` в том же space |
 | DELETE | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + space check | удаляет UUID-связь с bug в том же space |
@@ -299,11 +299,13 @@ The MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends` 
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
-| GET | `/api/v1/notification/stream` | JWT | SSE stream уведомлений |
-| GET | `/api/v1/notification/unread-count` | JWT | количество непрочитанных |
-| GET | `/api/v1/notification` | JWT | список уведомлений |
-| PUT | `/api/v1/notification/{notification_id}/read` | JWT | прочитать одно |
-| PUT | `/api/v1/notification/read-all` | JWT | прочитать все |
+| GET | `/api/v1/notification/stream` | JWT | SSE stream; run completion события отправляются только при актуальном доступе к space |
+| GET | `/api/v1/notification/unread-count` | JWT | количество видимых непрочитанных уведомлений; revoked run-space membership исключает событие |
+| GET | `/api/v1/notification` | JWT | список видимых уведомлений; `skip` 0..1,000,000, `limit` 1..100 |
+| PUT | `/api/v1/notification/{notification_id}/read` | JWT | отметить своё видимое уведомление прочитанным; чужие и недоступные run события не изменяются |
+| PUT | `/api/v1/notification/read-all` | JWT | отметить видимые уведомления прочитанными |
+
+MCP: `get_notifications`, `get_unread_notification_count`, `mark_notification_read` и `mark_all_notifications_read` используют те же фильтры/сервисы, что и REST. Создание run completion события доступно через общий `complete_test_run` use case; произвольное создание такого события клиентом не предоставляется.
 
 ### News
 

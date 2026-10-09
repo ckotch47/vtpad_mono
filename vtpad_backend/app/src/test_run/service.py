@@ -29,6 +29,7 @@ from ..bug.service import BugsService
 from ..bug.dto.create_bug_dto import CreateBugDto
 from ..bug.enum import StateBugEnum
 from ..webhook_integration.model import WebhookResultProvenanceModel
+from ..notification.service import NotificationService
 
 
 class TestRunService:
@@ -999,6 +1000,7 @@ class TestRunService:
                 await TestRunModel.filter(id=run_id).using_db(connection).update(
                     status=TestRunStatus.completed, completed_at=now
                 )
+                await NotificationService.create_run_completed(run, connection)
         return await TestRunService.get_by_id(run_id)
 
     @staticmethod

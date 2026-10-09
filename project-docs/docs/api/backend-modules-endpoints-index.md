@@ -156,6 +156,9 @@ Quality and time endpoints require current space membership and share their serv
 - `GET /api/v1/notification`
 - `PUT /api/v1/notification/{notification_id}/read`
 - `PUT /api/v1/notification/read-all`
+- MCP `get_notifications`, `get_unread_notification_count`, `mark_notification_read` and `mark_all_notifications_read`
+
+`RUN_COMPLETED` создаётся в транзакции успешного завершения run, адресуется только `created_by`, защищён уникальным индексом `(run_id, event, user_id)` и содержит только opaque `run_id` и route. Список, unread count, SSE и mark-read исключают run события после отзыва доступа к space.
 
 ### `app/src/news`
 - `GET /api/v1/news`

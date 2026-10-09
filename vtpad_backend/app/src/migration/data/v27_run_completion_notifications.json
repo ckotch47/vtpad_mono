@@ -1,0 +1,8 @@
+{
+  "data": [
+    "ALTER TABLE notificationmodel ADD COLUMN IF NOT EXISTS run_id UUID NULL",
+    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_notificationmodel_run') THEN ALTER TABLE notificationmodel ADD CONSTRAINT fk_notificationmodel_run FOREIGN KEY (run_id) REFERENCES test_run(id) ON DELETE CASCADE; END IF; END $$",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_run_event_user ON notificationmodel (run_id, event, user_id) WHERE run_id IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS ix_notification_run_id ON notificationmodel (run_id) WHERE run_id IS NOT NULL"
+  ]
+}

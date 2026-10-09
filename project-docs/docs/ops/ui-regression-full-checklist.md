@@ -58,6 +58,7 @@
 ### 2. Full Functional (основной регресс)
 
 0a. Consistent desktop list framing (Cases, Suites, Plans, Runs, Bugs)
+- На desktop редактирование Test Case использует тот же центрированный предел ширины 1500 px, что списки и остальные детали; сверить `1276x718` и `1440x900`.
 - На viewport `1276x718` и `1440x900` сверить одинаковую иерархию: page heading, toolbar с фильтрами и действиями, затем список; нет наложения, обрезанных названий или горизонтального переполнения.
 - Проверить, что `ListPageToolbar` не скрывает доменные фильтры: Cases type/status/priority/tags/suite, Suites search/status/sort, Plans/Runs search, Bugs search и filter dialog сохраняют прежнюю выдачу/query behavior.
 - Клавиатурой пройти фильтры, primary actions, заголовок записи и каждое row action; ссылки открывают details, действия имеют описательные accessible names и видимый focus.

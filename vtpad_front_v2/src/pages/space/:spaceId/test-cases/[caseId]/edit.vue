@@ -12,7 +12,7 @@
     <v-progress-linear color="primary" indeterminate />
   </div>
 
-  <v-container v-else fluid class="pa-6">
+  <v-container v-else fluid class="mx-auto custom-container max-width-1500 pa-6">
     <v-row>
       <v-col cols="12" md="9">
         <v-card data-keyboard-save-scope>

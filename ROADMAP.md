@@ -117,7 +117,7 @@ DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separate
 
 ## 📋 Future Ideas
 
-- [x] Test Plan advanced filters (by tags, priority, custom fields; REST/MCP share resolver) — implemented in `5c07226`; backend compile/build/startup and OpenAPI verified, frontend ESLint/build passed, edge-case review passed. Disposable fixture-level REST/MCP acceptance remains a follow-up.
+- [x] Test Plan advanced filters (by tags, priority, custom fields; REST/MCP share resolver) — implemented in `5c07226`; disposable REST/MCP acceptance covered matching previews, plan creation/cases, plan-based run preview/create and custom-field snapshots. Empty-source/array and delete-cleanup scenarios passed; temporary fixtures were removed. Backend compile/build/startup, frontend ESLint/build and independent edge-case review passed.
 - Run comparison / diff between two runs
 - Test automation integration (CI/CD webhooks)
 - Requirements traceability matrix

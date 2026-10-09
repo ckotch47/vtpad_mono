@@ -244,6 +244,13 @@ MCP keeps `link_bug_to_result` and `unlink_bug_from_result` data semantics: they
 - `PATCH /api/v2/tech-doc/{doc_id}`
 - `DELETE /api/v2/tech-doc/{doc_id}`
 
+### `app/src/data_exchange`
+- `GET /api/v2/data-exchange/space/{space_id}/export?format=json|csv[&suite_ids=...]`
+- `POST /api/v2/data-exchange/space/{space_id}/preview?format=json|csv`
+- `POST /api/v2/data-exchange/space/{space_id}/import?format=json|csv` (`Idempotency-Key` required)
+
+REST and MCP share JSON schema v1 / CSV v1, 5 MiB input cap, preview validation, object-level space authorization, escaped preview, atomic writes, and receipts scoped by actor and space. Import creates new IDs and does not transfer version/run history, users, attachments, or secrets. Imported case content is not sent to embedding providers. Read-only collaborator imports are rejected.
+
 All REST routes require JWT and space access. Create/update reject a parent document from another space and serialize parent changes per space to prevent concurrent cycles. MCP exposes the same list, tree, get-by-id, create, update, and delete operations; its list tool supports the REST filters and pagination. MCP also provides text and semantic search, plus link/unlink and list/replace operations for Tech Doc/testcase relationships from either side. Each operation checks access to the requested space or document. Space access allows an active space member or an active company admin in that space's company.
 
 ### `app/src/custom_field`

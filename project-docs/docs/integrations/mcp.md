@@ -13,3 +13,10 @@ The result is a JSON array of siblings ordered by `sort`, with `id`, `name`, `de
 ## Registration
 
 MCP tools are registered through imports in `app/src/mcp/tools/__init__.py`; section tools live in `app/src/mcp/tools/sections.py`. The HTTP application and authentication middleware are defined in `app/src/mcp/server.py` and `app/src/mcp/middleware.py`.
+### Data exchange
+
+- `export_space_data(space_id, format="json"|"csv", suite_ids?)`
+- `preview_space_import(space_id, content, format="json"|"csv")`
+- `import_space_data(space_id, content, idempotency_key, format="json"|"csv")`
+
+These tools call the same service and return the same versioned content/preview/result shapes as REST. Imports are bounded, space-scoped, atomic, reject read-only collaborators, and replay the original outcome for a matching actor, space, idempotency key, and content. Import does not send case content to embedding providers. CSV export neutralizes formula-like text cells; portable files do not contain snapshots, run history, users, attachments, or secrets.

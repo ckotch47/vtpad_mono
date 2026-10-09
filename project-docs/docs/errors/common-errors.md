@@ -37,6 +37,13 @@
 
 ## Исправленные дефекты
 
+- `413` при загрузке portable JSON/CSV: файл превышает 5 MiB. Также применяются лимиты 10,000 rows, 5,000 cases и 20 уровней секций.
+- `404` при экспорте с malformed или foreign-space `suite_id`: API не раскрывает, существует ли suite вне выбранного space. Некорректный `space_id` также не приводит к ошибке БД.
+- `415` при preview/import: `format` не `json`/`csv` или `Content-Type` не соответствует формату.
+- `409` при повторном импорте: `Idempotency-Key` связан с другим actor, space или содержимым. Повтор того же запроса возвращает исходную квитанцию.
+- `403` при импорте из read-only space: участник имеет `right.readOnly=true`; owner и активный company admin не ограничены этим флагом.
+- `422` при preview/import: некорректный schema version, stable key/link/type/option, дублирующийся short name, уже занятый short name, missing required custom-field value или лимит файла.
+
 1. `PUT /api/v1/comment/{comment_id}` теперь возвращает `404`, если комментарий не найден, вместо `500`.
 2. `POST /api/v1/comment/{bug_id}` теперь возвращает `404`, если bug не существует, до создания комментария.
 3. `PATCH /api/v2/bugs/{bug_id}` и `PUT /api/v1/bugs/{bug_id}` теперь сначала проверяют существование бага и возвращают `404`, если id не найден.

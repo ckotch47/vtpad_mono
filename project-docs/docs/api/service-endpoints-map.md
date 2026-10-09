@@ -342,6 +342,16 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 В `app/main.py` роутеры дополнительно монтируются через `app.include_router(...)` без `/api`.
 Это означает, что все пути выше доступны и без `/api` (например, `/v1/space` вместо `/api/v1/space`).
 
+### Data exchange (v2)
+
+| Method | Path | Auth/Access | Примечания |
+| --- | --- | --- | --- |
+| GET | `/api/v2/data-exchange/space/{space_id}/export?format=json\|csv` | JWT + space access | Возвращает versioned content в поле `content`, без filesystem paths; `suite_ids` ограничивает экспорт указанными suites. |
+| POST | `/api/v2/data-exchange/space/{space_id}/preview?format=json\|csv` | JWT + space access | Принимает raw JSON или CSV с соответствующим `Content-Type`; возвращает escaped preview и конфликты до записи. |
+| POST | `/api/v2/data-exchange/space/{space_id}/import?format=json\|csv` | JWT + writable space access | Принимает raw JSON или CSV, требует `Idempotency-Key`; весь import выполняется одной транзакцией и не отправляет содержимое кейсов embedding-провайдерам. |
+
+Вход ограничен 5 MiB, 10,000 rows, 5,000 cases и 20 уровнями секций. При `right.readOnly=true` импорт отклоняется; owner и активный company admin сохраняют обход read-only ограничения. MCP использует те же операции и структуру ответа.
+
 ## Источники в коде
 
 - `vtpad_backend/app/main.py`

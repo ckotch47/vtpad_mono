@@ -1,0 +1,7 @@
+{
+  "data": [
+    "CREATE TABLE IF NOT EXISTS data_exchange_import_receipt (id UUID PRIMARY KEY, idempotency_key VARCHAR(200) NOT NULL UNIQUE, content_hash VARCHAR(64) NOT NULL, actor_id UUID NOT NULL, space_id UUID NOT NULL REFERENCES spacemodel(id) ON DELETE CASCADE, response JSONB NOT NULL, created_case_ids JSONB NOT NULL DEFAULT '[]'::jsonb, embeddings_pending BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+    "CREATE INDEX IF NOT EXISTS data_exchange_import_receipt_actor_idx ON data_exchange_import_receipt (actor_id)",
+    "CREATE INDEX IF NOT EXISTS data_exchange_import_receipt_space_idx ON data_exchange_import_receipt (space_id)"
+  ]
+}

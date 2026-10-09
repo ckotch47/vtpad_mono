@@ -1,0 +1,6 @@
+{
+  "data": [
+    "ALTER TABLE data_exchange_import_receipt DROP CONSTRAINT IF EXISTS data_exchange_import_receipt_idempotency_key_key",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_data_exchange_receipt_scope ON data_exchange_import_receipt (space_id, actor_id, idempotency_key)"
+  ]
+}

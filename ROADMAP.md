@@ -120,7 +120,7 @@ BD2 completed in `69bd146`. JSON v1 and CSV v1 are available through shared REST
 ## 📋 Future Ideas
 
 - [x] Test Plan advanced filters (by tags, priority, custom fields; REST/MCP share resolver) — implemented in `5c07226`; disposable REST/MCP acceptance covered matching previews, plan creation/cases, plan-based run preview/create and custom-field snapshots. Empty-source/array and delete-cleanup scenarios passed; temporary fixtures were removed. Backend compile/build/startup, frontend ESLint/build and independent edge-case review passed.
-- Run comparison / diff between two runs
+- Run comparison / diff between two runs — REST and local MCP wrapper parity verified on a disposable DB; currently attached Codex MCP tool catalog still omits `compare_test_runs`, so the item remains open.
 - Test automation integration (CI/CD webhooks)
 - Requirements traceability matrix
 - [x] Custom fields for test cases — typed values, required-field validation, version/run snapshots, REST/MCP parity, and delete cleanup implemented and verified on a disposable database.

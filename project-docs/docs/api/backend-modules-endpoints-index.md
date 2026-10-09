@@ -139,7 +139,7 @@ Tag create/update/delete require the server-derived `tags` capability.
 ### `app/src/section`
 - `GET /api/v2/section/suite/{suite_id}`
 - `GET /api/v2/section/suite/{suite_id}/tree`
-- `GET /api/v2/section/{section_id}`
+- `GET /api/v2/section/{section_id}` — all section reads require access to the owning suite's space; MCP `get_section` applies the same check.
 - `POST /api/v2/section/`
 - `PATCH /api/v2/section/{section_id}`
 - `DELETE /api/v2/section/{section_id}`
@@ -147,6 +147,7 @@ Tag create/update/delete require the server-derived `tags` capability.
 
 ### `app/src/test_suite`
 - `GET /api/v2/test-suite/space/{space_id}`
+- `GET /api/v2/test-suite/{suite_id}` — requires access to the suite's space.
 - `POST /api/v2/test-suite/`
 - `PATCH /api/v2/test-suite/{suite_id}`
 - `DELETE /api/v2/test-suite/{suite_id}`

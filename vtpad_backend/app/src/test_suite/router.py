@@ -34,8 +34,10 @@ async def _require_suite_capability(suite_id: str, request: Request):
 
 
 @router.get('/{suite_id}', dependencies=[Depends(bearer)])
-async def get_by_id(suite_id: str):
-    return await TestSuiteService.get_by_id(suite_id)
+async def get_by_id(suite_id: str, request: Request):
+    suite = await TestSuiteService.get_by_id(suite_id)
+    await check_user_into_space(str(suite.space_id), request)
+    return suite
 
 
 @router.post('/', dependencies=[Depends(bearer)])

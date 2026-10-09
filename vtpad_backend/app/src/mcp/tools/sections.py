@@ -185,6 +185,8 @@ async def get_section(section_id: str) -> dict | None:
     section = await SectionModel.get_or_none(id=section_id)
     if not section:
         return None
+    suite = await TestSuiteService.get_by_id(str(section.suite_id))
+    await check_user_into_space(str(suite.space_id), get_http_request())
     return {
         "id": str(section.id),
         "name": section.name,

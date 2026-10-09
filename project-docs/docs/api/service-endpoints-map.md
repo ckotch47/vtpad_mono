@@ -186,8 +186,9 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
-| GET | `/api/v2/section/suite/{suite_id}` | JWT | секции suite |
-| GET | `/api/v2/section/suite/{suite_id}/tree` | JWT | дерево секций suite |
+| GET | `/api/v2/section/suite/{suite_id}` | JWT + space check | секции suite |
+| GET | `/api/v2/section/suite/{suite_id}/tree` | JWT + space check | дерево секций suite |
+| GET | `/api/v2/section/{section_id}` | JWT + owning space check | секция после проверки доступа к space её suite |
 | POST | `/api/v2/section/` | JWT + `sections` capability | создаёт секцию в suite; parent должен быть той же suite |
 | PATCH | `/api/v2/section/{section_id}` | JWT + `sections` capability | обновляет секцию; parent должен быть той же suite |
 | DELETE | `/api/v2/section/{section_id}` | JWT + `sections` capability | удаляет секцию |

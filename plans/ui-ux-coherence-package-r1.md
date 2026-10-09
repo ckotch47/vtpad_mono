@@ -33,6 +33,15 @@
 - **Remaining usability check:** Cases filters can wrap across two rows at desktop widths. Recheck at `1440×900` and verify keyboard traversal when browser access is restored.
 - Not rerun: all five screens visually, accessibility tree, hover/tooltips, 1440×900, keyboard/tooltip behavior outside the burger, empty/loading/error/permission states, filter result semantics, or fresh timer reactivity. No code or product data was changed during this review.
 
+### Independent desktop retest (2026-10-09)
+
+- **Verdict: partial; one confirmed P2 filter defect and one P3 usability finding.** Retested against the current local app at `1276×718`, space `vks-hls-conveer`. Mobile remains excluded.
+- **UX-FILTER-01 (P2):** Test Cases → Suite dropdown contains only `All Suites` and `No Suite`; it omits the active `Core Regression` suite, which is shown with 31 cases in Suites. Selecting `No Suite` sets `suite_id=none` and yields `0-0 of 0`, so this test data has no unassigned cases. Independent tester and direct retest both reproduced it. Track and fix this filter integration separately from the suite-detail section filter; do not mark case filtering complete until selection of an existing suite returns its cases.
+- **UX-LABELS-01 (P3):** long Suite and Tech Docs names are visually truncated in their left navigation panes; full labels remain present in the accessibility tree. Recommend preserving a visible full label on selection or adding a discoverable hover/focus reveal.
+- **Passed:** Spaces drawer hide/reopen button remains visible, has accessible name `Open spaces navigation`, and preserves the route. Suite split-pane and Tech Docs split-pane render; run detail shows summary, timer and five group links. Clicking `Refresh time` changed elapsed time from `3180h 40m` to `3180h 41m` while the URL stayed unchanged, confirming reactive refresh without full-page navigation. Cases, Suites, Plans, Runs and Bugs lists were reachable; Bugs quick-create is above the table.
+- Direct browser retest checked browser console errors and found none. The independent tester could not inspect logs in its browser adapter; root CUA provided the console evidence.
+- **Still not checked:** 1440×900, keyboard traversal for controls other than the drawer, loading/empty/error/permission fixtures, other Suite filter values and combinations. No product records were changed; the Suite filter was restored to `All Suites` after the check.
+
 ## Outcome
 
 Make the main VTPad desktop workflows feel consistent and easier to scan while retaining module-specific controls and Vue reactivity. Align list-page hierarchy, remove duplicate or misleading controls, and make visible actions understandable to keyboard and screen-reader users.
@@ -48,6 +57,8 @@ Keep existing filter semantics, routes, permissions, and data behavior. Update l
 | UXC-003 | Medium | The Bugs quick-create action is rendered as a pseudo-row inside the table, alongside an `OPEN` status value, so it reads like bug data rather than the page's primary action. | Browser screenshot and `vtpad_front_v2/src/components/bugs/BugsDataTable.vue:78-87` |
 | UXC-004 | Low | Run timer state and interval count are repeated below a summary card that already displays timer state and elapsed-time breakdown. | Browser screenshot; `RunStatsPanel.vue` and `testRunDetailComponent.vue:49-68` |
 | UXC-005 | Medium | Main list pages arrange title, primary action, search, and filters differently: Cases uses a multi-row toolbar, Plans/Runs use compact toolbars, Bugs puts filters in the table/header, and Suites uses a split workspace. | Browser comparison across Cases, Suites, Plans, Runs, and Bugs |
+| UXC-006 | Medium | Test Cases Suite filter omits an existing active suite with cases, making those cases impossible to filter by suite. | Desktop retest: dropdown offers only All Suites/No Suite; `No Suite` produces 0 rows while Core Regression shows 31 cases in Suites |
+| UXC-007 | Low | Long suite and Tech Docs navigation labels are visually truncated in their left panes, slowing recognition of similarly named entries. | Desktop screenshots and accessibility tree at 1276×718 |
 
 ## Implementation scope
 

@@ -106,7 +106,9 @@ DD1–DD3 use stable UUID links only. The dashboard reports unique bugs separate
 
 ### Backend and Data
 - [x] Add PostgreSQL full-text search with `tsvector`
-- [ ] Add CSV/JSON import and export for suites and cases
+- [x] Add CSV/JSON import and export for suites and cases
+
+BD2 completed in `69bd146`. JSON v1 and CSV v1 are available through shared REST and MCP services with preview, atomic import, file-local ID remapping, typed custom fields, formula neutralization, scoped idempotency receipts, and size/schema limits. The disposable clone passed REST/MCP round-trip, authorization/revocation, rollback, malformed/oversized input, CSV formula, rich-text escaping, and migration v21→v22 checks; temporary data and tokens were removed.
 - [x] Harden Tech Docs CRUD and traceability with space membership, same-space parent checks, and cycle protection
 
 ### Analytics — Later

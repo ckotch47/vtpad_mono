@@ -113,6 +113,36 @@ async def require_space_capability(
         raise HTTPException(status_code=403, detail="not have right")
 
 
+async def require_space_right(user_id: str, space_id: str, right: str) -> None:
+    """Enforce a legacy space right without bypassing readOnly or company status."""
+    conn = Tortoise.get_connection("default")
+    rows = await conn.execute_query_dict(
+        """
+        SELECT su.role AS space_role, su."right" AS space_right,
+               u.role AS company_role
+          FROM spacemodel s
+          LEFT JOIN spacesusermodel su
+            ON su."spaceId" = s.id AND su."userId" = $1
+          LEFT JOIN usercompanysettingsmodel u
+            ON u.user_id = $1 AND u.company_id = s.company_id AND u.status = 'active'
+         WHERE s.id = $2
+        """,
+        [user_id, space_id],
+    )
+    if not rows:
+        raise HTTPException(status_code=403, detail="not right space")
+    principal = rows[0]
+    is_active_member = bool(principal.get("space_role")) and bool(principal.get("company_role"))
+    is_company_admin = principal.get("company_role") == "company_admin"
+    if not (is_active_member or is_company_admin):
+        raise HTTPException(status_code=403, detail="not right space")
+    if principal.get("space_role") == "OWNER" or is_company_admin:
+        return
+    rights = _decode_rights(principal.get("space_right"))
+    if rights.get("readOnly") is True or rights.get(right) is not True:
+        raise HTTPException(status_code=403, detail="not have right")
+
+
 async def require_request_space_capability(
     space_id: str,
     request: Request,

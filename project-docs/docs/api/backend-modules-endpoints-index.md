@@ -77,6 +77,7 @@
 - `PATCH /api/v1/items/{item_id}`
 
 ### `app/src/bug`
+Bug create/update require `bugs`; bug tag assignments require both `bugs` and `tags`. State transitions to closed/hold and reopen require `closeBugs` in addition to `bugs`, with owner and active same-company admin bypass.
 - `POST /api/v1/bugs`
 - `GET /api/v1/bugs`
 - `GET /api/v1/bugs/detail/{bug_id}`
@@ -102,12 +103,14 @@ Linked-defect analytics use explicit UUID links only and require space membershi
 Quality and time endpoints require current space membership and share their service with MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends`. The paginated quality-results route/tool returns run/result source IDs for one UTC week and suite. Historical suite attribution uses `testcase_snapshot.suite_id`; unresolved legacy attribution is grouped as `Unknown / mixed suite`. The single run timer is attributed once by `test_run.suite_id`, never once per case suite.
 
 ### `app/src/comments`
+Comment create/update/delete require `bug_comments` on the parent bug space; update/delete keep the existing author-only rule.
 - `GET /api/v1/comment/{bug_id}`
 - `POST /api/v1/comment/{bug_id}`
 - `PUT /api/v1/comment/{comment_id}`
 - `DELETE /api/v1/comment/{comment_id}`
 
 ### `app/src/tag`
+Tag create/update/delete require the server-derived `tags` capability.
 - `GET /api/v1/tag/{space_id}`
 - `PUT /api/v1/tag/{tag_id}`
 - `POST /api/v1/tag/{space_id}`

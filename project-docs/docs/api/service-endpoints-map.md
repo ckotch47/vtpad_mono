@@ -215,15 +215,15 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
-| POST | `/api/v1/bugs` | JWT | создание bug |
+| POST | `/api/v1/bugs` | JWT + `bugs` capability | создание bug |
 | GET | `/api/v1/bugs` | JWT | список bugs (с фильтрами) |
 | GET | `/api/v1/bugs/detail/{bug_id}` | JWT | детали bug |
 | GET | `/api/v1/bugs/detail-short` | JWT | детали по short name |
 | GET | `/api/v1/bugs/id/by-short` | JWT (deprecated) | bug id по short name |
-| PUT | `/api/v1/bugs/{bug_id}` | JWT (deprecated) | обновление bug |
+| PUT | `/api/v1/bugs/{bug_id}` | JWT + `bugs` capability (deprecated) | обновление bug |
 | GET | `/api/v1/bugs/filters` | JWT | доступные фильтры |
-| PUT | `/api/v1/bugs/{bug_id}/tag` | JWT | добавление tag к bug |
-| DELETE | `/api/v1/bugs/{bug_id}/tag/{tag_id}` | JWT | удаление tag из bug |
+| PUT | `/api/v1/bugs/{bug_id}/tag` | JWT + `bugs` and `tags` capabilities | добавление tag к bug |
+| DELETE | `/api/v1/bugs/{bug_id}/tag/{tag_id}` | JWT + `bugs` and `tags` capabilities | удаление tag из bug |
 | GET | `/api/v1/bugs/state-enum` | JWT | enum статусов |
 | GET | `/api/v2/bugs/space/{space_id}/by-link/{link_uuid}` | JWT + space membership | детали bug по стабильному UUID связи; выборка проверяет `bugsmodel.spaces_id` |
 
@@ -254,18 +254,18 @@ The MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends` 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
 | GET | `/api/v1/comment/{bug_id}` | JWT | список comments |
-| POST | `/api/v1/comment/{bug_id}` | JWT | создание comment |
-| PUT | `/api/v1/comment/{comment_id}` | JWT | обновление comment |
-| DELETE | `/api/v1/comment/{comment_id}` | JWT | удаление comment |
+| POST | `/api/v1/comment/{bug_id}` | JWT + `bug_comments` capability | создание comment |
+| PUT | `/api/v1/comment/{comment_id}` | JWT + `bug_comments` capability | обновление comment |
+| DELETE | `/api/v1/comment/{comment_id}` | JWT + `bug_comments` capability | удаление comment |
 
 ### Tags
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
 | GET | `/api/v1/tag/{space_id}` | JWT + space check | список tags |
-| PUT | `/api/v1/tag/{tag_id}` | JWT | обновление tag |
-| POST | `/api/v1/tag/{space_id}` | JWT + space check | создание tag |
-| DELETE | `/api/v1/tag/{tag_id}` | JWT | удаление tag |
+| PUT | `/api/v1/tag/{tag_id}` | JWT + `tags` capability | обновление tag |
+| POST | `/api/v1/tag/{space_id}` | JWT + `tags` capability | создание tag |
+| DELETE | `/api/v1/tag/{tag_id}` | JWT + `tags` capability | удаление tag |
 
 ### Testcases
 

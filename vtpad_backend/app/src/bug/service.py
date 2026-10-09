@@ -22,6 +22,7 @@ from datetime import datetime
 
 from ..notification.service import NotificationService
 from ..comments.service import CommentBugService
+from ..common.space_capabilities import require_space_right
 import logging
 logger = logging.getLogger(__name__)
 
@@ -613,58 +614,16 @@ class BugsService:
 
     @staticmethod
     async def check_user_update_bug_v2(bug_id: str, user: dict, state: StateBugEnum):
-        conn = Tortoise.get_connection("default")
-        try:
-            temp: dict = (await conn.execute_query_dict(
-                "SELECT role, \"right\" FROM bugsmodel "
-                "LEFT JOIN spacemodel s on bugsmodel.spaces_id = s.id "
-                "LEFT JOIN spacesusermodel sp on sp.\"spaceId\" = s.id "
-                "WHERE bugsmodel.id = $1 "
-                "AND sp.\"userId\" = $2",
-                [bug_id, user.get('id')]
-            ))[0]
-        except Exception as e:
-            logger.error('Unexpected error: %s', e, exc_info=True)
-            raise HTTPException(status_code=403, detail="not have right")
-
-        if temp['role'] == SpacesUserRole.owner:
-            return True
-        try:
-            if state == StateBugEnum.closed or state == StateBugEnum.hold:
-                can_close = json.loads(temp['right'])['closeBugs']
-                if can_close:
-                    return True
-                else:
-                    raise HTTPException(status_code=403, detail="not have right")
-        except Exception as e:
-            logger.error('Unexpected error: %s', e, exc_info=True)
-            raise HTTPException(status_code=403, detail="not have right")
+        bug = await BugsService._get_bug_or_404(bug_id)
+        if state == StateBugEnum.closed or state == StateBugEnum.hold:
+            await require_space_right(str(user.get('id')), str(bug.spaces_id), 'closeBugs')
+        return True
 
     @staticmethod
     async def check_user_for_update_bug_state_open_bug(bug_id: str, user: dict):
-        # closeBugs
-        conn = Tortoise.get_connection("default")
-        temp: dict = (await conn.execute_query_dict(
-            "SELECT role, \"right\" FROM bugsmodel "
-            "LEFT JOIN spacemodel s on bugsmodel.spaces_id = s.id "
-            "LEFT JOIN spacesusermodel sp on sp.\"spaceId\" = s.id "
-            "WHERE bugsmodel.id = $1 "
-            "AND sp.\"userId\" = $2",
-            [bug_id, user.get('id')]
-        ))[0]
-
-        if temp['role'] == SpacesUserRole.owner:
-            return True
-        try:
-            can_close = json.loads(temp['right'])['closeBugs']
-
-            if can_close:
-                return True
-            else:
-                raise HTTPException(status_code=403, detail="not have right")
-        except Exception as e:
-            logger.error('Unexpected error: %s', e, exc_info=True)
-            raise HTTPException(status_code=403, detail="not have right")
+        bug = await BugsService._get_bug_or_404(bug_id)
+        await require_space_right(str(user.get('id')), str(bug.spaces_id), 'closeBugs')
+        return True
 
     @staticmethod
     async def _next_short_name(space: SpaceModel, connection: Any) -> str | None:

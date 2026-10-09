@@ -125,7 +125,7 @@ BD2 completed in `69bd146`. JSON v1 and CSV v1 are available through shared REST
 - [x] Requirements traceability matrix — REST/MCP share the same space-scoped matrix service; disposable DB smoke and independent API/security review passed.
 - [x] Custom fields for test cases — typed values, required-field validation, version/run snapshots, REST/MCP parity, and delete cleanup implemented and verified on a disposable database.
 - [~] Test case templates — backend REST/MCP implementation complete: space-scoped versioned CRUD/use, immutable copied content, 1 MiB REST/template-MCP mutation bounds, bounded metadata history and selected-version reads, required custom-field validation on use, and size/version limits. Disposable DB, REST/MCP transport, and Python compile checks passed; root manual review found no blocking issue. Frontend implementation and lint/build passed; full desktop runtime/browser acceptance remains pending.
-- [~] Run completion notifications — backend implementation and disposable DB checks pass; live MCP HTTP transport acceptance remains open.
+- [~] Run completion notifications — backend REST/MCP acceptance passed on disposable DB, including Streamable HTTP initialize, 94-tool listing and notification read; desktop end-to-end acceptance remains pending.
 - Email reports
 - Public share links for runs
 

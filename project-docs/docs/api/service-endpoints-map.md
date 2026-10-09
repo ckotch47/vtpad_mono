@@ -305,7 +305,7 @@ The MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends` 
 | PUT | `/api/v1/notification/{notification_id}/read` | JWT | отметить своё видимое уведомление прочитанным; чужие и недоступные run события не изменяются |
 | PUT | `/api/v1/notification/read-all` | JWT | отметить видимые уведомления прочитанными |
 
-MCP: `get_notifications`, `get_unread_notification_count`, `mark_notification_read` и `mark_all_notifications_read` используют те же фильтры/сервисы, что и REST. Создание run completion события доступно через общий `complete_test_run` use case; произвольное создание такого события клиентом не предоставляется.
+MCP подключён по Streamable HTTP на `/api/v1/mcp`; ответы JSON-RPC передаются SSE-событиями, поэтому клиенты должны читать поток до нужного ответа, а не ждать закрытия всего HTTP body. `get_notifications`, `get_unread_notification_count`, `mark_notification_read` и `mark_all_notifications_read` используют те же фильтры/сервисы, что и REST. Создание run completion события доступно через общий `complete_test_run` use case; произвольное создание такого события клиентом не предоставляется.
 
 ### News
 

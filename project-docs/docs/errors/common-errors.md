@@ -24,6 +24,7 @@
 | Ошибка | Причина | Где искать |
 |---|---|---|
 | `500` на `/api/...` через Vite при живом Docker backend | dev proxy идёт на `localhost:8000`, но app-only Compose не публиковал backend/frontend порты на host | `docker-compose.app-only.yml`, `vtpad_front_v2/vite.config.mjs` |
+| MCP Streamable HTTP клиент зависает на POST либо ждёт конца ответа | MCP ответы приходят как SSE; буферизующий клиент ждёт закрытия потока. ASGI body limiter также должен после однократного replay передавать последующие receive events исходному transport | `app/src/mcp/server.py`; использовать streaming MCP client и читать JSON-RPC SSE event |
 | `500` на фильтрации bugs | Raw SQL с hardcoded column name | `app/src/bug/service.py` |
 | В модалке бага не переключается вкладка History | Разный тип `value` у `v-tab` и `v-tabs-window-item` (`number` vs `string`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalHistoryComponentV2.vue` |
 | Комментарий в модалке бага не сохраняется | Отсутствует `bug.id` или отправляется пустой HTML (`<p></p>`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalCommentComponent.vue` |

@@ -160,6 +160,8 @@ Quality and time endpoints require current space membership and share their serv
 
 `RUN_COMPLETED` создаётся в транзакции успешного завершения run, адресуется только `created_by`, защищён уникальным индексом `(run_id, event, user_id)` и содержит только opaque `run_id` и route. Список, unread count, SSE и mark-read исключают run события после отзыва доступа к space.
 
+MCP работает как Streamable HTTP по `/api/v1/mcp`: сервер передаёт JSON-RPC ответы SSE-событиями; клиенты должны читать поток до ответа с нужным `id`. Ограничитель тела запроса после replay исходного body передаёт дальнейшие ASGI receive events транспорту, чтобы не блокировать SSE/disconnect handling.
+
 ### `app/src/news`
 - `GET /api/v1/news`
 - `PATCH /api/v1/news/read`

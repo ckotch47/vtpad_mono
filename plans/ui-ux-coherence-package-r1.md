@@ -3,10 +3,10 @@
 ## Status
 
 - Revision: `r1`
-- Status: proposed; implementation not started
+- Status: approved for implementation on 2026-10-09 after the user authorized completion of the full roadmap; implementation not started
 - Evidence: independent exploratory run on the local VTPad desktop UI at `1276×718`, plus source review
 - Mobile and mobile-specific implementation/testing are excluded by explicit user instruction
-- Implementation requires approval of this exact revision
+- Approval: user authorized completion of the full roadmap after this exact revision was presented
 
 ## Outcome
 

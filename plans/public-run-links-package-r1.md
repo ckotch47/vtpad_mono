@@ -1,6 +1,6 @@
 # FI9 — public links for test runs (r1)
 
-Status: proposed for implementation. This is a concrete delivery revision for the approved FI9 scope in `roadmap-completion-package-r3.md`.
+Status: approved for implementation on 2026-10-09 after the user authorized completion of the full roadmap. This is the concrete delivery revision for the approved FI9 scope in `roadmap-completion-package-r3.md`.
 
 ## Product decisions for this revision
 

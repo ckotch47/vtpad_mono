@@ -265,6 +265,10 @@ Every REST and MCP operation checks access to the plan's space. Plan sources are
 - `POST /api/v2/test-run/result/{result_id}/bugs` (quick create and link)
 - `PATCH /api/v2/test-run/result/bulk`
 - Test plan create/update/delete require `plans`; run create/update/lifecycle/delete and public-link rotation/revocation require `runs`. Result edits require `results`, and result bug-link mutations require combined `run_bug_links`. REST and MCP use the same server-side checks.
+- Run create/update accepts milestone and environment references only from the run's own space; foreign or unknown references return `404`.
+- MCP `hard_delete_suite` requires `suites` plus `cases`, `sections`, and/or `runs` for each affected domain with records, checking all required capabilities before the first write.
+- Deleting a testcase or Tech Doc with existing Tech Doc↔testcase links additionally requires `traceability`; MCP suite hard-delete performs the same check for linked cases before starting the cascade.
+- Deleting a run, or MCP hard-deleting a suite containing runs, additionally requires `run_bug_links` when affected results have legacy or UUID bug links.
 
 Run detail results include nullable `source`. Webhook-sourced results contain only `type`, integration ID/name, request ID, and update time. Manual result edits clear provenance transactionally.
 
@@ -300,6 +304,7 @@ MCP keeps `link_bug_to_result` and `unlink_bug_from_result` data semantics: they
 - `POST /api/v2/data-exchange/space/{space_id}/import?format=json|csv` (`Idempotency-Key` required)
 
 REST and MCP share JSON schema v1 / CSV v1, 5 MiB input cap, preview validation, object-level space authorization, escaped preview, atomic writes, and receipts scoped by actor and space. Import creates new IDs and does not transfer version/run history, users, attachments, or secrets. Imported case content is not sent to embedding providers. Read-only collaborator imports are rejected.
+Import requires the effective `suites`, `sections`, `cases`, and `tags` capabilities before entering its write transaction.
 
 All REST routes require JWT and space access. Create/update reject a parent document from another space and serialize parent changes per space to prevent concurrent cycles. MCP exposes the same list, tree, get-by-id, create, update, and delete operations; its list tool supports the REST filters and pagination. MCP also provides text and semantic search, plus link/unlink and list/replace operations for Tech Doc/testcase relationships from either side. Each operation checks access to the requested space or document. Space access allows an active space member or an active company admin in that space's company.
 
@@ -311,6 +316,8 @@ All REST routes require JWT and space access. Create/update reject a parent docu
 - `DELETE /api/v2/custom-field/{field_id}`
 - `POST /api/v2/custom-field/value`
 - `GET /api/v2/custom-field/value/{entity_id}`
+
+Definition and value writes require `cases` for testcase fields or `runs` for testrun fields. REST and MCP share this authorization in the service layer.
 
 All definition/value routes require JWT and active access to the same space as the field/entity. Definitions support `required` (default false) for testcase fields. Values must match the configured JSON type/options; changing a definition is rejected when saved values would become invalid. Updating an existing value returns the newly saved value over both REST and MCP. Deleting a definition removes live values, while testcase-version and run snapshots retain their embedded metadata and historical values. MCP provides matching `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field`, `get_custom_field_values`, and `set_custom_field_value` tools.
 
@@ -338,11 +345,17 @@ All definition/value routes require JWT and active access to the same space as t
 MCP preserves the legacy `move_test_case(case_id, suite_id=None, section_id=None)` signature, partial-update behavior, and testcase response shape for existing callers. New integrations should use `move_test_case_to_location(case_id, suite_id, section_id)` for explicit placement; both destination arguments are required, and callers must pass `section_id: null` to target the destination suite's virtual Default section. This new tool shares placement validation with the REST move endpoint and does not create a content version.
 
 ### `app/src/case_template`
-- `GET/POST /api/v2/test-case-template/space/{space_id}` — list/create space-scoped templates.
-- `GET/PUT /api/v2/test-case-template/space/{space_id}/{template_id}` — read current content plus at most 10 metadata-only history entries / update metadata and append a content version when fields change.
+- `GET/POST /api/v2/test-case-template/space/{space_id}` — list/create space-scoped templates; create requires `cases`.
+- `GET/PUT /api/v2/test-case-template/space/{space_id}/{template_id}` — read current content plus at most 10 metadata-only history entries / update metadata and append a content version when fields change; update requires `cases`.
 - `GET /api/v2/test-case-template/space/{space_id}/{template_id}/versions?page=1&page_size=20` — page version metadata (maximum 50 per page).
 - `GET /api/v2/test-case-template/space/{space_id}/{template_id}/versions/{version_number}` — read one selected immutable version.
-- `POST /api/v2/test-case-template/space/{space_id}/{template_id}/use` — create a new testcase from a selected version, required case title, optional allowlisted field overrides, and bounded typed custom-field values.
+- `POST /api/v2/test-case-template/space/{space_id}/{template_id}/use` — create a new testcase from a selected version, required case title, optional allowlisted field overrides, and bounded typed custom-field values; requires `cases`.
+
+MCP template list/detail/version reads require space access; `create_test_case_template`, `update_test_case_template`, and `use_test_case_template` additionally require the same `cases` capability as REST writes.
+
+### `app/src/milestone` and `app/src/environment`
+- Space-scoped read routes require space access.
+- Create, update, delete, and milestone close require the `runs` capability because these records are run configuration references.
 
 REST and MCP tools use the same service and check space access before template lookup or writes. REST mutation bodies and MCP template mutation calls are capped at 1 MiB (MCP retains its separate 8 MiB cap for other tools). Content strings are capped at 32,768 characters each, description at 4,096, serialized template content at 128 KiB, and estimated duration at 0–2,147,483,647 seconds; custom fields are excluded from template content and versions. The `use` operation separately accepts at most 50 typed custom-field values with a 64 KiB serialized cap, validated by the existing testcase creation path against definitions in the same space. A template retains at most 100 immutable versions. Template versions contain only case title, text, preconditions, steps, expected results, postconditions, type, priority, and estimated duration. Template name is separate from case title. The use operation copies values into a new testcase through `TestCaseService.create`; no template reference is stored on a case, so later template updates cannot change existing cases.
 

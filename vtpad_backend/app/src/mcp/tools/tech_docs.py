@@ -15,6 +15,7 @@ from ...embedding.service import EmbeddingService
 from ...tech_doc.model import TechDocModel
 from ...tech_doc.service import TechDocService
 from ...traceability.service import TraceabilityService
+from ...traceability.model import TechDocTestCaseLinkModel
 from ...common.right_guard import check_user_into_space
 from ...test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
 from ...space.model import SpaceModel
@@ -164,7 +165,11 @@ async def delete_tech_doc(doc_id: str) -> dict:
         Success or error
     """
     try:
-        await _require_doc_access(doc_id, capability="tech_docs")
+        doc = await _require_doc_access(doc_id, capability="tech_docs")
+        if await TechDocTestCaseLinkModel.filter(tech_doc_id=doc.id).exists():
+            await check_user_into_space(
+                str(doc.space_id), get_http_request(), capability="traceability"
+            )
         await TechDocService.delete(doc_id)
         return {"deleted": True, "id": doc_id}
     except Exception as e:

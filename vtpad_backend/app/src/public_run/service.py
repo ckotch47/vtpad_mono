@@ -106,20 +106,23 @@ async def _locked_run_and_authorize(run_id: str, actor_id: UUID, connection):
         '''SELECT su.role AS space_role, uc.role AS company_role, uc.status AS company_status
              FROM test_run tr
              JOIN spacemodel s ON s.id = tr.space_id
-             JOIN spacesusermodel su ON su."spaceId" = s.id AND su."userId" = $1
+             LEFT JOIN spacesusermodel su ON su."spaceId" = s.id AND su."userId" = $1
              JOIN usercompanysettingsmodel uc ON uc.user_id = $1
                   AND uc.company_id = s.company_id AND uc.status = 'active'
             WHERE tr.id = $2''',
         [str(actor_id), str(parsed_run_id)],
     )
-    active_memberships = [row for row in role_rows if row.get('company_status') == 'active']
-    if not active_memberships:
+    active_company_rows = [row for row in role_rows if row.get('company_status') == 'active']
+    if not active_company_rows:
         raise HTTPException(status_code=404, detail='Test run not found')
-    is_owner = any(row.get('space_role') == 'OWNER' for row in active_memberships)
-    is_creator = run.created_by_id is not None and str(run.created_by_id) == str(actor_id)
-    is_company_admin = (
+    is_owner = any(row.get('space_role') == 'OWNER' for row in active_company_rows)
+    is_creator = (
         run.created_by_id is not None
-        and any(row.get('company_role') == 'company_admin' for row in active_memberships)
+        and str(run.created_by_id) == str(actor_id)
+        and any(row.get('space_role') is not None for row in active_company_rows)
+    )
+    is_company_admin = any(
+        row.get('company_role') == 'company_admin' for row in active_company_rows
     )
     if is_owner or is_creator or is_company_admin:
         return run

@@ -235,8 +235,8 @@
               <v-select v-model="newCase.priority" :items="priorityOptions" item-title="title" item-value="value" label="Priority" />
             </v-col>
             <v-col cols="8">
-              <v-combobox v-model="newCase.tags" :items="tagOptions" :loading="tagOptionsLoading" label="Tags" multiple chips closable-chips clearable hint="Choose an existing tag or enter a new one" persistent-hint />
-              <div v-if="tagOptionsError" class="text-caption text-warning">Existing tags could not be loaded. You can still enter tag labels.</div>
+              <v-combobox v-if="canEditTags" v-model="newCase.tags" :items="tagOptions" :loading="tagOptionsLoading" label="Tags" multiple chips closable-chips clearable hint="Choose an existing tag or enter a new one" persistent-hint />
+              <div v-if="canEditTags && tagOptionsError" class="text-caption text-warning">Existing tags could not be loaded. You can still enter tag labels.</div>
             </v-col>
           </v-row>
           <v-text-field
@@ -357,6 +357,7 @@ const router = useRouter()
 const spaceId = computed(() => route.params.spaceId)
 const capabilityStore = useSpaceCapabilitiesStore()
 const canEditCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
+const canEditTags = computed(() => capabilityStore.can(spaceId.value, 'tags'))
 
 const cases = ref([])
 const totalCases = ref(0)

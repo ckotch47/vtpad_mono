@@ -79,12 +79,13 @@ def validate_value(field: CustomFieldModel, value: Any, *, enforce_required: boo
 
 class CustomFieldService:
     @staticmethod
-    async def _authorize(space_id: str, request) -> None:
-        await check_user_into_space(str(space_id), request)
+    async def _authorize(space_id: str, request, capability: str | None = None) -> None:
+        await check_user_into_space(str(space_id), request, capability=capability)
 
     @staticmethod
     async def create(dto: CustomFieldCreateDto, token: str, request) -> CustomFieldModel:
-        await CustomFieldService._authorize(dto.space_id, request)
+        capability = "runs" if dto.entity_type == CustomFieldEntityType.testrun else "cases"
+        await CustomFieldService._authorize(dto.space_id, request, capability)
         if dto.entity_type == CustomFieldEntityType.testrun and dto.required:
             raise HTTPException(status_code=422, detail='Required custom fields currently support test cases only')
         options = _field_options(dto.field_type, dto.options or [])
@@ -161,7 +162,8 @@ class CustomFieldService:
             field = await CustomFieldModel.filter(id=field_id).using_db(connection).select_for_update().first()
             if not field:
                 raise HTTPException(status_code=404, detail='Custom field not found')
-            await CustomFieldService._authorize(str(field.space_id), request)
+            capability = "runs" if field.entity_type == CustomFieldEntityType.testrun else "cases"
+            await CustomFieldService._authorize(str(field.space_id), request, capability)
 
             # Preserve the established PATCH contract: omitted and explicit
             # null fields are ignored; nullable values are only accepted by
@@ -225,7 +227,8 @@ class CustomFieldService:
             field = await CustomFieldModel.filter(id=field_id).using_db(connection).select_for_update().first()
             if not field:
                 raise HTTPException(status_code=404, detail='Custom field not found')
-            await CustomFieldService._authorize(str(field.space_id), request)
+            capability = "runs" if field.entity_type == CustomFieldEntityType.testrun else "cases"
+            await CustomFieldService._authorize(str(field.space_id), request, capability)
             # Remove dependent plan predicates atomically with the definition;
             # otherwise plan counts, previews, and run creation would retain
             # filters that can no longer be resolved.
@@ -273,7 +276,8 @@ class CustomFieldValueService:
             entity = await CustomFieldValueService._resolve_entity(field.entity_type, dto.entity_id, connection)
             if str(entity.space_id) != str(field.space_id):
                 raise HTTPException(status_code=404, detail='Custom field entity not found')
-            await CustomFieldService._authorize(str(field.space_id), request)
+            capability = "runs" if field.entity_type == CustomFieldEntityType.testrun else "cases"
+            await CustomFieldService._authorize(str(field.space_id), request, capability)
             if field.entity_type == CustomFieldEntityType.testcase:
                 from ..test_case.model import TestCaseModel
                 entity = await TestCaseModel.filter(id=dto.entity_id).using_db(connection).select_for_update().first()

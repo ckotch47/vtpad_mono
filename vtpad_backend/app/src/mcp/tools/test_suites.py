@@ -13,7 +13,9 @@ from ...section.service import SectionService
 from ...embedding.service import EmbeddingService
 from ...tech_doc.model import TechDocModel
 from ...tech_doc.service import TechDocService
-from ...test_run.model import TestRunModel, TestResultModel, TestRunStatus, TestResultStatus
+from ...test_run.model import (
+    TestRunModel, TestResultModel, TestResultBugLinkModel, TestRunStatus, TestResultStatus,
+)
 from ...space.model import SpaceModel
 from ...test_run.service import TestRunService, TestResultService
 from ...test_run.dto import TestRunCreateDto, TestResultUpdateDto
@@ -23,6 +25,7 @@ from ...section.dto import SectionUpdateDto
 from ...test_plan.model import TestPlanModel
 from ...test_plan.service import TestPlanService
 from ...analytics.service import AnalyticsService
+from ...traceability.model import TechDocTestCaseLinkModel
 from ...common.right_guard import check_user_into_space
 import logging
 logger = logging.getLogger(__name__)
@@ -222,9 +225,33 @@ async def hard_delete_suite(suite_id: str) -> dict:
     suite = await TestSuiteService.get_by_id(suite_id)
     await check_user_into_space(str(suite.space_id), get_http_request(), capability="suites")
     cases = await TestCaseModel.filter(suite_id=suite_id).all()
+    sections = await SectionModel.filter(suite_id=suite_id).all()
+    runs = await TestRunModel.filter(suite_id=suite_id).all()
+    # The hard-delete alias spans three capability domains. Resolve every
+    # required permission before its first mutation to avoid a partial cascade.
+    if cases:
+        await check_user_into_space(str(suite.space_id), get_http_request(), capability="cases")
+        case_ids = [case.id for case in cases]
+        if await TechDocTestCaseLinkModel.filter(testcase_id__in=case_ids).exists():
+            await check_user_into_space(
+                str(suite.space_id), get_http_request(), capability="traceability"
+            )
+    if sections:
+        await check_user_into_space(str(suite.space_id), get_http_request(), capability="sections")
+    if runs:
+        await check_user_into_space(str(suite.space_id), get_http_request(), capability="runs")
+        run_ids = [run.id for run in runs]
+        run_results = await TestResultModel.filter(run_id__in=run_ids).all()
+        has_legacy_bug_links = any(result.linked_bug_ids for result in run_results)
+        has_uuid_bug_links = await TestResultBugLinkModel.filter(
+            result_id__in=[result.id for result in run_results]
+        ).exists()
+        if has_legacy_bug_links or has_uuid_bug_links:
+            await check_user_into_space(
+                str(suite.space_id), get_http_request(), capability="run_bug_links"
+            )
     for case in cases:
         await _delete_case_cascade(str(case.id))
-    runs = await TestRunModel.filter(suite_id=suite_id).all()
     for run in runs:
         await _delete_run_cascade(str(run.id))
     await SectionModel.filter(suite_id=suite_id).delete()

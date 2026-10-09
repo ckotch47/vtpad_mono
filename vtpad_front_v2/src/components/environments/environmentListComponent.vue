@@ -5,7 +5,7 @@
   <div v-if="!loader" class="mx-auto my-2">
     <div class="d-flex justify-space-between align-center mb-4">
       <h2>Environments</h2>
-      <v-btn color="primary" @click="showCreateDialog = true">Add Environment</v-btn>
+      <v-btn v-if="canManageRuns" color="primary" @click="showCreateDialog = true">Add Environment</v-btn>
     </div>
 
     <v-card v-if="environments.length">
@@ -21,10 +21,10 @@
             <span v-if="env.url" class="ml-2">URL: {{ env.url }}</span>
           </v-list-item-subtitle>
           <template #append>
-            <v-btn icon variant="text" @click="editEnvironment(env)">
+            <v-btn v-if="canManageRuns" icon variant="text" @click="editEnvironment(env)">
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
-            <v-btn icon variant="text" color="red" @click="deleteEnvironment(env.id)">
+            <v-btn v-if="canManageRuns" icon variant="text" color="red" @click="deleteEnvironment(env.id)">
               <v-icon>mdi-delete</v-icon>
             </v-btn>
           </template>
@@ -32,7 +32,7 @@
       </v-list>
     </v-card>
     <v-card v-else class="pa-4">
-      <p>No environments yet.</p>
+      <p>{{ canManageRuns ? 'No environments yet.' : 'No environments are available in this space.' }}</p>
     </v-card>
   </div>
 
@@ -58,12 +58,15 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { environmentService } from '@/services'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canManageRuns = computed(() => capabilityStore.can(spaceId.value, 'runs'))
 
 const loader = ref(true)
 const environments = ref([])
@@ -147,5 +150,9 @@ function deleteEnvironment(id) {
   })
 }
 
-onMounted(loadEnvironments)
+watch(spaceId, id => {
+  if (!id) return
+  capabilityStore.load(id)
+  loadEnvironments()
+}, { immediate: true })
 </script>

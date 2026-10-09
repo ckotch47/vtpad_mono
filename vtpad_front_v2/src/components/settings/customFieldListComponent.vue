@@ -5,7 +5,7 @@
   <div v-if="!loader" class="mx-auto my-2">
     <div class="d-flex justify-space-between align-center mb-4">
       <h2>Custom Fields</h2>
-      <v-btn color="primary" @click="showCreateDialog = true">Add Field</v-btn>
+      <v-btn v-if="canManageAnyFields" color="primary" @click="showCreateDialog = true">Add Field</v-btn>
     </div>
 
     <v-card v-if="fields.length">
@@ -21,10 +21,10 @@
             <span v-if="field.options?.length">| Options: {{ field.options.join(', ') }}</span>
           </v-list-item-subtitle>
           <template #append>
-          <v-btn icon variant="text" @click="editField(field)">
+          <v-btn v-if="canManageField(field)" icon variant="text" @click="editField(field)">
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
-          <v-btn icon variant="text" color="red" @click="deleteField(field.id)">
+          <v-btn v-if="canManageField(field)" icon variant="text" color="red" @click="deleteField(field.id)">
               <v-icon>mdi-delete</v-icon>
             </v-btn>
           </template>
@@ -32,7 +32,7 @@
       </v-list>
     </v-card>
     <v-card v-else class="pa-4">
-      <p>No custom fields yet.</p>
+      <p>{{ canManageAnyFields ? 'No custom fields yet.' : 'No custom fields are available in this space.' }}</p>
     </v-card>
   </div>
 
@@ -75,12 +75,17 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { customFieldService } from '@/services'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canManageCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
+const canManageRuns = computed(() => capabilityStore.can(spaceId.value, 'runs'))
+const canManageAnyFields = computed(() => canManageCases.value || canManageRuns.value)
 
 const loader = ref(true)
 const fields = ref([])
@@ -98,7 +103,13 @@ const form = ref({
 const cfForm = ref(null)
 const originalOptions = ref([])
 const fieldTypes = ['text', 'select', 'multiselect', 'number', 'date', 'checkbox']
-const entityTypes = ['testcase', 'testrun']
+const entityTypes = computed(() => [
+  ...(canManageCases.value ? ['testcase'] : []),
+  ...(canManageRuns.value ? ['testrun'] : [])
+])
+watch(entityTypes, types => {
+  if (types.length && !types.includes(form.value.entity_type)) form.value.entity_type = types[0]
+}, { immediate: true })
 
 const optionsHint = computed(() => ['select', 'multiselect'].includes(form.value.field_type)
   ? 'Add at least one unique option, one per line.'
@@ -127,6 +138,7 @@ function loadFields() {
 }
 
 function editField(field) {
+  if (!canManageField(field)) return
   editingId.value = field.id
   form.value = {
     name: field.name,
@@ -138,6 +150,10 @@ function editField(field) {
   }
   originalOptions.value = [...(field.options || [])]
   showCreateDialog.value = true
+}
+
+function canManageField(field) {
+  return field.entity_type === 'testrun' ? canManageRuns.value : canManageCases.value
 }
 
 function validateSelectOptions(value) {
@@ -161,6 +177,12 @@ function closeDialog() {
 }
 
 function saveField() {
+  if (editingId.value) {
+    const original = fields.value.find(field => field.id === editingId.value)
+    if (!original || !canManageField(original)) return
+  } else if (!entityTypes.value.includes(form.value.entity_type)) {
+    return
+  }
   if (form.value.entity_type === 'testrun') form.value.required = false
   const payload = {
     ...form.value,
@@ -183,11 +205,17 @@ function saveField() {
 }
 
 function deleteField(id) {
+  const field = fields.value.find(item => item.id === id)
+  if (!field || !canManageField(field)) return
   if (!confirm('Delete this custom field?')) return
   customFieldService.delete(id).then(() => {
     loadFields()
   })
 }
 
-onMounted(loadFields)
+watch(spaceId, id => {
+  if (!id) return
+  capabilityStore.load(id)
+  loadFields()
+}, { immediate: true })
 </script>

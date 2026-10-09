@@ -5,6 +5,7 @@ from .service import TechDocService
 from .dto import *
 from ..common.crypto import bearer
 from ..common.right_guard import check_user_into_space
+from ..traceability.model import TechDocTestCaseLinkModel
 
 router = APIRouter(
     prefix='/v2/tech-doc',
@@ -56,4 +57,6 @@ async def update(doc_id: str, dto: TechDocUpdateDto, request: Request):
 async def delete(doc_id: str, request: Request):
     doc = await TechDocService.get_by_id(doc_id)
     await check_user_into_space(str(doc.space_id), request, capability="tech_docs")
+    if await TechDocTestCaseLinkModel.filter(tech_doc_id=doc.id).exists():
+        await check_user_into_space(str(doc.space_id), request, capability="traceability")
     return await TechDocService.delete(doc_id)

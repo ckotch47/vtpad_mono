@@ -73,7 +73,7 @@
                   label="Priority"
                 />
               </v-col>
-              <v-col cols="8">
+              <v-col v-if="canEditTags" cols="8">
                 <v-combobox
                   v-model="form.tags"
                   :items="tagOptions"
@@ -233,6 +233,7 @@ const capabilityStore = useSpaceCapabilitiesStore()
 
 const spaceId = computed(() => route.params.spaceId)
 const canEditCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
+const canEditTags = computed(() => capabilityStore.can(spaceId.value, 'tags'))
 const caseId = route.params.caseId
 const draftKey = `case-draft-${caseId}`
 
@@ -326,11 +327,12 @@ async function save() {
   const payload = {
     ...form.value,
     priority: form.value.priority || 'P2',
-    tags: normalizeTags(form.value.tags),
     estimated_duration_seconds: estimatedDuration === '' || estimatedDuration === null || estimatedDuration === undefined
       ? null
       : Number(estimatedDuration)
   }
+  if (canEditTags.value) payload.tags = normalizeTags(form.value.tags)
+  else delete payload.tags
   api.patch(`/api/v2/test-case/${caseId}`, payload).then(() => {
     localStorage.removeItem(draftKey)
     router.push(`/space/${spaceId.value}/test-cases/${caseId}`)

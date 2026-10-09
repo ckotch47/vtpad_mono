@@ -7,6 +7,7 @@ from ..common.crypto import bearer
 from ..common.right_guard import check_user_into_space
 from ..test_suite.model import TestSuiteModel
 from ..section.model import SectionModel
+from ..traceability.model import TechDocTestCaseLinkModel
 
 router = APIRouter(
     prefix='/v2/test-case',
@@ -84,13 +85,17 @@ async def get_by_id(testcase_id: str, request: Request):
 @router.post('/', dependencies=[Depends(bearer)])
 async def create(dto: TestCaseCreateDto, request: Request, token: str = Depends(bearer)):
     await check_user_into_space(dto.space_id, request, capability="cases")
+    if dto.tags:
+        await check_user_into_space(dto.space_id, request, capability="tags")
     case = await TestCaseService.create(dto, token)
     return await TestCaseService.serialize_case(case)
 
 
 @router.patch('/{testcase_id}', dependencies=[Depends(bearer)])
 async def update(testcase_id: str, dto: TestCaseUpdateDto, request: Request, token: str = Depends(bearer)):
-    await _require_testcase_access(testcase_id, request, capability="cases")
+    testcase = await _require_testcase_access(testcase_id, request, capability="cases")
+    if dto.tags is not None:
+        await check_user_into_space(str(testcase.space_id), request, capability="tags")
     case = await TestCaseService.update(testcase_id, dto, token)
     return await TestCaseService.serialize_case(case)
 
@@ -109,7 +114,9 @@ async def move_testcase(testcase_id: str, dto: TestCaseMoveDto, request: Request
 
 @router.delete('/{testcase_id}', dependencies=[Depends(bearer)])
 async def delete(testcase_id: str, request: Request):
-    await _require_testcase_access(testcase_id, request, capability="cases")
+    testcase = await _require_testcase_access(testcase_id, request, capability="cases")
+    if await TechDocTestCaseLinkModel.filter(testcase_id=testcase.id).exists():
+        await check_user_into_space(str(testcase.space_id), request, capability="traceability")
     return await TestCaseService.delete(testcase_id)
 
 

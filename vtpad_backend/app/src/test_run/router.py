@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Request
 
 from .service import TestRunService, TestResultService
+from .model import TestResultModel, TestResultBugLinkModel
 from .dto import *
 from ..common.crypto import bearer
 from ..common.right_guard import check_user_into_space
@@ -157,7 +158,12 @@ async def complete(run_id: str, request: Request, token: str = Depends(bearer)):
 
 @router.delete('/{run_id}', dependencies=[Depends(bearer)])
 async def delete(run_id: str, request: Request):
-    await _require_run_access(run_id, request, capability="runs")
+    run = await _require_run_access(run_id, request, capability="runs")
+    results = await TestResultModel.filter(run_id=run.id).all()
+    has_legacy_bug_links = any(result.linked_bug_ids for result in results)
+    has_uuid_bug_links = await TestResultBugLinkModel.filter(result__run_id=run.id).exists()
+    if has_legacy_bug_links or has_uuid_bug_links:
+        await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
     return await TestRunService.delete(run_id)
 
 

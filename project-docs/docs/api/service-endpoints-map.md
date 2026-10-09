@@ -134,6 +134,12 @@
 | POST | `/api/v2/test-run/{run_id}/pause` | JWT + `runs` capability | закрывает текущий общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/resume` | JWT + `runs` capability | открывает следующий общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/complete` | JWT + `runs` capability | атомарно завершает active run, закрывает timer interval и создаёт одно уведомление `RUN_COMPLETED` создателю при наличии `created_by`; payload содержит только `run_id` и route |
+| GET | `/api/v2/milestone/space/{space_id}` | JWT + space check | варианты milestones для run |
+| GET | `/api/v2/milestone/{milestone_id}` | JWT + owning space check | milestone detail |
+| POST/PATCH/DELETE | `/api/v2/milestone/` and `/{milestone_id}` | JWT + `runs` capability | milestone mutations and close transition |
+| GET | `/api/v2/environment/space/{space_id}` | JWT + space check | варианты environments для run |
+| GET | `/api/v2/environment/{env_id}` | JWT + owning space check | environment detail |
+| POST/PATCH/DELETE | `/api/v2/environment/` and `/{env_id}` | JWT + `runs` capability | environment mutations |
 | PATCH | `/api/v2/test-run/result/{result_id}` | JWT + `results` capability; `run_bug_links` when changing legacy bug references | меняет статус и детали результата только в active run; фактическая длительность `>= 0`, `NULL` означает «нет замера»; ответ включает массив `linked_bug_ids` и оригинал `linked_bug_ids_raw` |
 | POST | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + `run_bug_links` capability | идемпотентно связывает result с bug по `link_uuid` в том же space |
 | DELETE | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + `run_bug_links` capability | удаляет UUID-связь с bug в том же space |
@@ -145,13 +151,13 @@
 | GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты меток кейсов в space |
 | GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом, метками и `custom_fields` |
 | GET | `/api/v2/test-case/section/{section_id}` | JWT + section suite space check | список кейсов section с приоритетом, метками и `custom_fields` |
-| POST | `/api/v2/test-case/` | JWT + space check | создаёт кейс с `priority` (`P0`–`P3`, default `P2`), метками `tags` и optional `custom_fields: [{field_id, value}]`; отсутствующие обязательные значения возвращают `422` |
-| GET/POST | `/api/v2/test-case-template/space/{space_id}` | JWT + space check | постранично получает метаданные (без content) или создаёт template; начальный version number — 1 |
-| GET/PUT | `/api/v2/test-case-template/space/{space_id}/{template_id}` | JWT + space check | detail содержит текущий content и не более 10 metadata-only history entries; обновление полей добавляет immutable version |
+| POST | `/api/v2/test-case/` | JWT + `cases`; `tags` also required when assigning tags | создаёт кейс с `priority` (`P0`–`P3`, default `P2`), метками `tags` и optional `custom_fields: [{field_id, value}]`; отсутствующие обязательные значения возвращают `422` |
+| GET/POST | `/api/v2/test-case-template/space/{space_id}` | JWT + space check / `cases` capability for writes | постранично получает метаданные (без content) или создаёт template; начальный version number — 1 |
+| GET/PUT | `/api/v2/test-case-template/space/{space_id}/{template_id}` | JWT + space check / `cases` capability for writes | detail содержит текущий content и не более 10 metadata-only history entries; обновление полей добавляет immutable version |
 | GET | `/api/v2/test-case-template/space/{space_id}/{template_id}/versions?page=1&page_size=20` | JWT + space check | постранично получает metadata-only версии; page size до 50 |
 | GET | `/api/v2/test-case-template/space/{space_id}/{template_id}/versions/{version_number}` | JWT + space check | получает content одной выбранной immutable версии |
-| POST | `/api/v2/test-case-template/space/{space_id}/{template_id}/use` | JWT + space check | создаёт новый testcase через `TestCaseService.create`, используя выбранную template version, обязательный title, optional allowlisted overrides и typed custom-field values (до 50 значений / 64 KiB); custom fields валидируются в том же space; существующие cases не связаны с template |
-| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + space check | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`, priority, tags и `custom_fields`; omission сохраняет values, переданный массив заменяет текущие значения; явный `section_id: null` оставляет кейс в виртуальной секции `Default` |
+| POST | `/api/v2/test-case-template/space/{space_id}/{template_id}/use` | JWT + `cases` capability | создаёт новый testcase через `TestCaseService.create`, используя выбранную template version, обязательный title, optional allowlisted overrides и typed custom-field values (до 50 значений / 64 KiB); custom fields валидируются в том же space; существующие cases не связаны с template |
+| PATCH | `/api/v2/test-case/{testcase_id}` | JWT + `cases`; `tags` also required when replacing tags | обновляет только явно переданные поля, включая оценку `estimated_duration_seconds >= 0`, priority, tags и `custom_fields`; omission сохраняет values, переданный массив заменяет текущие значения; явный `section_id: null` оставляет кейс в виртуальной секции `Default` |
 | POST | `/api/v2/test-case/{testcase_id}/move` | JWT + space check | явно перемещает кейс в тело `{suite_id, section_id}`; оба поля обязательны, `section_id: null` означает виртуальную секцию `Default` указанного suite. Suite и section проверяются в space кейса; чужая/несуществующая ссылка возвращает общий `404`, section другого suite в том же space — `422`. Ответ содержит `id`, `space_id`, `suite_id`, `section_id`; перемещение не создаёт content version. |
 | GET | `/api/v2/test-case/{testcase_id}/versions` | JWT + space check | история версий testcase |
 | GET | `/api/v2/test-case/{testcase_id}/versions/{version_id}` | JWT + space check | конкретная версия testcase |
@@ -172,10 +178,10 @@ The matrix includes Tech Docs with no testcase links and linked cases with no ru
 | --- | --- | --- | --- |
 | GET | `/api/v2/custom-field/space/{space_id}` | JWT + space check | definitions по space; `entity_type=testcase` возвращает `required` (по умолчанию `false`) |
 | GET | `/api/v2/custom-field/{field_id}` | JWT + field space check | definition после проверки доступа к её space |
-| POST | `/api/v2/custom-field/` | JWT + space check | создаёт typed definition; select/multiselect требуют хотя бы один уникальный непустой option; required fields поддерживаются для testcase |
-| PATCH | `/api/v2/custom-field/{field_id}` | JWT + field space check | type/options меняются только если текущие значения совместимы; select/multiselect требуют хотя бы один уникальный непустой option; включение required требует заполнения у всех существующих cases |
-| DELETE | `/api/v2/custom-field/{field_id}` | JWT + field space check | удаляет definition и live values; testcase-version/run snapshots остаются self-contained |
-| POST | `/api/v2/custom-field/value` | JWT + entity space check | typed value; field/entity type, same-space и доступ валидируются общим сервисом; testcase mutation создаёт версию |
+| POST | `/api/v2/custom-field/` | JWT + `cases` or `runs` capability by entity type | создаёт typed definition; select/multiselect требуют хотя бы один уникальный непустой option; required fields поддерживаются для testcase |
+| PATCH | `/api/v2/custom-field/{field_id}` | JWT + field-space `cases` or `runs` capability by entity type | type/options меняются только если текущие значения совместимы; select/multiselect требуют хотя бы один уникальный непустой option; включение required требует заполнения у всех существующих cases |
+| DELETE | `/api/v2/custom-field/{field_id}` | JWT + field-space `cases` or `runs` capability by entity type | удаляет definition и live values; testcase-version/run snapshots остаются self-contained |
+| POST | `/api/v2/custom-field/value` | JWT + entity-space `cases` or `runs` capability by entity type | typed value; field/entity type, same-space и доступ валидируются общим сервисом; testcase mutation создаёт версию |
 | GET | `/api/v2/custom-field/value/{entity_id}` | JWT + entity space check | live values определения; пустой набор разрешён для доступного entity |
 
 Plan filters form a candidate set by unioning suite members with explicit `case_ids`; when both source lists are empty, the candidate set is empty. Then priorities, all selected tags, and typed testcase custom-field predicates intersect it. Scalar custom fields use exact matching; multiselect filters match arrays containing the requested values, while an empty array matches only an empty value; a JSON `null` filter selects cases with no non-null value. REST and MCP preview/count/create use the shared plan resolver. Run creation resolves the saved plan filters in the same transaction snapshot as the testcase and custom-field snapshots.
@@ -387,9 +393,9 @@ MCP подключён по Streamable HTTP на `/api/v1/mcp`; ответы JSO
 | --- | --- | --- | --- |
 | GET | `/api/v2/data-exchange/space/{space_id}/export?format=json\|csv` | JWT + space access | Возвращает versioned content в поле `content`, без filesystem paths; `suite_ids` ограничивает экспорт указанными suites. |
 | POST | `/api/v2/data-exchange/space/{space_id}/preview?format=json\|csv` | JWT + space access | Принимает raw JSON или CSV с соответствующим `Content-Type`; возвращает escaped preview и конфликты до записи. |
-| POST | `/api/v2/data-exchange/space/{space_id}/import?format=json\|csv` | JWT + writable space access | Принимает raw JSON или CSV, требует `Idempotency-Key`; весь import выполняется одной транзакцией и не отправляет содержимое кейсов embedding-провайдерам. |
+| POST | `/api/v2/data-exchange/space/{space_id}/import?format=json\|csv` | JWT + `suites`, `sections`, `cases`, and `tags` capabilities | Принимает raw JSON или CSV, требует `Idempotency-Key`; весь import выполняется одной транзакцией и не отправляет содержимое кейсов embedding-провайдерам. |
 
-Вход ограничен 5 MiB, 10,000 rows, 5,000 cases и 20 уровнями секций. При `right.readOnly=true` импорт отклоняется; owner и активный company admin сохраняют обход read-only ограничения. MCP использует те же операции и структуру ответа.
+Вход ограничен 5 MiB, 10,000 rows, 5,000 cases и 20 уровнями секций. Import требует все capabilities, затрагиваемые создаваемыми suites, sections, cases и tag assignments; owner и активный company admin имеют полный доступ, а `readOnly` отклоняет запись. MCP использует те же операции и структуру ответа.
 
 ### CI/CD webhooks (v2)
 

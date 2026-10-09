@@ -10,11 +10,16 @@ from .model import (
 )
 from .dto import *
 from ..common.crypto import get_user_id_by_token
+from ..common.space_capabilities import require_space_capability
 from ..embedding.service import EmbeddingService
 from ..common.pagination import paginate
 
 
 class TestCaseService:
+    @staticmethod
+    async def _require_tag_capability(space_id: str, user_id: str | None) -> None:
+        await require_space_capability(str(user_id or ''), str(space_id), 'tags')
+
     @staticmethod
     def _serialize_list_item(
         testcase: TestCaseModel,
@@ -295,6 +300,8 @@ class TestCaseService:
     @staticmethod
     async def create(dto: TestCaseCreateDto, token: str) -> TestCaseModel:
         user_id = await get_user_id_by_token(token)
+        if dto.tags:
+            await TestCaseService._require_tag_capability(dto.space_id, str(user_id))
         section_id = dto.section_id
         suite_id = dto.suite_id
 
@@ -522,6 +529,8 @@ class TestCaseService:
                 raise HTTPException(status_code=404, detail="Test case not found")
             if not data and tag_values is None and custom_field_values is None:
                 return testcase
+            if tag_values is not None:
+                await TestCaseService._require_tag_capability(str(testcase.space_id), str(user_id))
             from ..section.model import SectionModel
             from ..test_suite.model import TestSuiteModel
 
@@ -789,6 +798,8 @@ class TestCaseService:
 
         new_short_name = TestCaseService._generate_copy_short_name(original.short_name)
         original_tags = await TestCaseService.get_tags(str(original.id))
+        if original_tags:
+            await TestCaseService._require_tag_capability(str(original.space_id), str(user_id))
 
         async with in_transaction() as connection:
             from ..space.model import SpaceModel
@@ -907,6 +918,8 @@ class TestCaseService:
             ).using_db(connection).first()
             if not version:
                 raise HTTPException(status_code=404, detail="Test case version not found")
+            if version.tag_labels is not None:
+                await TestCaseService._require_tag_capability(str(restored.space_id), str(user_id))
             await TestCaseModel.filter(id=testcase_id).using_db(connection).update(
                 title=version.title,
                 text=version.text,

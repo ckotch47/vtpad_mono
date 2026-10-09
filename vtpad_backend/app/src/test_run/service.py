@@ -636,6 +636,12 @@ class TestRunService:
             )
 
         async with in_transaction() as connection:
+            await TestRunService._validate_space_references(
+                dto.space_id,
+                milestone_id=dto.milestone_id,
+                environment_id=dto.environment_id,
+                connection=connection,
+            )
             run = await TestRunModel.create(
                 name=dto.name,
                 description=dto.description,
@@ -659,6 +665,32 @@ class TestRunService:
             )
 
         return run
+
+    @staticmethod
+    async def _validate_space_references(
+        space_id: str,
+        milestone_id: str | None = None,
+        environment_id: str | None = None,
+        connection=None,
+    ) -> None:
+        """Reject run configuration references that belong to another space."""
+        if milestone_id:
+            from ..milestone.model import MilestoneModel
+
+            milestone_query = MilestoneModel.filter(id=milestone_id, space_id=space_id)
+            if connection is not None:
+                milestone_query = milestone_query.using_db(connection)
+            if not await milestone_query.exists():
+                raise HTTPException(status_code=404, detail="Milestone not found in space")
+
+        if environment_id:
+            from ..environment.model import EnvironmentModel
+
+            environment_query = EnvironmentModel.filter(id=environment_id, space_id=space_id)
+            if connection is not None:
+                environment_query = environment_query.using_db(connection)
+            if not await environment_query.exists():
+                raise HTTPException(status_code=404, detail="Environment not found in space")
 
     @staticmethod
     async def get_by_space(
@@ -862,7 +894,7 @@ class TestRunService:
 
     @staticmethod
     async def update(run_id: str, dto: TestRunUpdateDto) -> TestRunModel:
-        await TestRunService.get_by_id(run_id)
+        run = await TestRunService.get_by_id(run_id)
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
         if 'status' in data:
@@ -870,6 +902,11 @@ class TestRunService:
                 status_code=422,
                 detail="Use the start and complete actions to change test run status",
             )
+        await TestRunService._validate_space_references(
+            run.space_id,
+            milestone_id=data.get('milestone_id'),
+            environment_id=data.get('environment_id'),
+        )
         if data:
             await TestRunModel.filter(id=run_id).update(**data)
         return await TestRunService.get_by_id(run_id)

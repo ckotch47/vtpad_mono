@@ -5,6 +5,7 @@ from fastmcp.server.dependencies import get_http_request
 from ...api_token.service import ApiTokenService
 from ...test_case.model import TestCaseModel, TestCaseStatus, TestCaseType
 from ...test_case.service import TestCaseService
+from ...traceability.model import TechDocTestCaseLinkModel
 from ...test_suite.model import TestSuiteModel
 from ...test_suite.service import TestSuiteService
 from ...section.model import SectionModel
@@ -27,14 +28,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def _require_case_access(case_id: str):
+async def _require_case_access(case_id: str, capability: str | None = None):
     testcase = await TestCaseService.get_by_id(case_id)
-    await check_user_into_space(str(testcase.space_id), get_http_request())
+    await check_user_into_space(str(testcase.space_id), get_http_request(), capability=capability)
     return testcase
 
 
-async def _require_space_access(space_id: str):
-    await check_user_into_space(space_id, get_http_request())
+async def _require_space_access(space_id: str, capability: str | None = None):
+    await check_user_into_space(space_id, get_http_request(), capability=capability)
 
 
 async def _serialize_case(case: TestCaseModel) -> dict:
@@ -148,7 +149,9 @@ async def create_test_case(
     """
     from ...test_case.dto import TestCaseCreateDto
 
-    await _require_space_access(space_id)
+    await _require_space_access(space_id, "cases")
+    if tags:
+        await _require_space_access(space_id, "tags")
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
 
     dto = TestCaseCreateDto(
@@ -215,7 +218,9 @@ async def update_test_case(
     Returns:
         Updated test case details
     """
-    await _require_case_access(case_id)
+    await _require_case_access(case_id, "cases")
+    if tags is not None:
+        await _require_case_access(case_id, "tags")
     values = {
         'title': title,
         'text': description,
@@ -254,7 +259,11 @@ async def delete_test_case(case_id: str) -> dict:
     Returns:
         Success status
     """
-    await _require_case_access(case_id)
+    testcase = await _require_case_access(case_id, "cases")
+    if await TechDocTestCaseLinkModel.filter(testcase_id=testcase.id).exists():
+        await check_user_into_space(
+            str(testcase.space_id), get_http_request(), capability="traceability"
+        )
     await TestCaseService.delete(case_id)
     return {"deleted": True, "id": case_id}
 
@@ -270,7 +279,11 @@ async def hard_delete_test_case(case_id: str) -> dict:
     Returns:
         Success status
     """
-    await _require_case_access(case_id)
+    testcase = await _require_case_access(case_id, "cases")
+    if await TechDocTestCaseLinkModel.filter(testcase_id=testcase.id).exists():
+        await check_user_into_space(
+            str(testcase.space_id), get_http_request(), capability="traceability"
+        )
     await _delete_case_cascade(case_id)
     return {"hard_deleted": True, "id": case_id}
 
@@ -286,7 +299,7 @@ async def duplicate_test_case(case_id: str) -> dict:
     Returns:
         Duplicated test case
     """
-    await _require_case_access(case_id)
+    await _require_case_access(case_id, "cases")
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.duplicate(case_id, token)
     return await _serialize_case(case)
@@ -295,7 +308,7 @@ async def duplicate_test_case(case_id: str) -> dict:
 @mcp.tool()
 async def restore_test_case_version(case_id: str, version_id: str) -> dict:
     """Restore a test-case version, preserving unknown fields from legacy snapshots."""
-    await _require_case_access(case_id)
+    await _require_case_access(case_id, "cases")
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
     case = await TestCaseService.restore_version(case_id, version_id, token)
     return await _serialize_case(case)
@@ -323,7 +336,7 @@ async def move_test_case(
     Returns:
         Updated test case
     """
-    await _require_case_access(case_id)
+    await _require_case_access(case_id, "cases")
     values = {'suite_id': suite_id, 'section_id': section_id}
     dto = TestCaseUpdateDto(**{key: value for key, value in values.items() if value is not None})
     token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
@@ -347,7 +360,7 @@ async def move_test_case_to_location(
     Returns:
         Updated test case
     """
-    await _require_case_access(case_id)
+    await _require_case_access(case_id, "cases")
     from ...test_case.dto import TestCaseMoveDto
 
     dto = TestCaseMoveDto(suite_id=suite_id, section_id=section_id)

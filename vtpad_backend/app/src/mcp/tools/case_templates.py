@@ -12,8 +12,8 @@ from ...common.right_guard import check_user_into_space
 from ...test_case.service import TestCaseService
 
 
-async def _require_space_access(space_id: str) -> None:
-    await check_user_into_space(space_id, get_http_request())
+async def _require_space_access(space_id: str, capability: str | None = None) -> None:
+    await check_user_into_space(space_id, get_http_request(), capability=capability)
 
 
 def _validated(model, **values):
@@ -67,7 +67,7 @@ async def create_test_case_template(
     estimated_duration_seconds: int | None = None,
 ) -> dict:
     """Create template version 1 with allowlisted case fields."""
-    await _require_space_access(str(space_id))
+    await _require_space_access(str(space_id), "cases")
     dto = _validated(CaseTemplateCreateDto,
         name=name,
         description=description,
@@ -98,7 +98,7 @@ async def update_test_case_template(
     estimated_duration_seconds: int | None = None,
 ) -> dict:
     """Update metadata and append an immutable content version when fields change."""
-    await _require_space_access(str(space_id))
+    await _require_space_access(str(space_id), "cases")
     dto = _validated(CaseTemplateUpdateDto,
         name=name,
         description=description,
@@ -133,7 +133,7 @@ async def use_test_case_template(
     custom_fields: list[dict] | None = None,
 ) -> dict:
     """Create a new case from a selected immutable template version."""
-    await _require_space_access(str(space_id))
+    await _require_space_access(str(space_id), "cases")
     request = get_http_request()
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     dto = _validated(CaseTemplateUseDto,

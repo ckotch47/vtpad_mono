@@ -67,34 +67,22 @@ def _actor_id(request) -> uuid.UUID:
         raise HTTPException(status_code=401, detail="not auth") from exc
 
 
-async def _authorize(space_id: str | uuid.UUID, request, *, write: bool = False) -> uuid.UUID:
+async def _authorize(
+    space_id: str | uuid.UUID,
+    request,
+    *,
+    write_capabilities: tuple[str, ...] = (),
+) -> uuid.UUID:
     try:
         space_uuid = uuid.UUID(str(space_id))
     except (ValueError, TypeError, AttributeError) as exc:
         raise HTTPException(status_code=404, detail="Space not found") from exc
     await check_user_into_space(str(space_uuid), request)
     actor_id = _actor_id(request)
-    if write:
-        from tortoise import Tortoise
-        rows = await Tortoise.get_connection("default").execute_query_dict(
-            'SELECT su.role AS space_role, su."right" AS space_right, u.role AS company_role '
-            'FROM spacemodel s '
-            'LEFT JOIN spacesusermodel su ON su."spaceId" = s.id AND su."userId" = $1 '
-            'LEFT JOIN usercompanysettingsmodel u ON u.user_id = $1 '
-            'AND u.company_id = s.company_id AND u.status = \'active\' '
-            'WHERE s.id = $2',
-            [actor_id, space_uuid],
-        )
-        membership = rows[0] if rows else {}
-        if membership.get("space_role") != "OWNER" and membership.get("company_role") != "company_admin":
-            rights = membership.get("space_right") or {}
-            if isinstance(rights, str):
-                try:
-                    rights = json.loads(rights)
-                except json.JSONDecodeError:
-                    rights = {}
-            if isinstance(rights, dict) and rights.get("readOnly") is True:
-                raise HTTPException(status_code=403, detail="Read-only space membership cannot import data")
+    if write_capabilities:
+        from ..common.space_capabilities import require_space_capability
+        for capability in write_capabilities:
+            await require_space_capability(str(actor_id), str(space_uuid), capability)
     return actor_id
 
 
@@ -734,8 +722,20 @@ async def import_content(space_id, fmt: Format, content: bytes, idempotency_key:
     _bounded_content(content)
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise _bad("Idempotency-Key must contain 1 to 200 characters")
-    actor_id = await _authorize(space_id, request, write=True)
     document = _validate_document(_parse(fmt, content))
+    write_capabilities = []
+    if document["suites"]:
+        write_capabilities.append("suites")
+    if document["flat"]["sections"]:
+        write_capabilities.append("sections")
+    if document["flat"]["cases"] or document["custom_fields"]:
+        write_capabilities.append("cases")
+    if any(case["tags"] for case in document["flat"]["cases"]):
+        write_capabilities.append("tags")
+    if not write_capabilities:
+        # Even an otherwise empty import records an idempotency receipt.
+        write_capabilities.append("cases")
+    actor_id = await _authorize(space_id, request, write_capabilities=tuple(write_capabilities))
     digest = hashlib.sha256(bytes(content)).hexdigest()
     space_uuid = uuid.UUID(str(space_id))
     receipt = await ImportReceiptModel.get_or_none(

@@ -5,7 +5,7 @@
   <div v-if="!loader" class="mx-auto my-2">
     <div class="d-flex justify-space-between align-center mb-4">
       <h2>Milestones</h2>
-      <v-btn color="primary" @click="showCreateDialog = true">Add Milestone</v-btn>
+      <v-btn v-if="canManageRuns" color="primary" @click="showCreateDialog = true">Add Milestone</v-btn>
     </div>
 
     <v-card v-if="milestones.length">
@@ -23,11 +23,11 @@
             <span v-if="milestone.end_date" class="ml-2">End: {{ formatDate(milestone.end_date) }}</span>
           </v-list-item-subtitle>
           <template #append>
-            <v-btn v-if="milestone.status !== 'closed'" color="success" size="small" class="mr-2" @click="closeMilestone(milestone.id)">Close</v-btn>
-            <v-btn icon variant="text" @click="editMilestone(milestone)">
+            <v-btn v-if="canManageRuns && milestone.status !== 'closed'" color="success" size="small" class="mr-2" @click="closeMilestone(milestone.id)">Close</v-btn>
+            <v-btn v-if="canManageRuns" icon variant="text" @click="editMilestone(milestone)">
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
-            <v-btn icon variant="text" color="red" @click="deleteMilestone(milestone.id)">
+            <v-btn v-if="canManageRuns" icon variant="text" color="red" @click="deleteMilestone(milestone.id)">
               <v-icon>mdi-delete</v-icon>
             </v-btn>
           </template>
@@ -35,7 +35,7 @@
       </v-list>
     </v-card>
     <v-card v-else class="pa-4">
-      <p>No milestones yet.</p>
+      <p>{{ canManageRuns ? 'No milestones yet.' : 'No milestones are available in this space.' }}</p>
     </v-card>
   </div>
 
@@ -60,12 +60,15 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { milestoneService } from '@/services'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canManageRuns = computed(() => capabilityStore.can(spaceId.value, 'runs'))
 
 const loader = ref(true)
 const milestones = ref([])
@@ -145,5 +148,9 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString()
 }
 
-onMounted(loadMilestones)
+watch(spaceId, id => {
+  if (!id) return
+  capabilityStore.load(id)
+  loadMilestones()
+}, { immediate: true })
 </script>

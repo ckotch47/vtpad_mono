@@ -39,7 +39,7 @@ async def list_templates(
 
 @router.post('/space/{space_id}', dependencies=[Depends(bearer)])
 async def create_template(space_id: UUID, dto: CaseTemplateCreateDto, request: Request, token: str = Depends(bearer)):
-    await check_user_into_space(str(space_id), request)
+    await check_user_into_space(str(space_id), request, capability="cases")
     actor_id = user_payload(token).get('id')
     return await TestCaseTemplateService.create_template(str(space_id), dto, actor_id)
 
@@ -73,7 +73,7 @@ async def update_template(
     request: Request,
     token: str = Depends(bearer),
 ):
-    await check_user_into_space(str(space_id), request)
+    await check_user_into_space(str(space_id), request, capability="cases")
     actor_id = user_payload(token).get('id')
     return await TestCaseTemplateService.update_template(
         str(space_id), str(template_id), dto, actor_id
@@ -88,7 +88,7 @@ async def use_template(
     request: Request,
     token: str = Depends(bearer),
 ):
-    await check_user_into_space(str(space_id), request)
+    await check_user_into_space(str(space_id), request, capability="cases")
     testcase = await TestCaseTemplateService.use_template(
         str(space_id), str(template_id), dto, token
     )

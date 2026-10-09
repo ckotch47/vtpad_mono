@@ -17,6 +17,15 @@
       <v-chip size="small" :color="priorityColor(testcase.priority)" class="mr-2">{{ priorityLabel(testcase.priority) }}</v-chip>
       <v-chip size="small" :color="statusColor(testcase.status)">{{ testcase.status }}</v-chip>
       <v-btn
+        class="ml-2"
+        prepend-icon="mdi-compare-horizontal"
+        variant="tonal"
+        aria-label="Compare saved test case versions"
+        @click="compareVersionsDialog = true"
+      >
+        Compare versions
+      </v-btn>
+      <v-btn
         v-if="canEditCases"
         icon
         class="ml-2"
@@ -184,104 +193,119 @@
             </v-col>
           </v-row>
 
-          <v-card class="mt-4">
-            <v-card-title>Compare versions</v-card-title>
-            <v-card-text>
-              <div v-if="versions.length < 2" class="text-medium-emphasis">At least two saved versions are required for comparison.</div>
-              <template v-else>
-                <v-row>
-                  <v-col cols="12" md="6">
-                    <v-select
-                      v-model="versionAId"
-                      :items="versions"
-                      item-title="version_number"
-                      item-value="id"
-                      label="Version A"
-                      density="comfortable"
-                      aria-label="Select first version to compare"
-                    >
-                      <template #item="{ props, item }">
-                        <v-list-item v-bind="props" :subtitle="formatDate(item.raw.created_at)" />
-                      </template>
-                    </v-select>
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-select
-                      v-model="versionBId"
-                      :items="versions"
-                      item-title="version_number"
-                      item-value="id"
-                      label="Version B"
-                      density="comfortable"
-                      aria-label="Select second version to compare"
-                    >
-                      <template #item="{ props, item }">
-                        <v-list-item v-bind="props" :subtitle="formatDate(item.raw.created_at)" />
-                      </template>
-                    </v-select>
-                  </v-col>
-                </v-row>
+          <v-dialog
+            v-model="compareVersionsDialog"
+            max-width="1200"
+            max-height="90vh"
+            scrollable
+            aria-labelledby="version-comparison-title"
+          >
+            <v-card>
+              <v-card-title class="d-flex align-center">
+                <span id="version-comparison-title">Compare versions</span>
+                <v-spacer />
+                <v-btn icon variant="text" aria-label="Close version comparison" @click="compareVersionsDialog = false">
+                  <v-icon>mdi-close</v-icon>
+                </v-btn>
+              </v-card-title>
+              <v-divider />
+              <v-card-text>
+                <div v-if="versions.length < 2" class="text-medium-emphasis">At least two saved versions are required for comparison.</div>
+                <template v-else>
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-select
+                        v-model="versionAId"
+                        :items="versions"
+                        item-title="version_number"
+                        item-value="id"
+                        label="Version A"
+                        density="comfortable"
+                        aria-label="Select first version to compare"
+                      >
+                        <template #item="{ props, item }">
+                          <v-list-item v-bind="props" :subtitle="formatDate(item.raw.created_at)" />
+                        </template>
+                      </v-select>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-select
+                        v-model="versionBId"
+                        :items="versions"
+                        item-title="version_number"
+                        item-value="id"
+                        label="Version B"
+                        density="comfortable"
+                        aria-label="Select second version to compare"
+                      >
+                        <template #item="{ props, item }">
+                          <v-list-item v-bind="props" :subtitle="formatDate(item.raw.created_at)" />
+                        </template>
+                      </v-select>
+                    </v-col>
+                  </v-row>
 
-                <v-alert v-if="sameVersionsSelected" type="info" variant="tonal" density="compact" class="mb-3">
-                  Select two different versions to compare.
-                </v-alert>
-                <v-alert v-else-if="versionA?.legacy || versionB?.legacy || versionA?.custom_fields === null || versionB?.custom_fields === null" type="info" variant="tonal" density="compact" class="mb-3">
-                  Some older snapshots do not contain complete type, priority, tag, or custom-field history. Those values are shown as unknown.
-                </v-alert>
+                  <v-alert v-if="sameVersionsSelected" type="info" variant="tonal" density="compact" class="mb-3">
+                    Select two different versions to compare.
+                  </v-alert>
+                  <v-alert v-else-if="versionA?.legacy || versionB?.legacy || versionA?.custom_fields === null || versionB?.custom_fields === null" type="info" variant="tonal" density="compact" class="mb-3">
+                    Some older snapshots do not contain complete type, priority, tag, or custom-field history. Those values are shown as unknown.
+                  </v-alert>
 
-                <template v-if="versionA && versionB && !sameVersionsSelected">
-                  <div class="version-columns text-caption text-medium-emphasis mb-2">
-                    <span />
-                    <span>v{{ versionA.version_number }} · {{ formatDate(versionA.created_at) }}</span>
-                    <span>v{{ versionB.version_number }} · {{ formatDate(versionB.created_at) }}</span>
-                  </div>
-                  <v-table density="compact" class="version-comparison">
-                    <thead>
-                      <tr>
-                        <th scope="col">Field</th>
-                        <th scope="col">Version {{ versionA.version_number }}</th>
-                        <th scope="col">Version {{ versionB.version_number }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="row in versionComparisonRows" :key="row.key">
-                        <th scope="row">
-                          {{ row.label }}
-                          <span class="text-caption d-block">{{ row.changed ? 'Changed' : 'Unchanged' }}</span>
-                        </th>
-                        <td :class="{ 'version-changed': row.changed }">
-                          <template v-if="row.rich">
-                            <div class="version-rich" v-html="row.a" />
-                          </template>
-                          <template v-else>{{ row.a }}</template>
-                        </td>
-                        <td :class="{ 'version-changed': row.changed }">
-                          <template v-if="row.rich">
-                            <div class="version-rich" v-html="row.b" />
-                          </template>
-                          <template v-else>{{ row.b }}</template>
-                        </td>
-                      </tr>
-                      <tr v-for="step in stepComparisonRows" :key="`step-${step.index}`">
-                        <th scope="row">Step {{ step.index + 1 }}<span class="text-caption d-block">{{ step.change }}</span></th>
-                        <td :class="{ 'version-changed': step.change !== 'Unchanged' }">
-                          <div class="version-rich" v-html="step.a || '—'" />
-                        </td>
-                        <td :class="{ 'version-changed': step.change !== 'Unchanged' }">
-                          <div class="version-rich" v-html="step.b || '—'" />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </v-table>
-                  <div class="d-flex justify-end mt-3">
-                    <v-btn v-if="canEditCases" color="primary" variant="tonal" :loading="restoringVersion" @click="restoreVersionB">
-                      Restore v{{ versionB.version_number }} as new version
-                    </v-btn>
-                  </div>
+                  <template v-if="versionA && versionB && !sameVersionsSelected">
+                    <div class="version-columns text-caption text-medium-emphasis mb-2">
+                      <span />
+                      <span>v{{ versionA.version_number }} · {{ formatDate(versionA.created_at) }}</span>
+                      <span>v{{ versionB.version_number }} · {{ formatDate(versionB.created_at) }}</span>
+                    </div>
+                    <v-table density="compact" class="version-comparison">
+                      <thead>
+                        <tr>
+                          <th scope="col">Field</th>
+                          <th scope="col">Version {{ versionA.version_number }}</th>
+                          <th scope="col">Version {{ versionB.version_number }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="row in versionComparisonRows" :key="row.key">
+                          <th scope="row">
+                            {{ row.label }}
+                            <span class="text-caption d-block">{{ row.changed ? 'Changed' : 'Unchanged' }}</span>
+                          </th>
+                          <td :class="{ 'version-changed': row.changed }">
+                            <template v-if="row.rich">
+                              <div class="version-rich" v-html="row.a" />
+                            </template>
+                            <template v-else>{{ row.a }}</template>
+                          </td>
+                          <td :class="{ 'version-changed': row.changed }">
+                            <template v-if="row.rich">
+                              <div class="version-rich" v-html="row.b" />
+                            </template>
+                            <template v-else>{{ row.b }}</template>
+                          </td>
+                        </tr>
+                        <tr v-for="step in stepComparisonRows" :key="`step-${step.index}`">
+                          <th scope="row">Step {{ step.index + 1 }}<span class="text-caption d-block">{{ step.change }}</span></th>
+                          <td :class="{ 'version-changed': step.change !== 'Unchanged' }">
+                            <div class="version-rich" v-html="step.a || '—'" />
+                          </td>
+                          <td :class="{ 'version-changed': step.change !== 'Unchanged' }">
+                            <div class="version-rich" v-html="step.b || '—'" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </v-table>
+                    <div class="d-flex justify-end mt-3">
+                      <v-btn v-if="canEditCases" color="primary" variant="tonal" :loading="restoringVersion" @click="restoreVersionB">
+                        Restore v{{ versionB.version_number }} as new version
+                      </v-btn>
+                    </div>
+                  </template>
                 </template>
-              </template>
-            </v-card-text>
-          </v-card>
+              </v-card-text>
+            </v-card>
+          </v-dialog>
         </v-window-item>
 
         <v-window-item value="history">
@@ -354,6 +378,7 @@ const loader = ref(true)
 const testcase = ref({})
 const versions = ref([])
 const activeTab = ref('details')
+const compareVersionsDialog = ref(false)
 const runHistory = ref([])
 const historyTotal = ref(0)
 const historyPageSize = ref(25)

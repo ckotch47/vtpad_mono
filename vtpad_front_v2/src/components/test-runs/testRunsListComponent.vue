@@ -35,6 +35,7 @@
         label="test runs"
       />
       <v-data-table-server
+      class="row-navigation-table"
       :class="{ 'list-loading-region__content--hidden': initialLoading || (loadError && !runs.length) }"
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
@@ -395,6 +396,33 @@ function deleteRun(item) {
   flex: 1 1 320px;
   min-width: 220px;
   max-width: 520px;
+}
+
+@media (min-width: 960px) {
+  .row-navigation-table :deep(.v-data-table__tr) {
+    position: relative;
+  }
+
+  .row-navigation-table :deep(.list-row-link) {
+    position: static;
+  }
+
+  .row-navigation-table :deep(.list-row-link::after) {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    content: '';
+  }
+
+  .row-navigation-table :deep(.list-row-link:focus-visible::after) {
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: -2px;
+  }
+
+  .row-navigation-table :deep(td:has(.v-btn)) {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 .list-row-link { color: inherit; font-weight: 500; text-decoration: none; }

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <list-page-toolbar>
+    <list-page-toolbar layout="filters-actions">
       <template #filters>
       <v-text-field
         v-model="search"
@@ -8,16 +8,16 @@
         label="Search test plans"
         density="compact"
         hide-details
-        variant="solo"
+        :variant="mdAndUp ? 'outlined' : 'solo'"
         class="list-filter-search"
         clearable
         @update:model-value="onSearch"
       />
       </template>
       <template #actions>
-      <v-btn v-if="canManagePlans" color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
-        New Plan
-      </v-btn>
+        <v-btn v-if="canManagePlans" color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
+          New Plan
+        </v-btn>
       </template>
     </list-page-toolbar>
 
@@ -35,6 +35,7 @@
         label="test plans"
       />
       <v-data-table-server
+      class="row-navigation-table"
       :class="{ 'list-loading-region__content--hidden': initialLoading || (loadError && !plans.length) }"
       v-model:page="page"
       v-model:items-per-page="pageSize"
@@ -131,6 +132,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useDisplay } from 'vuetify'
 import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { testPlanService, testSuiteService } from '@/services'
@@ -141,6 +143,7 @@ import PlanCaseFilters from './PlanCaseFilters.vue'
 
 const log = useLogger('app')
 const route = useRoute()
+const { mdAndUp } = useDisplay()
 
 const spaceId = computed(() => route.params.spaceId)
 const capabilityStore = useSpaceCapabilitiesStore()
@@ -348,6 +351,33 @@ function formatDate(date) {
   flex: 1 1 320px;
   min-width: 220px;
   max-width: 520px;
+}
+
+@media (min-width: 960px) {
+  .row-navigation-table :deep(.v-data-table__tr) {
+    position: relative;
+  }
+
+  .row-navigation-table :deep(.list-row-link) {
+    position: static;
+  }
+
+  .row-navigation-table :deep(.list-row-link::after) {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    content: '';
+  }
+
+  .row-navigation-table :deep(.list-row-link:focus-visible::after) {
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: -2px;
+  }
+
+  .row-navigation-table :deep(td:has(.v-btn)) {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 .list-row-link { color: inherit; font-weight: 500; text-decoration: none; }

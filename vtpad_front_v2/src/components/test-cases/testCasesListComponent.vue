@@ -1,6 +1,6 @@
 <template>
   <div>
-    <list-page-toolbar>
+    <list-page-toolbar layout="filters-actions">
       <template #filters>
         <div class="list-toolbar__filter-row">
           <v-text-field
@@ -9,7 +9,7 @@
             label="Search test cases"
             density="compact"
             hide-details
-            variant="solo"
+            :variant="mdAndUp ? 'outlined' : 'solo'"
             class="list-filter-search"
             clearable
             @update:model-value="onSearch"
@@ -22,7 +22,7 @@
             label="Type"
             density="compact"
             hide-details
-            variant="solo"
+            :variant="mdAndUp ? 'outlined' : 'solo'"
             class="list-filter-sm"
             @update:model-value="onFilterChange"
           />
@@ -34,7 +34,7 @@
             label="Status"
             density="compact"
             hide-details
-            variant="solo"
+            :variant="mdAndUp ? 'outlined' : 'solo'"
             class="list-filter-sm"
             @update:model-value="onFilterChange"
           />
@@ -46,7 +46,7 @@
             label="Priority"
             density="compact"
             hide-details
-            variant="solo"
+            :variant="mdAndUp ? 'outlined' : 'solo'"
             class="list-filter-sm"
             @update:model-value="onFilterChange"
           />
@@ -62,7 +62,7 @@
             closable-chips
             density="compact"
             hide-details
-            variant="solo"
+            :variant="mdAndUp ? 'outlined' : 'solo'"
             class="list-filter-tags"
             @update:model-value="onFilterChange"
           />
@@ -85,17 +85,23 @@
             label="Suite"
             density="compact"
             hide-details
-            variant="solo"
+            :variant="mdAndUp ? 'outlined' : 'solo'"
             class="list-filter-sm"
             @update:model-value="onFilterChange"
           />
         </div>
       </template>
       <template #actions>
-        <v-btn v-if="canEditCases && selectedCases.length" size="small" variant="text" color="error" @click="bulkDelete">Delete ({{ selectedCases.length }})</v-btn>
-        <v-btn v-if="canEditCases && selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">Change Status ({{ selectedCases.length }})</v-btn>
-        <v-btn v-if="canEditCases" variant="outlined" @click="openTemplates = true">Case Templates</v-btn>
-        <v-btn v-if="canEditCases" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">New Test Case</v-btn>
+        <div class="case-list-actions">
+          <div v-if="canEditCases && selectedCases.length" class="case-list-actions__bulk">
+            <v-btn size="small" variant="text" color="error" @click="bulkDelete">Delete ({{ selectedCases.length }})</v-btn>
+            <v-btn size="small" variant="text" @click="bulkStatusDialog = true">Change Status ({{ selectedCases.length }})</v-btn>
+          </div>
+          <div class="case-list-actions__primary">
+            <v-btn v-if="canEditCases" variant="outlined" @click="openTemplates = true">Case Templates</v-btn>
+            <v-btn v-if="canEditCases" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">New Test Case</v-btn>
+          </div>
+        </div>
       </template>
     </list-page-toolbar>
 
@@ -113,6 +119,7 @@
         label="test cases"
       />
       <v-data-table-server
+      class="row-navigation-table"
       :class="{ 'list-loading-region__content--hidden': initialLoading || (loadError && !cases.length) }"
       v-model="selectedCases"
       v-model:items-per-page="itemsPerPage"
@@ -343,6 +350,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { testCaseService, testCaseTemplateService, testSuiteService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
@@ -353,6 +361,7 @@ import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const router = useRouter()
+const { mdAndUp } = useDisplay()
 
 const spaceId = computed(() => route.params.spaceId)
 const capabilityStore = useSpaceCapabilitiesStore()
@@ -839,9 +848,69 @@ watch(openCreate, (isOpen) => {
   margin-top: 0;
 }
 
+.case-list-actions,
+.case-list-actions__primary,
+.case-list-actions__bulk {
+  display: contents;
+}
+
+@media (min-width: 960px) {
+  .case-list-actions,
+  .case-list-actions__primary,
+  .case-list-actions__bulk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .case-list-actions {
+    width: 100%;
+  }
+
+  .case-list-actions__bulk {
+    width: 100%;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+
+  .case-list-actions__primary {
+    width: 100%;
+  }
+}
+
 .list-row-link { color: inherit; font-weight: 500; text-decoration: none; }
 .list-row-link:hover { text-decoration: underline; }
 .list-row-link:focus-visible { border-radius: 2px; outline: 2px solid currentColor; outline-offset: 2px; }
+
+@media (min-width: 960px) {
+  .row-navigation-table :deep(.v-data-table__tr) {
+    position: relative;
+  }
+
+  .row-navigation-table :deep(.list-row-link) {
+    position: static;
+  }
+
+  .row-navigation-table :deep(.list-row-link::after) {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    content: '';
+  }
+
+  .row-navigation-table :deep(.list-row-link:focus-visible::after) {
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: -2px;
+  }
+
+  .row-navigation-table :deep(td:has(.v-btn)),
+  .row-navigation-table :deep(td:has(.v-selection-control)) {
+    position: relative;
+    z-index: 1;
+  }
+}
 
 .creator-cell {
   display: flex;

@@ -234,9 +234,9 @@ class CustomFieldService:
                 "COALESCE(filters, '{}'::jsonb), '{custom_fields}', "
                 "COALESCE((SELECT jsonb_agg(item) FROM jsonb_array_elements("
                 "COALESCE(filters->'custom_fields', '[]'::jsonb)) AS entries(item) "
-                "WHERE item->>'field_id' <> $1), '[]'::jsonb), true) "
+                "WHERE item->>'field_id' <> $1::text), '[]'::jsonb), true) "
                 "WHERE space_id = $2 AND COALESCE(filters->'custom_fields', '[]'::jsonb) "
-                "@> jsonb_build_array(jsonb_build_object('field_id', $1))",
+                "@> jsonb_build_array(jsonb_build_object('field_id', $1::text))",
                 [str(field.id), str(field.space_id)],
             )
             await CustomFieldValueModel.filter(field_id=field_id).using_db(connection).delete()

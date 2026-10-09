@@ -63,6 +63,10 @@
               <v-chip v-if="timer.state" size="small" :color="timerStateColor(timer.state)" variant="tonal" class="text-capitalize">
                 {{ timerStateLabel(timer.state) }}
               </v-chip>
+              <v-chip v-if="timer.interval_count != null" size="x-small" variant="outlined">
+                {{ timer.interval_count }} interval{{ timer.interval_count === 1 ? '' : 's' }}
+              </v-chip>
+              <slot name="timer-actions" />
             </div>
             <div class="run-summary__timer-grid">
               <div>

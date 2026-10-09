@@ -1,66 +1,68 @@
 <template>
-  <v-app>
-    <v-app-bar
-      v-if="authToken"
-      class="spaces-navigation-shell"
-      flat
-      height="56"
-    >
-      <v-btn
-        v-if="!drawer"
-        id="spaces-navigation-toggle"
-        class="spaces-navigation-toggle ms-2"
-        icon="mdi-menu"
-        aria-label="Open spaces navigation"
-        aria-controls="spaces-navigation"
-        :aria-expanded="String(Boolean(drawer))"
-        title="Open spaces navigation"
-        @click="drawer = true"
-      />
-    </v-app-bar>
+  <v-app v-if="routerReady">
+    <template v-if="!isPublicRoute">
+      <v-app-bar
+        v-if="authToken"
+        class="spaces-navigation-shell"
+        flat
+        height="56"
+      >
+        <v-btn
+          v-if="!drawer"
+          id="spaces-navigation-toggle"
+          class="spaces-navigation-toggle ms-2"
+          icon="mdi-menu"
+          aria-label="Open spaces navigation"
+          aria-controls="spaces-navigation"
+          :aria-expanded="String(Boolean(drawer))"
+          title="Open spaces navigation"
+          @click="drawer = true"
+        />
+      </v-app-bar>
 
-    <v-navigation-drawer
-      id="spaces-navigation"
-      v-if="authToken"
-      v-model="drawer"
-      width="300"
-    >
-      <profile-left-component @hide-left-menu="drawer = !drawer" />
-      <spaces-list-component />
-    </v-navigation-drawer>
+      <v-navigation-drawer
+        id="spaces-navigation"
+        v-if="authToken"
+        v-model="drawer"
+        width="300"
+      >
+        <profile-left-component @hide-left-menu="drawer = !drawer" />
+        <spaces-list-component />
+      </v-navigation-drawer>
+
+      <command-palette-component ref="commandPalette" />
+
+      <!-- Keyboard shortcuts help -->
+      <v-dialog v-model="showShortcuts" max-width="400">
+        <v-card>
+          <v-card-title>Keyboard Shortcuts</v-card-title>
+          <v-divider />
+          <v-card-text>
+            <v-list density="compact">
+              <v-list-item title="Esc" subtitle="Close overlay / dialog" />
+              <v-list-item title="?" subtitle="Show this help" />
+              <v-list-item title="Cmd / Ctrl + K" subtitle="Open command palette" />
+              <v-list-item title="Cmd / Ctrl + S" subtitle="Save the active form" />
+            </v-list>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" @click="showShortcuts = false">Close</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+    </template>
 
     <v-main>
       <v-container fluid>
         <router-view />
       </v-container>
     </v-main>
-
-    <command-palette-component ref="commandPalette" />
-
-    <!-- Keyboard shortcuts help -->
-    <v-dialog v-model="showShortcuts" max-width="400">
-      <v-card>
-        <v-card-title>Keyboard Shortcuts</v-card-title>
-        <v-divider />
-        <v-card-text>
-          <v-list density="compact">
-            <v-list-item title="Esc" subtitle="Close overlay / dialog" />
-            <v-list-item title="?" subtitle="Show this help" />
-            <v-list-item title="Cmd / Ctrl + K" subtitle="Open command palette" />
-            <v-list-item title="Cmd / Ctrl + S" subtitle="Save the active form" />
-          </v-list>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showShortcuts = false">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </v-app>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProfileLeftComponent from '@/components/leftAsideMain/ProfileLeftComponent.vue'
 import SpacesListComponent from '@/components/leftAsideMain/SpacesListComponent.vue'
@@ -69,7 +71,9 @@ import 'vue3-toastify/dist/index.css'
 
 const route = useRoute()
 const router = useRouter()
+const isPublicRoute = computed(() => route.meta?.isPublic === true)
 
+const routerReady = ref(false)
 const drawer = ref(null)
 const spaceId = ref(null)
 const routerMeta = ref({})
@@ -78,6 +82,10 @@ const showShortcuts = ref(false)
 const commandPalette = ref(null)
 
 function checkAuth() {
+  if (isPublicRoute.value) {
+    authToken.value = null
+    return
+  }
   authToken.value = localStorage.getItem('auth_token')
   if (!authToken.value && location.pathname !== '/auth' && location.pathname !== '/404') {
     location.href = '/auth'
@@ -130,17 +138,30 @@ function onKeydown(e) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Do not mount route-aware shell components until initial metadata is known.
+  await router.isReady()
+  routerReady.value = true
   checkAuth()
   updateRouteMeta()
-  document.addEventListener('keydown', onKeydown, true)
+  if (!isPublicRoute.value) document.addEventListener('keydown', onKeydown, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown, true)
 })
 
-watch(route, updateRouteMeta, { deep: true })
+watch(route, () => {
+  updateRouteMeta()
+  if (isPublicRoute.value) {
+    authToken.value = null
+    showShortcuts.value = false
+    document.removeEventListener('keydown', onKeydown, true)
+  } else {
+    checkAuth()
+    document.addEventListener('keydown', onKeydown, true)
+  }
+}, { deep: true })
 </script>
 
 <style lang="scss">

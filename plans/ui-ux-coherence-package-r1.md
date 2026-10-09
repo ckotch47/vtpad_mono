@@ -3,10 +3,19 @@
 ## Status
 
 - Revision: `r1`
-- Status: approved for implementation on 2026-10-09 after the user authorized completion of the full roadmap; implementation not started
-- Evidence: independent exploratory run on the local VTPad desktop UI at `1276×718`, plus source review
+- Status: implementation complete; desktop browser acceptance partial
+- Evidence: source review/build plus local desktop browser retest at `1276×718` on 2026-10-09
 - Mobile and mobile-specific implementation/testing are excluded by explicit user instruction
 - Approval: user authorized completion of the full roadmap after this exact revision was presented
+
+### Desktop retest result (2026-10-09)
+
+- At `1276×718`, observed the Cases, Suites, Plans, Runs, and Bugs lists; primary actions and filters remained visible with rows below. Bugs displayed `New Bug` above the table, with only bug records in the table.
+- Opened the Core Regression suite and selected API: the suite list stayed on the left while suite detail stayed on the same page; the section name appeared once, and the section overflow button exposed the accessible name `More actions for API`.
+- Opened Run detail and used `Refresh time`: the route remained unchanged and the timer summary stayed present in the Vue page. No full-page navigation occurred.
+- Collapsed and reopened the Spaces drawer on the Cases list. The collapsed state exposed a button named `Open spaces navigation`; reopening returned the drawer without changing the route.
+- Bugs `Filter` opened its filter panel. No filter value or product record was changed.
+- Not checked: `1440×900`, keyboard-only activation/focus/tooltip, empty/loading/error/permission fixtures, and filter result semantics. Treat UIX-005 and accessibility interaction acceptance as partial until those checks run. Mobile remains excluded.
 
 ## Outcome
 
@@ -52,6 +61,7 @@ Update the relevant desktop UI guidance under `project-docs/docs/` with the shar
 - Bugs quick-create is presented as a page action rather than a table-data row and remains available only where permitted.
 - Run timer state appears once in the summary; controls and interval information remain clear, and elapsed values update from reactive state without a page reload or polling loop.
 - Existing query/filter results, route state, and list-specific controls remain unchanged.
+- Source implementation: shared list toolbar presents actions before grouped filters on desktop only; suite section names render once and the section menu has an accessible name and native title tooltip; Bugs creation remains in the page toolbar; Run timer state and interval count appear once in the summary, with refresh kept reactive in that summary.
 - Loading, empty, error, and permission states retain valid actions and consistent framing.
 - Desktop browser retest records actual screenshot/accessibility-tree evidence for all five modules and keyboard checks for changed controls. State-changing checks use an isolated fixture or are marked `not_run`.
 - Targeted frontend lint/build and `git diff --check` pass; relevant docs are updated; commit the completed package.

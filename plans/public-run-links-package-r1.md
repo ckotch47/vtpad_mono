@@ -1,6 +1,6 @@
 # FI9 — public links for test runs (r1)
 
-Status: approved for implementation on 2026-10-09 after the user authorized completion of the full roadmap. This is the concrete delivery revision for the approved FI9 scope in `roadmap-completion-package-r3.md`.
+Status: implementation complete; disposable runtime/browser acceptance performed; feature remains disabled pending external proxy/trace-log acceptance. Approved for implementation on 2026-10-09 after the user authorized completion of the full roadmap. This is the concrete delivery revision for the approved FI9 scope in `roadmap-completion-package-r3.md`.
 
 ## Product decisions for this revision
 
@@ -39,6 +39,15 @@ Status: approved for implementation on 2026-10-09 after the user authorized comp
 - Headers and frontend: verify no-store/no-referrer/noindex on API responses and public document metadata; fragment removed before any network call; public page works even when a normal auth token is present and uses the share token only for redemption.
 - Disposable DB only. Run Python compile, frontend ESLint/build, `git diff --check`, migration apply/replay, REST/MCP tests, concurrent rate/idempotency tests, and desktop browser checks. No real SMTP is involved.
 - Keep the feature flags off until an independent security review and token-leakage matrix pass. Do not enable in production as part of this revision.
+
+## Execution status — 2026-10-09
+
+- **Implementation:** backend REST/MCP, v29 migration, Vue share dialog/public route, strict public-route app-shell bypass, privacy headers, default-off server/build flags, and required project documentation are implemented in the current working tree. Changes are pending the package commit.
+- **Disposable runtime:** migration v29 was applied and replayed on `vtpad_su6_runtime_20261009`; schema has only the digest and version metadata, no raw token. Local disposable backend was restarted with the feature flag temporarily enabled for checks. Creator create/status/rotate/revoke/expiry, unauthenticated 401, non-member cross-space 404, REST/MCP projection equality, allowlist shape, and response privacy headers passed. Rate-limit 429 and Redis-failure 503 were separately verified. Temporary link rows and test-token files were removed.
+- **Leakage evidence:** three minted test tokens were absent from the disposable backend runtime log. A desktop guest opened `/shared-run#<test-token>`; final browser URL had no fragment, page showed the generic unavailable state for the invalid token, and the backend recorded only `GET /api/v2/test-run/public/shared` for that guest. No user/profile/space requests were issued by the public route. A separate authenticated desktop route check confirmed the public shell does not redirect or mount navigation; the valid share projection was verified over REST and MCP service, not rendered in a browser.
+- **External asset follow-up:** the production entry HTML previously injected Google Fonts before Vue could clear a share fragment. Replaced that loader with the already-installed local `roboto-fontface` files (regular/medium/bold) and removed the unused `unplugin-fonts` dependency. The rebuilt entry HTML and CSS contain no `fonts.googleapis.com` or `fonts.gstatic.com` references.
+- **Code checks:** Python `compileall`, targeted frontend ESLint, Vite production build, production-entry font-reference scan, and `git diff --check` passed. Existing Sass legacy-API and large-chunk build warnings remain.
+- **Independent review:** source review passed for authz/tenancy, token storage, public projection, rate-limit design, fragment handling, and FastMCP argument logging. Security acceptance remains **incomplete** because the actual external Traefik/access-log and trace-exporter configuration is outside this workspace, and a valid-token browser/network-history capture plus authenticated clipboard/keyboarding check has not been run. Keep production flags off until those checks are observed. After integrated checks, the disposable backend now reports `PUBLIC_RUN_LINKS_ENABLED=false`; the temporary second Vite server is stopped and the port-5173 dev server runs with `VITE_PUBLIC_RUN_LINKS_ENABLED=false`. The only backend restarted was `vtpad_disposable_ui_backend`, verified against database `vtpad_su6_runtime_20261009`; `vtpad_backend_app` was not restarted.
 
 ## File ownership
 

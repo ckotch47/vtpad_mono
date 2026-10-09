@@ -59,7 +59,6 @@
           :key="item.id"
           :active="selectedSection?.id === item.id"
           :aria-label="`${item.name}, ${item.test_case_count || 0} test cases${selectedSection?.id === item.id ? ', selected' : ''}`"
-          :title="item.name"
           rounded="sm"
           class="section-list-item"
           @click="selectSection(item.id)"
@@ -84,7 +83,7 @@
               <v-icon size="small" color="primary">mdi-folder-outline</v-icon>
             </div>
           </template>
-          <v-list-item-title class="text-body-2">
+          <v-list-item-title class="text-body-2" :title="item.name">
             {{ item.name }}
             <v-chip size="x-small" color="primary" variant="outlined" class="ml-2">
               {{ item.test_case_count || 0 }}
@@ -110,7 +109,15 @@
               />
               <v-menu location="end" :close-on-content-click="true">
                 <template #activator="{ props: menuProps }">
-                  <v-btn icon="mdi-dots-vertical" size="x-small" variant="text" v-bind="menuProps" @click.stop />
+                  <v-btn
+                    icon="mdi-dots-vertical"
+                    size="x-small"
+                    variant="text"
+                    :aria-label="`More actions for ${item.name}`"
+                    :title="`More actions for ${item.name}`"
+                    v-bind="menuProps"
+                    @click.stop
+                  />
                 </template>
                 <v-list density="compact">
                   <v-list-item @click="$emit('add-sub-section', item.id)">

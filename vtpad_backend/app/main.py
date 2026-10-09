@@ -25,6 +25,8 @@ import app.src.tag as tag
 import app.src.notification as notification
 from app.src.qa_report import router as qa_report_router
 from app.src.email_report import router as email_report_router
+from app.src.public_run import router as public_run_router
+from app.src.public_run.middleware import PublicRunLinkHeadersMiddleware
 
 # new v2 modules
 import app.src.test_suite as test_suite
@@ -185,6 +187,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(CaseTemplateBodyLimitMiddleware)
+app.add_middleware(PublicRunLinkHeadersMiddleware)
 
 ### profiler
 # app.add_middleware(CProfileMididleware, enable=True, server_app = app, filename='out.pstats', strip_dirs = False, sort_by='cumulative') #
@@ -237,6 +240,7 @@ app_utils.register_router(
         router_company_admin,
         qa_report_router,
         email_report_router,
+        public_run_router,
 
         # new v2 routers
         test_suite.router,

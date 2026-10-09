@@ -50,7 +50,6 @@
     :filter-param="filterParam"
     :settings="settings"
     @change-filter="changeFilter"
-    @create-bug="createBug"
     @open-bug="openBug"
     @click-tag="clickTag"
     @retry="retryLoad"

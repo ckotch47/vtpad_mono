@@ -115,6 +115,10 @@
 | GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты со suite и `section_path` (root→leaf), snapshot/legacy-признак, run timer и сумма фактических длительностей; `linked_bug_ids` остаётся массивом, `linked_bug_ids_raw` содержит неизменённое legacy JSON (включая `null`), `linked_bugs` содержит новые UUID-связи |
 | GET | `/api/v2/test-run/{run_id}/compare/{other_run_id}` | JWT + same-space check | сравнивает два завершённых run по сохранённым testcase snapshots; другой space скрывается как `404`, неполный статус возвращает `422`; сравнение без snapshot помечает неизвестные поля и не читает текущий testcase |
 | PATCH | `/api/v2/test-run/{run_id}` | JWT + space check | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
+| POST | `/api/v2/test-run/{run_id}/public-link` | JWT + strict active-space membership | создаёт или ротирует единственную публичную ссылку; 256-bit token возвращается один раз, TTL 7 дней |
+| GET | `/api/v2/test-run/{run_id}/public-link` | JWT + strict active-space membership | возвращает только состояние и даты ссылки, никогда не возвращает token |
+| DELETE | `/api/v2/test-run/{run_id}/public-link` | JWT + strict active-space membership | отзывает активную ссылку идемпотентно |
+| GET | `/api/v2/test-run/public/shared` | Bearer share token в `Authorization` | публичная ограниченная сводка; одинаковый `404` для неизвестной/истёкшей/отозванной ссылки, `no-store`, без referrer; endpoint закрыт feature flag по умолчанию |
 | POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | переводит run из `draft` в `active` и открывает общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/pause` | JWT + space check | закрывает текущий общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/resume` | JWT + space check | открывает следующий общий timer interval |

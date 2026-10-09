@@ -63,5 +63,6 @@ class EnvConfig:
         self.webhook_encryption_key = os.getenv('WEBHOOK_ENCRYPTION_KEY')
         self.webhook_encryption_key_version = os.getenv('WEBHOOK_ENCRYPTION_KEY_VERSION', 'v1')
         self.webhook_encryption_keys = os.getenv('WEBHOOK_ENCRYPTION_KEYS')
+        self.public_run_links_enabled = os.getenv('PUBLIC_RUN_LINKS_ENABLED', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 conf = EnvConfig()

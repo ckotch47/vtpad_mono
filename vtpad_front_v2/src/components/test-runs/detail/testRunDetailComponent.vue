@@ -35,6 +35,14 @@
             {{ run.status }}
           </v-chip>
           <v-btn
+            v-if="publicRunLinksEnabled"
+            class="ml-2"
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-share-variant"
+            @click="publicRunLinkOpen = true"
+          >Share run</v-btn>
+          <v-btn
             v-if="run.status === 'completed'"
             class="ml-2"
             color="primary"
@@ -46,27 +54,18 @@
       </v-row>
     </v-container>
 
-    <run-stats-panel :stats="stats" :timer="run.timer" />
-
-    <v-container v-if="run.timer" fluid class="py-0">
-      <div class="d-flex align-center ga-2 mb-2" role="status" aria-live="polite">
-        <span class="text-body-2">Run timer:</span>
-        <v-chip size="small" :color="timerStateColor(run.timer.state)" class="text-capitalize">
-          {{ timerStateLabel(run.timer.state) }}
-        </v-chip>
-        <span v-if="run.timer.interval_count != null" class="text-caption text-medium-emphasis">
-          {{ run.timer.interval_count }} timer interval{{ run.timer.interval_count === 1 ? '' : 's' }}
-        </span>
-        <v-spacer />
+    <run-stats-panel :stats="stats" :timer="run.timer">
+      <template #timer-actions>
         <v-btn
+          v-if="run.timer"
           size="small"
           variant="text"
           prepend-icon="mdi-refresh"
           :loading="timerRefreshLoading"
           @click="refreshTimer"
         >Refresh time</v-btn>
-      </div>
-    </v-container>
+      </template>
+    </run-stats-panel>
 
     <!-- Actions -->
     <v-container fluid class="py-0">
@@ -359,6 +358,12 @@
       :space-id="String(spaceId)"
       :run="run"
     />
+
+    <public-run-link-dialog
+      v-if="publicRunLinksEnabled"
+      v-model="publicRunLinkOpen"
+      :run-id="String(runId)"
+    />
   </div>
 </template>
 
@@ -371,6 +376,7 @@ import RunStatsPanel from './RunStatsPanel.vue'
 import RunResultEditDialog from './RunResultEditDialog.vue'
 import QuickBugDialog from './QuickBugDialog.vue'
 import RunComparisonDialog from './RunComparisonDialog.vue'
+import PublicRunLinkDialog from './PublicRunLinkDialog.vue'
 import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
 
 const log = useLogger('testRunDetail')
@@ -381,6 +387,8 @@ const runId = computed(() => route.params.runId)
 
 const run = ref({})
 const comparisonOpen = ref(false)
+const publicRunLinkOpen = ref(false)
+const publicRunLinksEnabled = import.meta.env.VITE_PUBLIC_RUN_LINKS_ENABLED === 'true'
 const stats = ref({})
 const results = ref([])
 const loader = ref(true)
@@ -642,20 +650,6 @@ function formatDuration(seconds) {
   return hours > 0
     ? `${hours}h ${String(minutes).padStart(2, '0')}m ${String(remainder).padStart(2, '0')}s`
     : `${minutes}m ${String(remainder).padStart(2, '0')}s`
-}
-
-function timerStateLabel(state) {
-  return {
-    not_started: 'not started',
-    running: 'running',
-    paused: 'paused',
-    stopped: 'stopped',
-    untracked: 'untracked'
-  }[state] || state || 'unavailable'
-}
-
-function timerStateColor(state) {
-  return { running: 'success', paused: 'warning', stopped: 'grey', untracked: 'info' }[state] || 'default'
 }
 
 function openResultModal(result) {

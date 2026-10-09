@@ -27,6 +27,7 @@
 - REST-маршруты и MCP-инструменты Tech Docs проверяют доступ через `check_user_into_space`: активное членство в space или роль активного `company_admin` в company этого space. Создать документ или переместить его под родительский можно только внутри того же space; конкурентные переносы сериализуются, чтобы не допустить циклы в дереве. Повреждённый legacy `parent_id`, который указывает за границу space, скрывается в ответах как `null`.
 - REST и MCP unlink для Tech Doc/testcase требуют доступ к обоим объектам; traceability service повторно проверяет, что пара принадлежит одному space до изменения связи.
 - REST section reorder and MCP `sort_sections` check access to the space derived from the target section's suite. An active space member or active `company_admin` in that company can reorder only siblings with the same `suite_id` and `parent_id`; callers cannot supply another suite/space in the request.
+- Public run link create/read/revoke requires an active membership row in the run's space and active company membership. Creator and space owner may manage their run link; same-company `company_admin` may do so only with active membership in that space. Public redemption grants access only to the documented allowlisted summary until expiry or revocation; it cannot read or change run results.
 
 ## Защита endpoint'ов
 

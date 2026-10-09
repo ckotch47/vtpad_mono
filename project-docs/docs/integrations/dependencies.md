@@ -49,6 +49,7 @@
 | tippy.js | Поповеры для slash-меню редактора |
 | vue-chartjs / Chart.js 4 | Графики |
 | MDI font | Иконки |
+| roboto-fontface | Локальные файлы Roboto для production-сборки; внешний запрос к Google Fonts не используется |
 
 ## Внешние интеграции
 

@@ -1,7 +1,7 @@
 <template>
   <v-card variant="outlined" class="list-page-toolbar mb-4">
     <v-card-text class="list-page-toolbar__body">
-      <div class="list-page-toolbar__filters">
+      <div v-if="$slots.filters" class="list-page-toolbar__filters">
         <slot name="filters" />
       </div>
       <div v-if="$slots.actions" class="list-page-toolbar__actions">
@@ -32,7 +32,29 @@
   min-width: 0;
 }
 
-.list-page-toolbar__actions {
-  justify-content: flex-end;
+@media (min-width: 960px) {
+  .list-page-toolbar__body {
+    gap: 10px;
+  }
+
+  .list-page-toolbar__actions {
+    order: -1;
+    justify-content: flex-start;
+  }
+
+  .list-page-toolbar__filters {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .list-page-toolbar__filters > :deep(.v-input) {
+    min-width: 0;
+  }
+
+  .list-page-toolbar :deep(.v-btn:focus-visible),
+  .list-page-toolbar :deep(.v-field:focus-within) {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
 }
 </style>

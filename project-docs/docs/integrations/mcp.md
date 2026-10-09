@@ -31,6 +31,14 @@ These tools call the same service and return the same versioned content/preview/
 
 `update_test_result` treats omitted `comment` and `duration_seconds` as unchanged, matching REST PATCH semantics. Set `clear_comment` or `clear_duration` to `true` to explicitly clear either value.
 
+### Public run links
+
+- `create_public_run_link(run_id)` creates or rotates one seven-day link and returns its bearer token once.
+- `revoke_public_run_link(run_id)` revokes the active link.
+- `get_shared_run(share_token)` returns the same limited projection as public REST redemption.
+
+These tools still require normal MCP API-token authentication. Management actions require active same-space membership plus creator, owner, or same-company admin rights. The share token grants only the allowlisted run summary. `PUBLIC_RUN_LINKS_ENABLED` defaults off pending independent security acceptance. One-time token responses must use `Cache-Control: no-store`; transport and application logs must not retain share-token arguments or results.
+
 ### CI/CD webhooks
 
 - `create_webhook_integration(payload)`

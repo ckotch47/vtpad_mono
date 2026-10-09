@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from ..core import mcp
 from ..utils import _get_user_id, _case_to_dict
 from fastmcp.server.dependencies import get_http_request
@@ -324,6 +326,15 @@ async def get_tech_docs_for_testcase(testcase_id: str) -> list[dict]:
     """List Tech Docs linked to a testcase."""
     await _require_testcase_access(testcase_id)
     return await TraceabilityService.get_docs_for_testcase(testcase_id)
+
+
+@mcp.tool()
+async def get_traceability_matrix(space_id: UUID, tech_doc_ids: list[UUID] | None = None) -> dict:
+    """Read requirement coverage, including Tech Docs without links and cases without results."""
+    await _require_space_access(str(space_id))
+    return await TraceabilityService.get_matrix(
+        str(space_id), [str(doc_id) for doc_id in tech_doc_ids] if tech_doc_ids is not None else None
+    )
 
 
 @mcp.tool()

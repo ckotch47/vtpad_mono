@@ -140,8 +140,11 @@
 | GET | `/api/v2/test-case/{testcase_id}/runs` | JWT + space check | история результата кейса с фактическим временем и доступными timing полями связанного run |
 | GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
 | GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |
+| GET | `/api/v2/traceability/space/{space_id}/matrix?tech_doc_ids=...` | JWT + `check_user_into_space` | requirement→cases→latest result matrix; omit `tech_doc_ids` for all documents or repeat it to select documents in the space. Foreign/unknown requirement IDs return a generic 404. |
 | POST | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | создаёт same-space связь Tech Doc и testcase |
 | DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + access to both spaces | удаляет связь только для same-space пары; service повторяет проверку |
+
+The matrix includes Tech Docs with no testcase links and linked cases with no run result. Coverage counts a testcase as covered when its newest result by `updated_at` has status `passed`, `failed`, `blocked`, or `skipped`; `not_run` and missing results are uncovered. A requirement with no cases has `coverage_percent: null` and state `no_testcases`. Corrupt cross-space link rows are omitted before case/result aggregation. `content_display` escapes Tech Doc rich text so returned content is safe to render as text; it does not preserve HTML formatting.
 
 ### Custom Fields
 

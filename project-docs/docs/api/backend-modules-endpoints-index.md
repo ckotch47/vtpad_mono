@@ -304,6 +304,7 @@ All definition/value routes require JWT and active access to the same space as t
 MCP preserves the legacy `move_test_case(case_id, suite_id=None, section_id=None)` signature, partial-update behavior, and testcase response shape for existing callers. New integrations should use `move_test_case_to_location(case_id, suite_id, section_id)` for explicit placement; both destination arguments are required, and callers must pass `section_id: null` to target the destination suite's virtual Default section. This new tool shares placement validation with the REST move endpoint and does not create a content version.
 
 ### `app/src/traceability`
+- `GET /api/v2/traceability/space/{space_id}/matrix` — scoped requirement/case/latest-result coverage; shared REST/MCP service.
 - `GET/PUT /api/v2/tech-doc/{tech_doc_id}/test-cases`
 - `GET/POST/DELETE /api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}`
 

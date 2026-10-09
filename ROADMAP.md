@@ -122,9 +122,12 @@ BD2 completed in `69bd146`. JSON v1 and CSV v1 are available through shared REST
 - [x] Test Plan advanced filters (by tags, priority, custom fields; REST/MCP share resolver) — implemented in `5c07226`; disposable REST/MCP acceptance covered matching previews, plan creation/cases, plan-based run preview/create and custom-field snapshots. Empty-source/array and delete-cleanup scenarios passed; temporary fixtures were removed. Backend compile/build/startup, frontend ESLint/build and independent edge-case review passed.
 - Run comparison / diff between two runs — REST and local MCP wrapper parity verified on a disposable DB; currently attached Codex MCP tool catalog still omits `compare_test_runs`, so the item remains open.
 - [x] Test automation integration (CI/CD webhooks) — REST/MCP lifecycle and callback share a secured service; v24/v25 migrations add allowlists, idempotency, provenance and redacted audit. Disposable-clone smoke and independent API/security reviews passed.
-- Requirements traceability matrix
+- [x] Requirements traceability matrix — REST/MCP share the same space-scoped matrix service; disposable DB smoke and independent API/security review passed.
 - [x] Custom fields for test cases — typed values, required-field validation, version/run snapshots, REST/MCP parity, and delete cleanup implemented and verified on a disposable database.
 - Test case templates
 - Notifications for run completion
 - Email reports
 - Public share links for runs
+
+### Desktop UX tester checkpoint (2026-10-09)
+Desktop-only findings: the hamburger remains available across route changes, but overlaps the Suites search and Cases Tags controls; its inner button has no accessible name. Current repeated 500 responses block full list/filter acceptance. Mobile remains excluded. These are findings only; UI changes remain pending an exact approved UX plan.

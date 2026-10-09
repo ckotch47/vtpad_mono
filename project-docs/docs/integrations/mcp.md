@@ -13,6 +13,10 @@ The result is a JSON array of siblings ordered by `sort`, with `id`, `name`, `de
 ## Registration
 
 MCP tools are registered through imports in `app/src/mcp/tools/__init__.py`; section tools live in `app/src/mcp/tools/sections.py`. The HTTP application and authentication middleware are defined in `app/src/mcp/server.py` and `app/src/mcp/middleware.py`.
+
+## Traceability matrix
+
+`get_traceability_matrix(space_id, tech_doc_ids?)` calls the same read service as `GET /api/v2/traceability/space/{space_id}/matrix`. Omit `tech_doc_ids` to include all Tech Docs in the space; pass IDs to select requirements. The result contains linked cases, each case's latest result and run, per-requirement coverage, and explicit counts for requirements without cases and cases without results. Legacy cross-space links are excluded. Tech Doc rich text is returned in escaped `content_display` form, safe to render as text but without HTML formatting.
 ### Data exchange
 
 - `export_space_data(space_id, format="json"|"csv", suite_ids?)`

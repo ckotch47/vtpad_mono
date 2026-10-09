@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Request
 
 from .dto import TechDocTestCasesReplaceDto
 from .service import TraceabilityService
@@ -65,6 +67,20 @@ async def get_testcases_for_tech_doc(tech_doc_id: str, request: Request):
 async def get_tech_docs_for_testcase(testcase_id: str, request: Request):
     await _require_testcase_access(testcase_id, request)
     return await TraceabilityService.get_docs_for_testcase(testcase_id)
+
+
+@router.get('/space/{space_id}/matrix', dependencies=[Depends(bearer)])
+async def get_traceability_matrix(
+    space_id: UUID,
+    request: Request,
+    tech_doc_ids: list[UUID] | None = Query(default=None),
+):
+    """Read safe requirement-to-testcase coverage for accessible Tech Docs."""
+    await check_user_into_space(str(space_id), request)
+    return await TraceabilityService.get_matrix(
+        str(space_id),
+        [str(doc_id) for doc_id in tech_doc_ids] if tech_doc_ids is not None else None,
+    )
 
 
 @tech_doc_router.get('/{tech_doc_id}/test-cases', dependencies=[Depends(bearer)])

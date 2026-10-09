@@ -342,6 +342,8 @@ MCP preserves the legacy `move_test_case(case_id, suite_id=None, section_id=None
 
 REST and MCP tools use the same service and check space access before template lookup or writes. REST mutation bodies and MCP template mutation calls are capped at 1 MiB (MCP retains its separate 8 MiB cap for other tools). Content strings are capped at 32,768 characters each, description at 4,096, serialized template content at 128 KiB, and estimated duration at 0–2,147,483,647 seconds; custom fields are excluded from template content and versions. The `use` operation separately accepts at most 50 typed custom-field values with a 64 KiB serialized cap, validated by the existing testcase creation path against definitions in the same space. A template retains at most 100 immutable versions. Template versions contain only case title, text, preconditions, steps, expected results, postconditions, type, priority, and estimated duration. Template name is separate from case title. The use operation copies values into a new testcase through `TestCaseService.create`; no template reference is stored on a case, so later template updates cannot change existing cases.
 
+REST and MCP Tech Docs create/update/delete require `tech_docs`. Every Tech Doc↔testcase link create/remove/replace operation requires combined `traceability`; every referenced object must remain in the same space before writes begin.
+
 ### `app/src/traceability`
 - `GET /api/v2/traceability/space/{space_id}/matrix` — scoped requirement/case/latest-result coverage; shared REST/MCP service.
 - `GET/PUT /api/v2/tech-doc/{tech_doc_id}/test-cases`

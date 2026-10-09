@@ -158,11 +158,11 @@
 | GET | `/api/v2/test-case/{testcase_id}/versions/diff` | JWT + space check | сравнение двух версий |
 | POST | `/api/v2/test-case/{testcase_id}/versions/{version_id}/restore` | JWT + space check | создаёт новую текущую версию из выбранной; snapshot включает type, priority, метки и совместимые custom-field values |
 | GET | `/api/v2/test-case/{testcase_id}/runs` | JWT + space check | история результата кейса с фактическим временем и доступными timing полями связанного run |
-| GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + space check | получает/заменяет связи testcase с Tech Docs |
-| GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + space check | получает/заменяет связи Tech Doc с test cases |
+| GET/PUT | `/api/v2/test-case/{testcase_id}/tech-docs` | JWT + `traceability` for writes | получает/заменяет связи testcase с Tech Docs |
+| GET/PUT | `/api/v2/tech-doc/{tech_doc_id}/test-cases` | JWT + `traceability` for writes | получает/заменяет связи Tech Doc с test cases |
 | GET | `/api/v2/traceability/space/{space_id}/matrix?tech_doc_ids=...` | JWT + `check_user_into_space` | requirement→cases→latest result matrix; omit `tech_doc_ids` for all documents or repeat it to select documents in the space. Foreign/unknown requirement IDs return a generic 404. |
-| POST | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + space check | создаёт same-space связь Tech Doc и testcase |
-| DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + access to both spaces | удаляет связь только для same-space пары; service повторяет проверку |
+| POST | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + `traceability` capability | создаёт same-space связь Tech Doc и testcase |
+| DELETE | `/api/v2/traceability/tech-doc/{tech_doc_id}/test-case/{testcase_id}` | JWT + `traceability` capability | удаляет связь только для same-space пары; service повторяет проверку |
 
 The matrix includes Tech Docs with no testcase links and linked cases with no run result. Coverage counts a testcase as covered when its newest result by `updated_at` has status `passed`, `failed`, `blocked`, or `skipped`; `not_run` and missing results are uncovered. A requirement with no cases has `coverage_percent: null` and state `no_testcases`. Corrupt cross-space link rows are omitted before case/result aggregation. `content_display` escapes Tech Doc rich text so returned content is safe to render as text; it does not preserve HTML formatting.
 
@@ -195,9 +195,9 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 | GET | `/api/v2/tech-doc/space/{space_id}` | JWT + space check | список Tech Docs в space |
 | GET | `/api/v2/tech-doc/space/{space_id}/tree` | JWT + space check | дерево Tech Docs в space |
 | GET | `/api/v2/tech-doc/{doc_id}` | JWT + space check | получает документ после проверки доступа к его space |
-| POST | `/api/v2/tech-doc/` | JWT + space check | создаёт документ; родитель должен быть в том же space |
-| PATCH | `/api/v2/tech-doc/{doc_id}` | JWT + space check | обновляет документ; родитель должен быть в том же space, переносы сериализуются по space и не создают циклы |
-| DELETE | `/api/v2/tech-doc/{doc_id}` | JWT + space check | удаляет документ после проверки доступа к его space |
+| POST | `/api/v2/tech-doc/` | JWT + `tech_docs` capability | создаёт документ; родитель должен быть в том же space |
+| PATCH | `/api/v2/tech-doc/{doc_id}` | JWT + `tech_docs` capability | обновляет документ; родитель должен быть в том же space, переносы сериализуются по space и не создают циклы |
+| DELETE | `/api/v2/tech-doc/{doc_id}` | JWT + `tech_docs` capability | удаляет документ после проверки доступа к его space |
 
 Списки V2 test cases, test suites и test plans также возвращают nullable `created_by` с `{id, username}`. Почта и другие персональные данные автора не включаются.
 

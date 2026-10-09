@@ -30,19 +30,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def _require_space_access(space_id: str):
-    await check_user_into_space(space_id, get_http_request())
+async def _require_space_access(space_id: str, capability: str | None = None):
+    await check_user_into_space(space_id, get_http_request(), capability=capability)
 
 
-async def _require_doc_access(doc_id: str):
+async def _require_doc_access(doc_id: str, capability: str | None = None):
     doc = await TechDocService.get_by_id(doc_id)
-    await check_user_into_space(str(doc.space_id), get_http_request())
+    await check_user_into_space(str(doc.space_id), get_http_request(), capability=capability)
     return doc
 
 
-async def _require_testcase_access(testcase_id: str):
+async def _require_testcase_access(testcase_id: str, capability: str | None = None):
     testcase = await TestCaseService.get_by_id(testcase_id)
-    await check_user_into_space(str(testcase.space_id), get_http_request())
+    await check_user_into_space(str(testcase.space_id), get_http_request(), capability=capability)
     return testcase
 
 
@@ -100,7 +100,7 @@ async def create_tech_doc(
     """
     from ...tech_doc.dto import TechDocCreateDto
 
-    await _require_space_access(space_id)
+    await _require_space_access(space_id, capability="tech_docs")
     dto = TechDocCreateDto(
         space_id=space_id,
         title=title,
@@ -139,7 +139,7 @@ async def update_tech_doc(
     """
     from ...tech_doc.dto import TechDocUpdateDto
 
-    await _require_doc_access(doc_id)
+    await _require_doc_access(doc_id, capability="tech_docs")
     dto = TechDocUpdateDto(
         title=title,
         content=content,
@@ -164,7 +164,7 @@ async def delete_tech_doc(doc_id: str) -> dict:
         Success or error
     """
     try:
-        await _require_doc_access(doc_id)
+        await _require_doc_access(doc_id, capability="tech_docs")
         await TechDocService.delete(doc_id)
         return {"deleted": True, "id": doc_id}
     except Exception as e:
@@ -292,7 +292,7 @@ async def get_doc(doc_id: str) -> dict | None:
 @mcp.tool()
 async def link_tech_doc_to_testcase(tech_doc_id: str, testcase_id: str) -> dict:
     """Link a Tech Doc to a testcase in the same space."""
-    await _require_doc_access(tech_doc_id)
+    await _require_doc_access(tech_doc_id, capability="traceability")
     await _require_testcase_access(testcase_id)
     return await TraceabilityService.link(tech_doc_id, testcase_id)
 
@@ -300,7 +300,7 @@ async def link_tech_doc_to_testcase(tech_doc_id: str, testcase_id: str) -> dict:
 @mcp.tool()
 async def unlink_tech_doc_from_testcase(tech_doc_id: str, testcase_id: str) -> bool:
     """Remove the link between a Tech Doc and a testcase."""
-    await _require_doc_access(tech_doc_id)
+    await _require_doc_access(tech_doc_id, capability="traceability")
     await _require_testcase_access(testcase_id)
     return await TraceabilityService.unlink(tech_doc_id, testcase_id)
 
@@ -315,7 +315,7 @@ async def get_testcases_for_tech_doc(tech_doc_id: str) -> list[dict]:
 @mcp.tool()
 async def replace_testcases_for_tech_doc(tech_doc_id: str, testcase_ids: list[str]) -> list[dict]:
     """Replace all testcase links for a Tech Doc with same-space testcases."""
-    await _require_doc_access(tech_doc_id)
+    await _require_doc_access(tech_doc_id, capability="traceability")
     for testcase_id in testcase_ids:
         await _require_testcase_access(testcase_id)
     return await TraceabilityService.replace_testcases_for_doc(tech_doc_id, testcase_ids)
@@ -340,7 +340,7 @@ async def get_traceability_matrix(space_id: UUID, tech_doc_ids: list[UUID] | Non
 @mcp.tool()
 async def replace_tech_docs_for_testcase(testcase_id: str, tech_doc_ids: list[str]) -> list[dict]:
     """Replace all Tech Doc links for a testcase with same-space documents."""
-    await _require_testcase_access(testcase_id)
+    await _require_testcase_access(testcase_id, capability="traceability")
     for tech_doc_id in tech_doc_ids:
         await _require_doc_access(tech_doc_id)
     return await TraceabilityService.replace_docs_for_testcase(testcase_id, tech_doc_ids)

@@ -41,19 +41,19 @@ async def get_by_id(doc_id: str, request: Request):
 
 @router.post('/', dependencies=[Depends(bearer)])
 async def create(dto: TechDocCreateDto, request: Request):
-    await check_user_into_space(dto.space_id, request)
+    await check_user_into_space(dto.space_id, request, capability="tech_docs")
     return await TechDocService.create(dto)
 
 
 @router.patch('/{doc_id}', dependencies=[Depends(bearer)])
 async def update(doc_id: str, dto: TechDocUpdateDto, request: Request):
     doc = await TechDocService.get_by_id(doc_id)
-    await check_user_into_space(str(doc.space_id), request)
+    await check_user_into_space(str(doc.space_id), request, capability="tech_docs")
     return await TechDocService.update(doc_id, dto)
 
 
 @router.delete('/{doc_id}', dependencies=[Depends(bearer)])
 async def delete(doc_id: str, request: Request):
     doc = await TechDocService.get_by_id(doc_id)
-    await check_user_into_space(str(doc.space_id), request)
+    await check_user_into_space(str(doc.space_id), request, capability="tech_docs")
     return await TechDocService.delete(doc_id)

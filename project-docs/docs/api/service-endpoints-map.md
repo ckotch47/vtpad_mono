@@ -208,7 +208,7 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
-| GET | `/api/v2/analytics/space/{space_id}/bugs` | JWT + space membership | summary уникальных bugs/связей и страница bug; фильтры `status`, `run_id`, `suite_id`; для каждого bug возвращается максимум 25 пар `result_links`, `result_links_truncated` сообщает об усечении; `link_count` содержит полный счётчик |
+| GET | `/api/v2/analytics/space/{space_id}/bugs` | JWT + space membership | summary уникальных bugs/связей и страница bug; фильтры `status`, `run_id`, `suite_id` применяются и к summary, и к списку; для каждого bug возвращается максимум 25 пар `result_links`, `result_links_truncated` сообщает об усечении; `link_count` содержит полный счётчик |
 | GET | `/api/v2/analytics/space/{space_id}/bugs/by-run` | JWT + space membership | пагинированные уникальные bugs и связи по run |
 | GET | `/api/v2/analytics/space/{space_id}/bugs/by-suite` | JWT + space membership | пагинированные уникальные bugs и связи по suite snapshot; legacy/неизвестная suite имеет явную атрибуцию |
 
@@ -216,7 +216,7 @@ Testcase detail, list/search, create/update response `custom_fields` содер�
 
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
-| GET | `/api/v2/analytics/space/{space_id}/quality` | JWT + current space membership | Weekly UTC failed rate by suite for completed runs, recurrent failed cases, optional `suite_id`, inclusive `start_date`/`end_date` (`YYYY-MM-DD`); default is the last 12 complete weeks. The rate returns failed/denominator, total results, not-run count, coverage and run/result drill-down IDs. |
+| GET | `/api/v2/analytics/space/{space_id}/quality` | JWT + current space membership | Weekly UTC failed rate by suite for completed runs, recurrent failed cases, optional `suite_id`, inclusive `start_date`/`end_date` (`YYYY-MM-DD`); default is the last 12 complete weeks. The rate returns failed/denominator, total results, not-run count and coverage; `has_data` is true only when at least one measured outcome contributes to a rate. Recurrent-case rows include source run/result IDs; aggregate week drill-down is provided by `/quality/results`. |
 | GET | `/api/v2/analytics/space/{space_id}/quality/results` | JWT + current space membership | Paginated source results for one same-space `suite_id` and Monday UTC `week_start`; defaults to contributing statuses (`passed`, `failed`, `blocked`, `skipped`), returns source `run_id`/`result_id`, and supports optional status/page filters. `not_run` is excluded to match the rate denominator. |
 | GET | `/api/v2/analytics/space/{space_id}/time` | JWT + current space membership | Estimate, measured result duration, average/coverage and active timer intervals for completed runs. Inclusive date ranges up to 31 days use daily UTC buckets; longer ranges use Monday-based weekly buckets. Optional `suite_id`; default is the last 12 complete weeks. |
 

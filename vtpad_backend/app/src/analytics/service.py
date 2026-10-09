@@ -212,7 +212,7 @@ class AnalyticsService:
             'range': {'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(),
                       'timezone': 'UTC', 'bucket': 'week'},
             'suite_filter': suite_id,
-            'has_data': bool(rate_rows),
+            'has_data': any(row['denominator'] > 0 for row in rate_rows),
             'failed_rate_by_suite': failed_rate_series,
             'recurrent_cases': recurrent_cases,
             'recurrent_window_runs_per_suite': 20,
@@ -514,20 +514,20 @@ class AnalyticsService:
         from tortoise import Tortoise
 
         conn = Tortoise.get_connection('default')
+        filter_sql, filter_params = AnalyticsService._bug_link_filters(run_id, suite_id, status)
+        filtered_cte = AnalyticsService._scoped_bug_links_cte(filter_sql)
+        params: list[object] = [space_id, *filter_params]
         summary_rows = await conn.execute_query_dict(
-            AnalyticsService._scoped_bug_links_cte() + """
+            filtered_cte + """
             SELECT COUNT(DISTINCT bug_uuid)::int AS unique_bug_count,
                    COUNT(*)::int AS link_count,
                    COUNT(DISTINCT bug_uuid) FILTER (WHERE status_group = 'OPEN')::int AS open_count,
                    COUNT(DISTINCT bug_uuid) FILTER (WHERE status_group = 'FIXED')::int AS fixed_count,
                    COUNT(DISTINCT bug_uuid) FILTER (WHERE status_group = 'REOPEN')::int AS reopen_count,
                    COUNT(DISTINCT bug_uuid) FILTER (WHERE status_group = 'OTHER')::int AS other_count
-            FROM scoped
-            """, [space_id])
+            FROM filtered
+            """, params)
 
-        filter_sql, filter_params = AnalyticsService._bug_link_filters(run_id, suite_id, status)
-        filtered_cte = AnalyticsService._scoped_bug_links_cte(filter_sql)
-        params: list[object] = [space_id, *filter_params]
         count_rows = await conn.execute_query_dict(
             filtered_cte + "SELECT COUNT(*)::int AS total FROM (SELECT bug_uuid FROM filtered GROUP BY bug_uuid) q",
             params,

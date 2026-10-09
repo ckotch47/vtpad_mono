@@ -1,5 +1,10 @@
 # Backend Modules Endpoint Index
 
+## Operational checks
+
+- `GET /health` — public liveness probe.
+- `GET /ready` — public readiness probe for PostgreSQL and Redis; returns a generic `503` if either dependency is unavailable or times out.
+
 ## Что описывает
 
 Индекс модулей backend'а с перечнем endpoint'ов по каждому модулю.

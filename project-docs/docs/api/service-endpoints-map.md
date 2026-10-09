@@ -20,6 +20,13 @@
 - Некоторые endpoints дополнительно требуют `Depends(check_user_into_space)` для авторизации на уровне space.
 - Auth endpoints (`/api/v1/auth`) — публичные.
 
+## Operational checks
+
+| Method | Path | Auth/Access | Примечания |
+| --- | --- | --- | --- |
+| GET | `/health` | Public | liveness процесса; не проверяет зависимости |
+| GET | `/ready` | Public | readiness PostgreSQL и Redis; общий `503` при недоступности или тайм-ауте зависимости |
+
 ## `vtpad_backend` — Core API
 
 ### Auth

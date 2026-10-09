@@ -27,6 +27,7 @@ from app.src.qa_report import router as qa_report_router
 from app.src.email_report import router as email_report_router
 from app.src.public_run import router as public_run_router
 from app.src.public_run.middleware import PublicRunLinkHeadersMiddleware
+from app.src.health import router as health_router
 
 # new v2 modules
 import app.src.test_suite as test_suite
@@ -166,6 +167,8 @@ app = FastAPI(
     docs_url='/docs',
     lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
 )
+
+app.include_router(health_router)
 
 register_tortoise(app, config=config_orm, generate_schemas=False, add_exception_handlers=True)
 

@@ -7,8 +7,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: uvicorn app.main:app --host 0.0.0.0 --workers 1 --proxy-headers
-    #ports:
-    #  - "127.0.0.1:8000:8000"
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./vtpad_backend/uploads:/uploads
       - ./vtpad_backend/.env:/app/.env:ro
@@ -32,8 +32,8 @@ services:
     command: npm run prod
     #depends_on:
     #  - backend
-    #ports:
-    #  - "127.0.0.1:3000:3000"
+    ports:
+      - "127.0.0.1:3000:3000"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vtpad.rule=Host(`${DOMAIN_EXT}`) && !PathPrefix(`/api`)"
@@ -47,4 +47,3 @@ services:
 networks:
   proxy:
     external: true
-

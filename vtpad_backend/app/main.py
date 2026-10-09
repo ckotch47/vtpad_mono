@@ -1,4 +1,5 @@
 import tortoise
+import logging
 from opentelemetry.instrumentation.tortoiseorm import TortoiseORMInstrumentor
 from prometheus_fastapi_instrumentator import Instrumentator  # prom client
 from starlette.middleware.cors import CORSMiddleware  # midelware
@@ -199,7 +200,12 @@ app.add_middleware(CaseTemplateBodyLimitMiddleware)
 # exception filter
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    print(f"OMG! The client sent invalid data!: {exc}")
+    logging.getLogger(__name__).warning(
+        'Request validation failed: method=%s path=%s error_count=%d',
+        request.method,
+        request.url.path,
+        len(exc.errors()),
+    )
     return await request_validation_exception_handler(request, exc)
 
 

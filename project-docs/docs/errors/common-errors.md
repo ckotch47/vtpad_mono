@@ -34,6 +34,7 @@
 | `404` при чтении/записи custom field | Definition или entity отсутствует либо находится в другом space; чужие UUID не раскрываются | `app/src/custom_field/service.py` |
 | `422` при сохранении custom field | Тип/вариант значения не совпадает с definition, select/multiselect не имеет уникальных вариантов, отсутствует required value, либо изменение type/options сделало live values несовместимыми | `app/src/custom_field/service.py`, `app/src/test_case/service.py` |
 | `422` при preview/сохранении test plan filters | Неизвестный приоритет, поле не является testcase custom field этого space, значение не совпадает с типом/options или одно поле указано повторно | `app/src/test_plan/service.py` |
+| `422` на ошибочном JSON-запросе | Ответ содержит детали валидации; backend log записывает только method/path и число ошибок, без входных значений | `app/main.py` |
 | `404` при добавлении источника test plan | Suite или testcase отсутствует либо относится к другому space | `app/src/test_plan/service.py` |
 | Пустой экран после открытия `/` или входа | Главная страница и успешная авторизация переходили на `/space` без `spaceId`; существует только маршрут `/space/:spaceId` | `vtpad_front_v2/src/pages/index.vue`, `vtpad_front_v2/src/components/auth/authComponent.vue` |
 

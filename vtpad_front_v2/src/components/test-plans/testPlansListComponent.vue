@@ -15,7 +15,7 @@
       />
       </template>
       <template #actions>
-      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
+      <v-btn v-if="canManagePlans" color="primary" prepend-icon="mdi-plus" @click="openDialog = true">
         New Plan
       </v-btn>
       </template>
@@ -58,7 +58,7 @@
           v-else
           icon="mdi-clipboard-text-outline"
           title="No test plans yet"
-          text="Use New Plan when you have permission to add plans to this space."
+          :text="canManagePlans ? 'Create a plan to save a reusable case selection.' : 'You have read-only access to test plans in this space.'"
         />
       </template>
       <template v-slot:[`item.name`]="{ item }">
@@ -83,7 +83,7 @@
         {{ formatDate(item.created_at) }}
       </template>
       <template v-slot:[`item.actions`]="{ item }">
-        <v-btn icon="mdi-delete" size="small" variant="text" color="error" :aria-label="`Delete ${item.name}`" :title="`Delete ${item.name}`" @click.stop="deletePlan(item.id)" />
+        <v-btn v-if="canManagePlans" icon="mdi-delete" size="small" variant="text" color="error" :aria-label="`Delete ${item.name}`" :title="`Delete ${item.name}`" @click.stop="deletePlan(item.id)" />
       </template>
       </v-data-table-server>
     </div>
@@ -134,6 +134,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
 import { testPlanService, testSuiteService } from '@/services'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 import PlanCaseFilters from './PlanCaseFilters.vue'
@@ -142,6 +143,8 @@ const log = useLogger('app')
 const route = useRoute()
 
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canManagePlans = computed(() => capabilityStore.can(spaceId.value, 'plans'))
 
 const plans = ref([])
 const total = ref(0)
@@ -187,6 +190,7 @@ watch(
 )
 
 watch(spaceId, (nextSpaceId, previousSpaceId) => {
+  if (nextSpaceId && nextSpaceId !== 'undefined') capabilityStore.load(nextSpaceId)
   if (!nextSpaceId || nextSpaceId === previousSpaceId) return
   requestId.value += 1
   clearTimeout(searchDebounce.value)
@@ -319,7 +323,10 @@ async function loadSuites() {
   }
 }
 
-onMounted(loadSuites)
+onMounted(() => {
+  capabilityStore.load(spaceId.value)
+  loadSuites()
+})
 
 async function deletePlan(id) {
   if (!confirm('Delete this test plan?')) return

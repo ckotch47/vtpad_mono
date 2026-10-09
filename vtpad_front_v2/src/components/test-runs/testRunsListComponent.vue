@@ -15,7 +15,7 @@
       />
       </template>
       <template #actions>
-      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+      <v-btn v-if="canManageRuns" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
         New Test Run
       </v-btn>
       </template>
@@ -58,7 +58,7 @@
           v-else
           icon="mdi-play-circle-outline"
           title="No test runs yet"
-          text="Use New Test Run when you have permission to start a run in this space."
+          :text="canManageRuns ? 'Create a run to start executing cases.' : 'You have read-only access to test runs in this space.'"
         />
       </template>
       <template v-slot:[`item.status`]="{ item }">
@@ -83,7 +83,7 @@
         {{ formatDate(item.created_at) }}
       </template>
       <template v-slot:[`item.actions`]="{ item }">
-        <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" :aria-label="`Delete ${item.name}`" :title="`Delete ${item.name}`" @click.stop="deleteRun(item)" />
+        <v-btn v-if="canManageRuns" icon="mdi-delete" size="x-small" variant="text" color="error" :aria-label="`Delete ${item.name}`" :title="`Delete ${item.name}`" @click.stop="deleteRun(item)" />
       </template>
       </v-data-table-server>
     </div>
@@ -165,9 +165,12 @@ import { useRoute } from 'vue-router'
 import { testRunService, testSuiteService, testPlanService, testCaseService, milestoneService, environmentService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canManageRuns = computed(() => capabilityStore.can(spaceId.value, 'runs'))
 
 const runs = ref([])
 const totalRuns = ref(0)
@@ -199,6 +202,7 @@ const newRun = ref(emptyRun())
 const isCreateDirty = computed(() => JSON.stringify(newRun.value) !== JSON.stringify(emptyRun()))
 
 watch(spaceId, (nextSpaceId, previousSpaceId) => {
+  if (nextSpaceId && nextSpaceId !== 'undefined') capabilityStore.load(nextSpaceId)
   if (!nextSpaceId || nextSpaceId === previousSpaceId) return
   requestId.value += 1
   sourceRequestId.value += 1
@@ -221,7 +225,7 @@ watch(spaceId, (nextSpaceId, previousSpaceId) => {
   milestones.value = []
   environments.value = []
   loadRuns({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] })
-})
+}, { immediate: true })
 
 const hasSource = computed(() => {
   if (newRun.value.sourceType === 'suite') return Boolean(newRun.value.suite_id)

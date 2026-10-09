@@ -81,7 +81,7 @@
 - Tech Docs distinguishes an empty tree from search no-match; load errors stay distinct and Retry remains keyboard accessible.
 - Analytics shows a first-empty state and separates aggregate request failure from zero-valued metrics.
 - For cases, suites, plans, runs, bugs, run detail, plan case picker, Tech Docs and analytics, simulate a non-permission error (Retry) and HTTP 403 (permission message, no Retry).
-- Role-based Create CTA visibility remains an open manual check: there is no shared frontend capability source yet. Do not interpret currently visible create affordances as permission proof.
+- Verify read-only collaborators see no create/edit/delete actions on cases, suites, plans, and runs; their empty states explain the restriction. Switch between spaces with different rights and confirm controls update without a page reload.
 - UX3 desktop source review (2026-10-09): common empty-state component and route/request guards were reviewed; case search no-match plus Clear filters was observed in the desktop browser and restored the case list. Controlled error/403, keyboard interaction across all states and read-only role fixtures remain open.
 - Mobile implementation and smoke are deferred for this roadmap pass per user instruction.
 

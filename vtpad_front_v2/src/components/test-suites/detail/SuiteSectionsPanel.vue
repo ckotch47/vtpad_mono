@@ -4,7 +4,7 @@
       <v-icon class="mr-2">mdi-folder-open-outline</v-icon>
       Sections
       <v-spacer />
-      <v-btn icon size="small" variant="text" aria-label="Add section" @click="$emit('add-section')">
+      <v-btn v-if="canEdit" icon size="small" variant="text" aria-label="Add section" @click="$emit('add-section')">
         <v-icon>mdi-plus</v-icon>
       </v-btn>
     </v-card-title>
@@ -74,6 +74,7 @@
                 icon="mdi-drag"
                 size="x-small"
                 variant="text"
+                v-if="canEdit"
                 :draggable="!sorting"
                 :aria-label="`Drag ${item.name} to reorder within its parent`"
                 :disabled="sorting"
@@ -92,6 +93,7 @@
           <template #append>
             <div class="d-flex align-center">
               <v-btn
+                v-if="canEdit"
                 icon="mdi-chevron-up"
                 size="x-small"
                 variant="text"
@@ -100,6 +102,7 @@
                 @click.stop="moveByKeyboard(item, -1)"
               />
               <v-btn
+                v-if="canEdit"
                 icon="mdi-chevron-down"
                 size="x-small"
                 variant="text"
@@ -107,7 +110,7 @@
                 :disabled="sorting || !hasSiblingAt(item, 1)"
                 @click.stop="moveByKeyboard(item, 1)"
               />
-              <v-menu location="end" :close-on-content-click="true">
+              <v-menu v-if="canEdit" location="end" :close-on-content-click="true">
                 <template #activator="{ props: menuProps }">
                   <v-btn
                     icon="mdi-dots-vertical"
@@ -154,6 +157,7 @@ import { computed, ref, watch } from 'vue'
 import { sectionService } from '@/services'
 
 const props = defineProps({
+  canEdit: { type: Boolean, default: false },
   flatSections: { type: Array, default: () => [] },
   selectedSection: { type: Object, default: null }
 })

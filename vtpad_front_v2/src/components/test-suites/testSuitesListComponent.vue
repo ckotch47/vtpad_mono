@@ -38,7 +38,7 @@
       />
       </template>
       <template #actions>
-      <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
+      <v-btn v-if="canEditSuites" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">
         New Test Suite
       </v-btn>
       </template>
@@ -93,6 +93,7 @@
                 {{ item.status || 'active' }}
               </v-chip>
               <v-btn
+                v-if="canEditSuites"
                 icon="mdi-pencil"
                 size="x-small"
                 variant="text"
@@ -100,6 +101,7 @@
                 @click.stop.prevent="editSuite(item)"
               />
               <v-btn
+                v-if="canEditSuites"
                 icon="mdi-archive-outline"
                 size="x-small"
                 variant="text"
@@ -114,7 +116,7 @@
         v-else-if="!initialLoading && !loadError"
         icon="mdi-folder-search-outline"
         :title="search || filterStatus ? 'No matching suites' : 'No test suites yet'"
-        :text="search || filterStatus ? 'Try changing the search or status filter.' : 'Create a suite to start organizing test cases.'"
+        :text="search || filterStatus ? 'Try changing the search or status filter.' : canEditSuites ? 'Create a suite to start organizing test cases.' : 'You have read-only access to suites in this space.'"
         :action-label="search || filterStatus ? 'Clear filters' : ''"
         @action="search = ''; filterStatus = ''; onFilterChange()"
         class="suite-navigation__empty"
@@ -195,12 +197,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { testSuiteService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const emit = defineEmits(['suite-changed'])
 
 const route = useRoute()
 const router = useRouter()
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canEditSuites = computed(() => capabilityStore.can(spaceId.value, 'suites'))
 
 const suites = ref([])
 const totalSuites = ref(0)
@@ -422,6 +427,7 @@ watch(() => route.query, (query, oldQuery) => {
 }, { deep: true })
 
 watch(spaceId, (nextSpaceId, oldSpaceId) => {
+  if (nextSpaceId && nextSpaceId !== 'undefined') capabilityStore.load(nextSpaceId)
   if (nextSpaceId !== oldSpaceId) {
     clearTimeout(optionsDebounce.value)
     requestId.value += 1

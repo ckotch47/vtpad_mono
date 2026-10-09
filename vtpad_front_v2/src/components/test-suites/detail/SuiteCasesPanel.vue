@@ -18,10 +18,10 @@
         clearable
         @update:model-value="$emit('update:caseSearch', $event)"
       />
-      <v-btn size="small" variant="outlined" prepend-icon="mdi-playlist-plus" class="mr-2 mt-2 mt-md-0" @click="$emit('open-add-existing')">
+      <v-btn v-if="canEditCases" size="small" variant="outlined" prepend-icon="mdi-playlist-plus" class="mr-2 mt-2 mt-md-0" @click="$emit('open-add-existing')">
         Existing
       </v-btn>
-      <v-btn size="small" color="primary" prepend-icon="mdi-plus" class="mt-2 mt-md-0" @click="$emit('open-add-new')">
+      <v-btn v-if="canEditCases" size="small" color="primary" prepend-icon="mdi-plus" class="mt-2 mt-md-0" @click="$emit('open-add-new')">
         New
       </v-btn>
     </v-card-title>
@@ -48,6 +48,7 @@
           </v-list-item-subtitle>
           <template #append>
             <v-btn
+              v-if="canEditCases"
               icon="mdi-folder-move-outline"
               size="x-small"
               variant="text"
@@ -68,7 +69,7 @@
         v-else
         icon="mdi-test-tube-off"
         :title="caseSearch?.trim() ? 'No matching test cases' : 'No test cases in this section'"
-        :text="caseSearch?.trim() ? 'Try another title or short name, or clear the search.' : 'Add a test case or move an existing case into this section.'"
+        :text="caseSearch?.trim() ? 'Try another title or short name, or clear the search.' : canEditCases ? 'Add a test case or move an existing case into this section.' : 'You have read-only access to cases in this space.'"
       />
     </v-card-text>
   </v-card>
@@ -80,7 +81,7 @@
   </v-card>
 
   <!-- Add Existing Cases Dialog -->
-  <v-dialog :model-value="openAddExistingCase" max-width="560" @update:model-value="$emit('update:openAddExistingCase', $event)">
+  <v-dialog v-if="canEditCases" :model-value="openAddExistingCase" max-width="560" @update:model-value="$emit('update:openAddExistingCase', $event)">
     <v-card>
       <v-card-title>Add Existing Test Cases</v-card-title>
       <v-card-text>
@@ -119,7 +120,7 @@
   </v-dialog>
 
   <!-- Add New Test Case Dialog -->
-  <v-dialog :model-value="openAddCase" max-width="500" @update:model-value="$emit('update:openAddCase', $event)">
+  <v-dialog v-if="canEditCases" :model-value="openAddCase" max-width="500" @update:model-value="$emit('update:openAddCase', $event)">
     <v-card>
       <v-card-title>Add Test Case</v-card-title>
       <v-card-text>
@@ -142,7 +143,7 @@
     </v-card>
   </v-dialog>
 
-  <v-dialog :model-value="moveCaseOpen" max-width="520" @update:model-value="$emit('update:moveCaseOpen', $event)">
+  <v-dialog v-if="canEditCases" :model-value="moveCaseOpen" max-width="520" @update:model-value="$emit('update:moveCaseOpen', $event)">
     <v-card>
       <v-card-title>Move test case</v-card-title>
       <v-card-text>
@@ -180,6 +181,7 @@
 import { computed } from 'vue'
 
 const props = defineProps({
+  canEditCases: { type: Boolean, default: false },
   selectedSection: { type: Object, default: null },
   filteredTestCases: { type: Array, default: () => [] },
   caseSearch: { type: String, default: '' },

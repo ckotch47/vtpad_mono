@@ -29,7 +29,7 @@
           <p v-if="suite.description" class="text-body-1 text-medium-emphasis mt-1">{{ suite.description }}</p>
         </v-col>
         <v-col cols="auto">
-          <v-btn color="primary" prepend-icon="mdi-play" @click="createRun">New Run</v-btn>
+          <v-btn v-if="canManageRuns" color="primary" prepend-icon="mdi-play" @click="createRun">New Run</v-btn>
         </v-col>
       </v-row>
     </v-container>
@@ -75,6 +75,7 @@
             </v-list>
           </v-card>
           <suite-sections-panel
+            :can-edit="canEditSections"
             :flat-sections="flatSections"
             :selected-section="selectedSection"
             @reorder="onSectionsReordered"
@@ -87,6 +88,7 @@
         </v-col>
         <v-col cols="12" md="9">
           <suite-cases-panel
+            :can-edit-cases="canEditCases"
             :selected-section="selectedSection"
             :filtered-test-cases="filteredTestCases"
             :case-search="caseSearch"
@@ -142,7 +144,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useTestSuiteDetail } from '@/composables/useTestSuiteDetail'
 import BreadcrumbsComponent from '@/components/common/breadcrumbsComponent.vue'
@@ -150,6 +152,7 @@ import SuiteSectionsPanel from './SuiteSectionsPanel.vue'
 import SuiteCasesPanel from './SuiteCasesPanel.vue'
 import SectionDialog from './SectionDialog.vue'
 import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const {
   spaceId,
@@ -204,10 +207,18 @@ const {
 } = useTestSuiteDetail()
 
 const route = useRoute()
+const capabilityStore = useSpaceCapabilitiesStore()
+const canEditCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
+const canEditSections = computed(() => capabilityStore.can(spaceId.value, 'sections'))
+const canManageRuns = computed(() => capabilityStore.can(spaceId.value, 'runs'))
 const listRoute = computed(() => ({
   path: `/space/${spaceId.value}/test-suites`,
   query: route.query
 }))
+
+watch(spaceId, (id) => {
+  if (id && id !== 'undefined') capabilityStore.load(id)
+}, { immediate: true })
 
 const stats = computed(() => [
   { label: 'Total Cases', value: allCases.value.length, icon: 'mdi-test-tube', color: 'primary' },

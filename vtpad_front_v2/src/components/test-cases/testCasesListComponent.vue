@@ -92,10 +92,10 @@
         </div>
       </template>
       <template #actions>
-        <v-btn v-if="selectedCases.length" size="small" variant="text" color="error" @click="bulkDelete">Delete ({{ selectedCases.length }})</v-btn>
-        <v-btn v-if="selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">Change Status ({{ selectedCases.length }})</v-btn>
-        <v-btn v-if="loadErrorStatus !== 403" variant="outlined" @click="openTemplates = true">Case Templates</v-btn>
-        <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">New Test Case</v-btn>
+        <v-btn v-if="canEditCases && selectedCases.length" size="small" variant="text" color="error" @click="bulkDelete">Delete ({{ selectedCases.length }})</v-btn>
+        <v-btn v-if="canEditCases && selectedCases.length" size="small" variant="text" @click="bulkStatusDialog = true">Change Status ({{ selectedCases.length }})</v-btn>
+        <v-btn v-if="canEditCases" variant="outlined" @click="openTemplates = true">Case Templates</v-btn>
+        <v-btn v-if="canEditCases" color="primary" prepend-icon="mdi-plus" @click="openCreate = true">New Test Case</v-btn>
       </template>
     </list-page-toolbar>
 
@@ -123,7 +123,7 @@
       :loading="tableLoading"
       :sort-by="sortBy"
       hover
-      show-select
+      :show-select="canEditCases"
       item-value="id"
       @update:options="loadCases"
     >
@@ -183,7 +183,7 @@
       <template v-slot:[`item.updated_at`]="{ item }">
         {{ formatDate(item.updated_at) }}
       </template>
-      <template v-slot:[`item.actions`]="{ item }">
+      <template v-if="canEditCases" v-slot:[`item.actions`]="{ item }">
         <v-btn icon size="x-small" variant="text" :aria-label="`Duplicate ${item.title}`" :title="`Duplicate ${item.title}`" @click.stop="duplicateCase(item.id)">
           <v-icon>mdi-content-copy</v-icon>
         </v-btn>
@@ -349,11 +349,14 @@ import CustomFieldValuesComponent from '@/components/custom-fields/customFieldVa
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
 import CaseTemplatesDialog from '@/components/test-cases/CaseTemplatesDialog.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 const route = useRoute()
 const router = useRouter()
 
 const spaceId = computed(() => route.params.spaceId)
+const capabilityStore = useSpaceCapabilitiesStore()
+const canEditCases = computed(() => capabilityStore.can(spaceId.value, 'cases'))
 
 const cases = ref([])
 const totalCases = ref(0)
@@ -735,6 +738,7 @@ function normalizeTags(tags) {
 }
 
 onMounted(() => {
+  capabilityStore.load(spaceId.value)
   loadTagOptions()
   loadSuiteOptions()
 })
@@ -770,6 +774,7 @@ watch(() => route.query, (query) => {
 }, { deep: true })
 
 watch(spaceId, () => {
+  if (spaceId.value && spaceId.value !== 'undefined') capabilityStore.load(spaceId.value)
   caseListRequestId += 1
   tableLoading.value = false
   loadTagOptions()

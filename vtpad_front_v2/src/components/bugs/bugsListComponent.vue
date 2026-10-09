@@ -17,7 +17,7 @@
     </template>
     <template #actions>
     <v-btn variant="outlined" text="Filter" @click="isModalFilter = true" />
-    <v-btn v-if="loadErrorStatus !== 403" color="primary" prepend-icon="mdi-plus" class="ml-2" @click="createBug">
+    <v-btn v-if="canManageBugs" color="primary" prepend-icon="mdi-plus" class="ml-2" @click="createBug">
       New Bug
     </v-btn>
     </template>
@@ -71,6 +71,9 @@
     :is-active="dialog"
     :bug-item="store.openBug"
     :filters="filter"
+    :can-manage-bugs="canManageBugs"
+    :can-manage-comments="canManageComments"
+    :can-edit-tags="canEditTags"
     @close-bug-modal="closeBugModal()"
     @updateBug="updateBugInList"
   />
@@ -86,10 +89,15 @@ import BugsModalComponent from '@/components/bugs/modal/bugsModalComponent.vue'
 import BugsDataTable from './BugsDataTable.vue'
 import PageHeaderComponent from '@/components/common/pageHeaderComponent.vue'
 import ListPageToolbar from '@/components/common/ListPageToolbar.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 const route = useRoute()
 const store = useAppStore()
+const capabilityStore = useSpaceCapabilitiesStore()
 
 const spaceId = computed(() => route.params.spaceId)
+const canManageBugs = computed(() => capabilityStore.can(spaceId.value, 'bugs'))
+const canManageComments = computed(() => capabilityStore.can(spaceId.value, 'bug_comments'))
+const canEditTags = computed(() => capabilityStore.can(spaceId.value, 'tags'))
 
 const props = defineProps({
   spaseIdFrom: undefined
@@ -148,6 +156,7 @@ watch(() => props.spaseIdFrom, () => {
 }, { deep: true })
 
 watch(() => route.params.spaceId, () => {
+  if (route.params.spaceId) capabilityStore.load(route.params.spaceId)
   openPage()
 }, { immediate: true })
 

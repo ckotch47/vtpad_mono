@@ -15,6 +15,7 @@
       <v-col cols="12" md="3" class="sidebar-col">
         <tech-doc-sidebar
           ref="sidebarRef"
+          :can-edit="canEditTechDocs"
           v-model:query="treeQuery"
           :items="flatFilteredPages"
           :loading="treeLoading"
@@ -33,6 +34,8 @@
       <!-- Content -->
       <v-col cols="12" md="9" class="content-col">
         <tech-doc-content
+          :can-edit="canEditTechDocs"
+          :can-edit-traceability="canEditTraceability"
           :doc="selectedDoc"
           :editing="editing"
           :is-creating="isCreating"
@@ -64,16 +67,25 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useTechDocs } from '@/composables/useTechDocs'
 import TechDocSidebar from '@/components/tech-docs/TechDocSidebar.vue'
 import TechDocContent from '@/components/tech-docs/TechDocContent.vue'
+import { useSpaceCapabilitiesStore } from '@/stores/spaceCapabilities'
 
 defineOptions({ name: 'TechDocsPage' })
 
 const sidebarRef = ref(null)
 const route = useRoute()
+const capabilities = useSpaceCapabilitiesStore()
+const spaceId = computed(() => route.params.spaceId)
+const canEditTechDocs = computed(() => capabilities.can(spaceId.value, 'tech_docs'))
+const canEditTraceability = computed(() => capabilities.can(spaceId.value, 'traceability'))
+
+watch(spaceId, (id) => {
+  if (id && id !== 'undefined') capabilities.load(id)
+}, { immediate: true })
 
 const techDocs = useTechDocs()
 const {

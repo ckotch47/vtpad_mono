@@ -13,6 +13,7 @@
       <bugs-modal-comment-comment-elem
         v-else-if="event.view === 'comment'"
         :comment="event"
+        :can-edit="canEditComments"
         @editComment="editComment"
       />
     </v-timeline-item>
@@ -24,7 +25,8 @@ import BugsModalCommentHistoryElem from '@/components/bugs/modal/comment/bugsMod
 import BugsModalCommentCommentElem from '@/components/bugs/modal/comment/bugsModalCommentCommentElem.vue'
 
 defineProps({
-  events: Array
+  events: Array,
+  canEditComments: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['editComment'])

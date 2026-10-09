@@ -6,7 +6,7 @@
         <div v-if="comment.view === 'comment'" v-html="sanitizedText" />
       </div>
       <div class="flex-shrink-0">
-        <v-icon icon="mdi-pencil" size="14" @click="editComment" />
+        <v-icon v-if="canEdit" icon="mdi-pencil" size="14" @click="editComment" />
         {{ comment.create_date ? comment.create_date.split('T')[0] : '' }}
       </div>
     </div>
@@ -21,7 +21,8 @@ const props = defineProps({
   username: String,
   text: String,
   date: String,
-  comment: Object
+  comment: Object,
+  canEdit: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['editComment'])

@@ -4,7 +4,7 @@
       <v-icon class="ml-2">mdi-book-open-variant</v-icon>
       <v-toolbar-title class="text-subtitle-2">Pages</v-toolbar-title>
       <v-spacer />
-      <v-btn v-if="errorStatus !== 403" icon="mdi-plus" size="small" variant="text" aria-label="Create page" title="Create page" @click="$emit('create')" />
+      <v-btn v-if="canEdit && errorStatus !== 403" icon="mdi-plus" size="small" variant="text" aria-label="Create page" title="Create page" @click="$emit('create')" />
     </v-toolbar>
     <v-card-text class="pa-2 pb-0 tech-doc-list">
       <v-text-field
@@ -51,7 +51,7 @@
             {{ item.title }}
           </v-list-item-title>
           <template v-slot:append>
-            <v-menu location="end" :close-on-content-click="true">
+            <v-menu v-if="canEdit" location="end" :close-on-content-click="true">
               <template v-slot:activator="{ props }">
                 <v-btn
                   v-bind="props"
@@ -65,10 +65,10 @@
                 />
               </template>
               <v-list density="compact" min-width="140">
-                <v-list-item prepend-icon="mdi-plus" title="Add subpage" @click="$emit('create-subpage', item.id)" />
-                <v-list-item prepend-icon="mdi-pencil" title="Rename" @click="$emit('rename', item.id)" />
+                <v-list-item v-if="canEdit" prepend-icon="mdi-plus" title="Add subpage" @click="$emit('create-subpage', item.id)" />
+                <v-list-item v-if="canEdit" prepend-icon="mdi-pencil" title="Rename" @click="$emit('rename', item.id)" />
                 <v-divider />
-                <v-list-item prepend-icon="mdi-delete" title="Delete" class="text-error" @click="$emit('delete', item.id)" />
+                <v-list-item v-if="canEdit" prepend-icon="mdi-delete" title="Delete" class="text-error" @click="$emit('delete', item.id)" />
               </v-list>
             </v-menu>
           </template>
@@ -79,7 +79,7 @@
         class="ma-2"
         :icon="localQuery ? 'mdi-filter-off-outline' : 'mdi-book-open-page-variant-outline'"
         :title="localQuery ? 'No matching pages' : 'No documentation pages yet'"
-        :text="localQuery ? 'Clear the search to see all pages.' : 'Use Create page above if you have permission to add documentation.'"
+        :text="localQuery ? 'Clear the search to see all pages.' : canEdit ? 'Create a documentation page to get started.' : 'You have read-only access to Tech Docs in this space.'"
         :action-label="localQuery ? 'Clear search' : ''"
         @action="localQuery = ''"
       />
@@ -92,6 +92,7 @@ import { computed, ref, watch } from 'vue'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
 
 const props = defineProps({
+  canEdit: { type: Boolean, default: false },
   items: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   error: { type: Boolean, default: false },

@@ -20,14 +20,14 @@
       <div v-else-if="pagesError && pagesErrorStatus !== 403" class="mt-4">
         <v-btn color="primary" variant="tonal" @click="$emit('retry-load')">Retry</v-btn>
       </div>
-      <v-btn v-else-if="!pagesLoading && !pagesError && !selectedDocError && !hasPages" color="primary" class="mt-6" prepend-icon="mdi-plus" @click="$emit('create')">
+      <v-btn v-else-if="canEdit && !pagesLoading && !pagesError && !selectedDocError && !hasPages" color="primary" class="mt-6" prepend-icon="mdi-plus" @click="$emit('create')">
         Create first page
       </v-btn>
     </v-card-text>
   </v-card>
 
   <!-- View mode -->
-  <v-card v-else-if="doc && !editing" flat class="content-card">
+  <v-card v-else-if="doc && (!editing || !canEdit)" flat class="content-card">
     <v-toolbar density="comfortable" color="surface">
       <div class="ml-2">
         <v-breadcrumbs v-if="path.length" :items="path" density="compact" class="pa-0" />
@@ -36,9 +36,9 @@
       </div>
       <v-spacer />
       <v-chip size="small" :color="typeColor(doc.doc_type)" class="mr-2">{{ doc.doc_type }}</v-chip>
-      <v-btn icon="mdi-pencil" size="small" variant="text" aria-label="Edit page" title="Edit page" @click="$emit('edit')" />
-      <v-btn icon="mdi-plus" size="small" variant="text" aria-label="Create subpage" title="Create subpage" @click="$emit('create-subpage')" />
-      <v-btn icon="mdi-delete" size="small" variant="text" color="error" aria-label="Delete page" title="Delete page" @click="$emit('delete')" />
+      <v-btn v-if="canEdit" icon="mdi-pencil" size="small" variant="text" aria-label="Edit page" title="Edit page" @click="$emit('edit')" />
+      <v-btn v-if="canEdit" icon="mdi-plus" size="small" variant="text" aria-label="Create subpage" title="Create subpage" @click="$emit('create-subpage')" />
+      <v-btn v-if="canEdit" icon="mdi-delete" size="small" variant="text" color="error" aria-label="Delete page" title="Delete page" @click="$emit('delete')" />
     </v-toolbar>
     <v-divider />
     <v-card-text v-if="doc.source_url" class="pb-0 source-url-section">
@@ -77,16 +77,16 @@
       <div v-if="!doc.content" class="text-grey text-center py-10">
         <v-icon size="48">mdi-text-box-outline</v-icon>
         <div class="mt-2">No content yet</div>
-        <v-btn variant="text" color="primary" @click="$emit('edit')">Add content</v-btn>
+        <v-btn v-if="canEdit" variant="text" color="primary" @click="$emit('edit')">Add content</v-btn>
       </div>
       <v-card variant="tonal" class="mt-5">
         <v-card-title class="text-subtitle-1 d-flex align-center">
           Linked test cases
           <v-spacer />
-          <v-btn v-if="!editingLinks" size="small" variant="text" @click="editingLinks = true">Edit links</v-btn>
+          <v-btn v-if="canEditTraceability && !editingLinks" size="small" variant="text" @click="editingLinks = true">Edit links</v-btn>
         </v-card-title>
         <v-card-text>
-          <template v-if="editingLinks">
+          <template v-if="editingLinks && canEditTraceability">
             <v-autocomplete
               v-model="linkedCaseIds"
               :items="availableCases"
@@ -111,7 +111,7 @@
 
   <!-- Edit mode -->
   <v-card
-    v-else-if="editing"
+  v-else-if="editing && canEdit"
     flat
     class="content-card"
     data-keyboard-save-scope
@@ -189,6 +189,8 @@ const route = useRoute()
 const spaceId = computed(() => route.params.spaceId)
 
 const props = defineProps({
+  canEdit: { type: Boolean, default: false },
+  canEditTraceability: { type: Boolean, default: false },
   doc: { type: Object, default: null },
   editing: { type: Boolean, default: false },
   isCreating: { type: Boolean, default: false },

@@ -33,8 +33,8 @@
       </div>
 
       <v-text-field
-        v-if="!loader"
-        v-model="bugItem.title"
+        v-if="!loader && canManageBugs"
+        v-model="bugTitle"
         class="custom-text--input"
         variant="outlined"
         placeholder="Title"
@@ -44,10 +44,12 @@
       <div v-if="!loader" class="bug-modal--content d-flex">
         <div class="bug-modal--content_left">
           <bugs-modal-editor-list-component
+            v-if="canManageBugs"
             :bug="openBugElem"
             @update-bug-text-emit="getHistory"
           />
           <bugs-modal-comment-component
+            v-if="canManageComments"
             :bug="openBugElem"
             :edit="isEditComment"
             :comment="editComment"
@@ -56,18 +58,21 @@
           <bugs-modal-history-component-v2
             :bug="openBugElem"
             :history="history"
+            :can-edit-comments="canManageComments"
             @edit-comment="editCommentEvent"
           />
           <attachment-list-component
-            v-if="bugItem?.id"
+            v-if="bugItem?.id && canManageBugs"
             entity-type="bug"
             :entity-id="bugItem.id"
           />
         </div>
         <div class="bug-modal--content_right">
           <bugs-modal-setting-component
+            v-if="canManageBugs"
             :bug="openBugElem"
             :filter="filters"
+            :can-edit-tags="canEditTags"
             @update-bug="updateBug"
           />
         </div>
@@ -77,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { bugService, commentService } from '@/services'
 import BugsModalEditorListComponent from '@/components/bugs/modal/bugsModalEditorListComponent.vue'
 import BugsModalSettingComponent from '@/components/bugs/modal/bugsModalSettingComponent.vue'
@@ -88,11 +93,19 @@ import AttachmentListComponent from '@/components/attachments/attachmentListComp
 const props = defineProps({
   isActive: Boolean,
   bugItem: Object,
+  canManageBugs: { type: Boolean, default: false },
+  canManageComments: { type: Boolean, default: false },
+  canEditTags: { type: Boolean, default: false },
   filters: Object,
   full: Boolean
 })
 
 const emit = defineEmits(['updateBug', 'closeBugModal'])
+const bugTitle = ref('')
+
+watch(() => props.bugItem?.title, (title) => {
+  bugTitle.value = title || ''
+}, { immediate: true })
 
 const loader = ref(true)
 const openBugElem = ref(undefined)
@@ -124,7 +137,7 @@ function updateBug(bug) {
 
 function updateBugTitle() {
   bugService.update(props.bugItem.id, {
-    title: props.bugItem.title
+    title: bugTitle.value
   }).then(res => {
     openBugElem.value = res.data
     emit('updateBug', res.data)

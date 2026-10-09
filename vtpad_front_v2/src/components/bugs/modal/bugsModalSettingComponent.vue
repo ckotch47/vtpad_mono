@@ -7,7 +7,7 @@
   />
 
   <v-select
-    v-model="bug.assigner_user.id"
+    :model-value="bug.assigner_user.id"
     class="select-custom"
     label="Assigner"
     :items="filter.user"
@@ -18,7 +18,7 @@
   />
 
   <v-select
-    v-model="bug.state"
+    :model-value="bug.state"
     class="select-custom"
     label="State"
     :items="filter.state"
@@ -38,7 +38,8 @@
   </div>
 
   <v-select
-    v-model="bug.tag"
+    :model-value="bug.tag"
+    :disabled="!canEditTags"
     class="select-custom"
     label="Tags"
     multiple
@@ -56,7 +57,8 @@ import { bugService } from '@/services'
 
 const props = defineProps({
   bug: Object,
-  filter: Object
+  filter: Object,
+  canEditTags: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['updateBug'])

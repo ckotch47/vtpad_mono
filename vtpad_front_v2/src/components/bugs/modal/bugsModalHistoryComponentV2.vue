@@ -13,6 +13,7 @@
       <v-tabs-window-item :value="0">
         <bugs-modal-history-list-component
           :events="history.filter(value => value.view === 'comment')"
+          :can-edit-comments="canEditComments"
           @editComment="editComment"
         />
       </v-tabs-window-item>
@@ -20,6 +21,7 @@
       <v-tabs-window-item :value="1">
         <bugs-modal-history-list-component
           :events="history"
+          :can-edit-comments="canEditComments"
           @editComment="editComment"
         />
       </v-tabs-window-item>
@@ -33,7 +35,8 @@ import BugsModalHistoryListComponent from '@/components/bugs/modal/history/bugsM
 
 defineProps({
   bug: Object,
-  history: Array
+  history: Array,
+  canEditComments: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['editComment'])

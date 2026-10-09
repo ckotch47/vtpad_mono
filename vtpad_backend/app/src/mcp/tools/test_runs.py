@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def _transition_run(run_id: str, action: str) -> dict:
     request = get_http_request()
     run = await TestRunService.get_by_id(run_id)
-    await check_user_into_space(str(run.space_id), request)
+    await check_user_into_space(str(run.space_id), request, capability="runs")
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     transition = getattr(TestRunService, action)
     updated = await transition(run_id, token)
@@ -101,7 +101,7 @@ async def create_test_run(
     """
     request = get_http_request()
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    await check_user_into_space(space_id, request)
+    await check_user_into_space(space_id, request, capability="runs")
     dto = TestRunCreateDto(
         space_id=space_id,
         suite_id=suite_id,

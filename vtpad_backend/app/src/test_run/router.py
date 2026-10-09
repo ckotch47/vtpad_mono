@@ -14,9 +14,9 @@ router = APIRouter(
 )
 
 
-async def _require_run_access(run_id: str, request: Request):
+async def _require_run_access(run_id: str, request: Request, capability: str | None = None):
     run = await TestRunService.get_by_id(run_id)
-    await check_user_into_space(str(run.space_id), request)
+    await check_user_into_space(str(run.space_id), request, capability=capability)
     return run
 
 
@@ -110,7 +110,7 @@ async def compare_runs(run_id: str, other_run_id: str, request: Request):
 
 @router.post('/', dependencies=[Depends(bearer)])
 async def create(dto: TestRunCreateDto, request: Request, token: str = Depends(bearer)):
-    await check_user_into_space(dto.space_id, request)
+    await check_user_into_space(dto.space_id, request, capability="runs")
     return await TestRunService.create(dto, token)
 
 
@@ -123,41 +123,41 @@ async def preview(dto: TestRunCreateDto, request: Request):
 
 @router.patch('/{run_id}', dependencies=[Depends(bearer)])
 async def update(run_id: str, dto: TestRunUpdateDto, request: Request):
-    await _require_run_access(run_id, request)
+    await _require_run_access(run_id, request, capability="runs")
     return await TestRunService.update(run_id, dto)
 
 
 @router.post('/{run_id}/start', dependencies=[Depends(bearer)])
 async def start(run_id: str, request: Request, token: str = Depends(bearer)):
-    await _require_run_access(run_id, request)
+    await _require_run_access(run_id, request, capability="runs")
     run = await TestRunService.start(run_id, token)
     return await _timer_transition_response(run_id, run)
 
 
 @router.post('/{run_id}/pause', dependencies=[Depends(bearer)])
 async def pause(run_id: str, request: Request, token: str = Depends(bearer)):
-    await _require_run_access(run_id, request)
+    await _require_run_access(run_id, request, capability="runs")
     run = await TestRunService.pause(run_id, token)
     return await _timer_transition_response(run_id, run)
 
 
 @router.post('/{run_id}/resume', dependencies=[Depends(bearer)])
 async def resume(run_id: str, request: Request, token: str = Depends(bearer)):
-    await _require_run_access(run_id, request)
+    await _require_run_access(run_id, request, capability="runs")
     run = await TestRunService.resume(run_id, token)
     return await _timer_transition_response(run_id, run)
 
 
 @router.post('/{run_id}/complete', dependencies=[Depends(bearer)])
 async def complete(run_id: str, request: Request, token: str = Depends(bearer)):
-    await _require_run_access(run_id, request)
+    await _require_run_access(run_id, request, capability="runs")
     run = await TestRunService.complete(run_id, token)
     return await _timer_transition_response(run_id, run)
 
 
 @router.delete('/{run_id}', dependencies=[Depends(bearer)])
 async def delete(run_id: str, request: Request):
-    await _require_run_access(run_id, request)
+    await _require_run_access(run_id, request, capability="runs")
     return await TestRunService.delete(run_id)
 
 

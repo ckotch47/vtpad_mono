@@ -116,31 +116,31 @@
 | POST | `/api/v2/test-plan/preview-selection` | JWT + space check | validates same-space sources and typed testcase custom-field filters; returns selected count and up to 100 case IDs using the same resolver as saved plans and run creation |
 | GET | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | gets plan configuration after checking space access |
 | GET | `/api/v2/test-plan/{plan_id}/cases` | JWT + plan-space check | resolved suite/case union after intersecting priority, all-tags, and typed custom-field filters |
-| POST | `/api/v2/test-plan/` | JWT + space check | creates a plan with optional `suite_ids`, `case_ids`, and `filters` |
-| PATCH | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | updates supplied source/filter fields; omitted filters remain unchanged and `filters: {}` clears filters |
-| DELETE | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | deletes the plan after checking access to its space |
+| POST | `/api/v2/test-plan/` | JWT + `plans` capability | creates a plan with optional `suite_ids`, `case_ids`, and `filters` |
+| PATCH | `/api/v2/test-plan/{plan_id}` | JWT + `plans` capability | updates supplied source/filter fields; omitted filters remain unchanged and `filters: {}` clears filters |
+| DELETE | `/api/v2/test-plan/{plan_id}` | JWT + `plans` capability | deletes the plan after checking access to its space |
 | POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с suite, root→leaf `section_path` и `source_hash`; source, case content, versions, tags, custom fields и locations читаются в одном PostgreSQL `REPEATABLE READ` snapshot |
-| POST | `/api/v2/test-run` | JWT + space check | создаёт run и self-contained result snapshots для cases любого статуса; атомарный selection snapshot согласован даже если caller не передал optional `source_hash`; устаревший preview возвращает `409` |
+| POST | `/api/v2/test-run` | JWT + `runs` capability | создаёт run и self-contained result snapshots для cases любого статуса; атомарный selection snapshot согласован даже если caller не передал optional `source_hash`; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`, `status`; возвращает nullable `created_by` с `{id, username}` и `completed_at` |
 | GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
 | GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты со suite и `section_path` (root→leaf), snapshot/legacy-признак, run timer и сумма фактических длительностей; `linked_bug_ids` остаётся массивом, `linked_bug_ids_raw` содержит неизменённое legacy JSON (включая `null`), `linked_bugs` содержит новые UUID-связи |
 | GET | `/api/v2/test-run/{run_id}/compare/{other_run_id}` | JWT + same-space check | сравнивает два завершённых run по сохранённым testcase snapshots; другой space скрывается как `404`, неполный статус возвращает `422`; сравнение без snapshot помечает неизвестные поля и не читает текущий testcase |
-| PATCH | `/api/v2/test-run/{run_id}` | JWT + space check | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
-| POST | `/api/v2/test-run/{run_id}/public-link` | JWT + strict active-space membership | создаёт или ротирует единственную публичную ссылку; 256-bit token возвращается один раз, TTL 7 дней |
+| PATCH | `/api/v2/test-run/{run_id}` | JWT + `runs` capability | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
+| POST | `/api/v2/test-run/{run_id}/public-link` | JWT + `runs` capability and public-link owner/creator/admin check | создаёт или ротирует единственную публичную ссылку; 256-bit token возвращается один раз, TTL 7 дней |
 | GET | `/api/v2/test-run/{run_id}/public-link` | JWT + strict active-space membership | возвращает только состояние и даты ссылки, никогда не возвращает token |
-| DELETE | `/api/v2/test-run/{run_id}/public-link` | JWT + strict active-space membership | отзывает активную ссылку идемпотентно |
+| DELETE | `/api/v2/test-run/{run_id}/public-link` | JWT + `runs` capability and public-link owner/creator/admin check | отзывает активную ссылку идемпотентно |
 | GET | `/api/v2/test-run/public/shared` | Bearer share token в `Authorization` | публичная ограниченная сводка; одинаковый `404` для неизвестной/истёкшей/отозванной ссылки, `no-store`, без referrer; endpoint закрыт feature flag по умолчанию |
-| POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | переводит run из `draft` в `active` и открывает общий timer interval |
-| POST | `/api/v2/test-run/{run_id}/pause` | JWT + space check | закрывает текущий общий timer interval |
-| POST | `/api/v2/test-run/{run_id}/resume` | JWT + space check | открывает следующий общий timer interval |
-| POST | `/api/v2/test-run/{run_id}/complete` | JWT + space check | атомарно завершает active run, закрывает timer interval и создаёт одно уведомление `RUN_COMPLETED` создателю при наличии `created_by`; payload содержит только `run_id` и route |
-| PATCH | `/api/v2/test-run/result/{result_id}` | JWT + space check | меняет статус и детали результата только в active run; фактическая длительность `>= 0`, `NULL` означает «нет замера»; ответ включает массив `linked_bug_ids` и оригинал `linked_bug_ids_raw` |
-| POST | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + space check | идемпотентно связывает result с bug по `link_uuid` в том же space |
-| DELETE | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + space check | удаляет UUID-связь с bug в том же space |
-| POST | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper для UUID-связи; только для active run и ровно одного совпадения, неоднозначность возвращает `409` |
-| DELETE | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + space check | short-name convenience wrapper с теми же active-run и ambiguity проверками |
-| POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + space check | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
-| PATCH | `/api/v2/test-run/result/bulk` | JWT + space check | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
+| POST | `/api/v2/test-run/{run_id}/start` | JWT + `runs` capability | переводит run из `draft` в `active` и открывает общий timer interval |
+| POST | `/api/v2/test-run/{run_id}/pause` | JWT + `runs` capability | закрывает текущий общий timer interval |
+| POST | `/api/v2/test-run/{run_id}/resume` | JWT + `runs` capability | открывает следующий общий timer interval |
+| POST | `/api/v2/test-run/{run_id}/complete` | JWT + `runs` capability | атомарно завершает active run, закрывает timer interval и создаёт одно уведомление `RUN_COMPLETED` создателю при наличии `created_by`; payload содержит только `run_id` и route |
+| PATCH | `/api/v2/test-run/result/{result_id}` | JWT + `results` capability; `run_bug_links` when changing legacy bug references | меняет статус и детали результата только в active run; фактическая длительность `>= 0`, `NULL` означает «нет замера»; ответ включает массив `linked_bug_ids` и оригинал `linked_bug_ids_raw` |
+| POST | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + `run_bug_links` capability | идемпотентно связывает result с bug по `link_uuid` в том же space |
+| DELETE | `/api/v2/test-run/result/{result_id}/bugs/{bug_uuid}` | JWT + `run_bug_links` capability | удаляет UUID-связь с bug в том же space |
+| POST | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + `run_bug_links` capability | short-name convenience wrapper для UUID-связи; только для active run и ровно одного совпадения, неоднозначность возвращает `409` |
+| DELETE | `/api/v2/test-run/result/{result_id}/bugs/link` | JWT + `run_bug_links` capability | short-name convenience wrapper с теми же active-run и ambiguity проверками |
+| POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + `run_bug_links` capability | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
+| PATCH | `/api/v2/test-run/result/bulk` | JWT + `results` capability | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
 | GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами type/status/suite/priority/tags; при непустом `search` PostgreSQL `simple` full-text rank: title/short_name A, description/preconditions B, steps/expected C, legacy searchable postconditions/external_id/link D; отсутствующий short_name не подавляет совпадение по полному тексту; одинаковый rank упорядочивается по `id`; повторяющиеся `tags` работают как AND; каждое case включает `custom_fields` |
 | GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты меток кейсов в space |
 | GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом, метками и `custom_fields` |

@@ -25,8 +25,8 @@ class TestPlanService:
             raise HTTPException(status_code=404, detail=detail) from exc
 
     @staticmethod
-    async def _authorize(space_id: str, request) -> None:
-        await check_user_into_space(str(space_id), request)
+    async def _authorize(space_id: str, request, capability: str | None = None) -> None:
+        await check_user_into_space(str(space_id), request, capability=capability)
 
     @staticmethod
     async def _validate_source_ids(space_id: str, suite_ids: list[str], case_ids: list[str]) -> None:
@@ -166,8 +166,9 @@ class TestPlanService:
 
     @staticmethod
     async def create(dto: TestPlanCreateDto, token: str, request=None) -> TestPlanModel:
-        if request is not None:
-            await TestPlanService._authorize(dto.space_id, request)
+        if request is None:
+            raise HTTPException(status_code=401, detail='not authenticated')
+        await TestPlanService._authorize(dto.space_id, request, capability='plans')
         suite_ids = list(dict.fromkeys(dto.suite_ids or []))
         case_ids = list(dict.fromkeys(dto.case_ids or []))
         await TestPlanService._validate_source_ids(dto.space_id, suite_ids, case_ids)
@@ -246,8 +247,9 @@ class TestPlanService:
     @staticmethod
     async def update(plan_id: str, dto: TestPlanUpdateDto, request=None) -> TestPlanModel:
         plan = await TestPlanService.get_by_id(plan_id)
-        if request is not None:
-            await TestPlanService._authorize(str(plan.space_id), request)
+        if request is None:
+            raise HTTPException(status_code=401, detail='not authenticated')
+        await TestPlanService._authorize(str(plan.space_id), request, capability='plans')
         data = dto.model_dump(exclude_unset=True)
         data = {k: v for k, v in data.items() if v is not None}
         if 'suite_ids' in data:
@@ -276,8 +278,9 @@ class TestPlanService:
     @staticmethod
     async def delete(plan_id: str, request=None) -> bool:
         plan = await TestPlanService.get_by_id(plan_id)
-        if request is not None:
-            await TestPlanService._authorize(str(plan.space_id), request)
+        if request is None:
+            raise HTTPException(status_code=401, detail='not authenticated')
+        await TestPlanService._authorize(str(plan.space_id), request, capability='plans')
         await TestPlanModel.filter(id=plan_id).delete()
         return True
 

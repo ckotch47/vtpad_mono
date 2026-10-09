@@ -14,6 +14,7 @@ from jose import jwt
 from tortoise.transactions import in_transaction
 
 from ..common.config import conf
+from ..common.right_guard import check_user_into_space
 from ..redis.service import RedisService
 from ..test_run.model import TestResultModel, TestRunModel
 from .model import PublicRunLinkModel
@@ -133,6 +134,7 @@ async def create_public_link(run_id: str, request) -> dict:
     expires_at = now + LINK_TTL
     async with in_transaction() as connection:
         run = await _locked_run_and_authorize(run_id, actor_id, connection)
+        await check_user_into_space(str(run.space_id), request, capability="runs")
         await PublicRunLinkModel.filter(run_id=run.id, revoked_at__isnull=True).using_db(connection).update(
             revoked_at=now
         )
@@ -170,6 +172,7 @@ async def revoke_public_link(run_id: str, request) -> dict:
     now = datetime.now(timezone.utc)
     async with in_transaction() as connection:
         run = await _locked_run_and_authorize(run_id, actor_id, connection)
+        await check_user_into_space(str(run.space_id), request, capability="runs")
         await PublicRunLinkModel.filter(run_id=run.id, revoked_at__isnull=True).using_db(connection).update(
             revoked_at=now
         )

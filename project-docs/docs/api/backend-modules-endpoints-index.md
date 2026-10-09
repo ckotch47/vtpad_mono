@@ -260,6 +260,7 @@ Every REST and MCP operation checks access to the plan's space. Plan sources are
 - `POST/DELETE /api/v2/test-run/result/{result_id}/bugs/link` (legacy short-name wrappers)
 - `POST /api/v2/test-run/result/{result_id}/bugs` (quick create and link)
 - `PATCH /api/v2/test-run/result/bulk`
+- Test plan create/update/delete require `plans`; run create/update/lifecycle/delete and public-link rotation/revocation require `runs`. Result edits require `results`, and result bug-link mutations require combined `run_bug_links`. REST and MCP use the same server-side checks.
 
 Run detail results include nullable `source`. Webhook-sourced results contain only `type`, integration ID/name, request ID, and update time. Manual result edits clear provenance transactionally.
 

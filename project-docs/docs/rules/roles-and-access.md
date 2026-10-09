@@ -46,3 +46,8 @@
 - `vtpad_backend/app/src/admin/roles_decorator.py`
 - `vtpad_backend/app/src/admin/roles_enum.py`
 - `vtpad_backend/app/src/space/router.py`
+
+
+### Test plans, runs, and results
+
+Collaborator writes to test plans require `plans` (`editPads`). Run creation, metadata, lifecycle transitions, deletion, and public-link rotation/revocation require `runs` (`editRuns`). Result status/comment/duration writes require `results` (`editRuns`). Bug links on results, including legacy references and atomic bug creation, require `run_bug_links`, which combines run and bug write access. REST and MCP enforce the same effective capabilities; `readOnly` disables all of them.

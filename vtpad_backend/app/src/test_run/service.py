@@ -1126,7 +1126,7 @@ class TestResultService:
     async def link_bug_id(result_id: str, bug_uuid: uuid.UUID, request: Request) -> dict[str, Any]:
         async with in_transaction() as connection:
             run, result = await TestResultService._lock_result_run(result_id, connection)
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
             bug = await TestResultService._validate_linkable_bug(run, bug_uuid, connection)
             _link, created = await TestResultBugLinkModel.get_or_create(
                 result_id=result.id, bug_uuid=bug.link_uuid, using_db=connection
@@ -1143,7 +1143,7 @@ class TestResultService:
     async def unlink_bug_id(result_id: str, bug_uuid: uuid.UUID, request: Request) -> dict[str, Any]:
         async with in_transaction() as connection:
             run, result = await TestResultService._lock_result_run(result_id, connection)
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
             await TestResultService._validate_linkable_bug(run, bug_uuid, connection)
             deleted = await TestResultBugLinkModel.filter(
                 result_id=result.id, bug_uuid=bug_uuid
@@ -1173,7 +1173,7 @@ class TestResultService:
     async def link_bug(result_id: str, bug_short_name: str, request: Request) -> dict[str, Any]:
         async with in_transaction() as connection:
             run, result = await TestResultService._lock_result_run(result_id, connection)
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
             bug_id = await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
             await TestResultService._validate_linkable_bug(run, bug_id, connection)
             _link, created = await TestResultBugLinkModel.get_or_create(
@@ -1191,7 +1191,7 @@ class TestResultService:
     async def unlink_bug(result_id: str, bug_short_name: str, request: Request) -> dict[str, Any]:
         async with in_transaction() as connection:
             run, result = await TestResultService._lock_result_run(result_id, connection)
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
             bug_id = await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
             await TestResultService._validate_linkable_bug(run, bug_id, connection)
             deleted = await TestResultBugLinkModel.filter(
@@ -1212,7 +1212,7 @@ class TestResultService:
         """Preserve the established MCP short-name tools' legacy JSON behavior."""
         async with in_transaction() as connection:
             run, result = await TestResultService._lock_result_run(result_id, connection)
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
             await TestResultService._legacy_short_name_bug_id(run, bug_short_name, connection)
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
@@ -1263,7 +1263,7 @@ class TestResultService:
         try:
             async with in_transaction() as connection:
                 run, result = await TestResultService._lock_result_run(result_id, connection)
-                await check_user_into_space(str(run.space_id), request)
+                await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
                 operation = await TestResultBugCreateOperationModel.filter(
                     operation_id=dto.operation_id
                 ).using_db(connection).first()
@@ -1338,7 +1338,9 @@ class TestResultService:
             result = await TestResultModel.filter(id=result_id).using_db(connection).select_for_update().first()
             if not result:
                 raise HTTPException(status_code=404, detail="Test result not found")
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="results")
+            if "linked_bug_ids" in dto.model_fields_set:
+                await check_user_into_space(str(run.space_id), request, capability="run_bug_links")
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
             data = dto.model_dump(exclude_unset=True)
@@ -1394,7 +1396,7 @@ class TestResultService:
             results = await TestResultModel.filter(id__in=result_ids).using_db(connection).order_by('id').select_for_update()
             if len(results) != len(result_ids):
                 raise HTTPException(status_code=404, detail="One or more test results were not found")
-            await check_user_into_space(str(run.space_id), request)
+            await check_user_into_space(str(run.space_id), request, capability="results")
             if run.status != TestRunStatus.active:
                 raise HTTPException(status_code=409, detail="Test results may be changed only in an active run")
             target_status = TestResultService._parse_result_status(dto.status)

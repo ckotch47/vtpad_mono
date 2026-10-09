@@ -32,6 +32,7 @@
 | `403` или лог-ошибка в уведомлениях при отсутствии assigner | Background task пытался создать notification с пустым `assigner_id` | `vtpad_backend/app/src/bug/service.py`, `vtpad_backend/app/src/comments/service.py` |
 | `401` после долгого простоя | Access token expired, refresh failed | `app/src/auth/service.py`, Redis |
 | `403` при чтении списка suites | REST и MCP проверяют membership/роль в запрошенном space до поиска; клиенту нужно выбрать доступный space | `app/src/test_suite/router.py`, `app/src/mcp/tools/test_suites.py` |
+| Фильтр Suite в Test Cases не показывает существующие наборы | Ранее список вариантов был захардкожен только для `All Suites` и `No Suite`; теперь он загружается из списка suites выбранного space | `vtpad_front_v2/src/components/test-cases/testCasesListComponent.vue` |
 | `404` при чтении/записи custom field | Definition или entity отсутствует либо находится в другом space; чужие UUID не раскрываются | `app/src/custom_field/service.py` |
 | `422` при сохранении custom field | Тип/вариант значения не совпадает с definition, select/multiselect не имеет уникальных вариантов, отсутствует required value, либо изменение type/options сделало live values несовместимыми | `app/src/custom_field/service.py`, `app/src/test_case/service.py` |
 | `422` при preview/сохранении test plan filters | Неизвестный приоритет, поле не является testcase custom field этого space, значение не совпадает с типом/options или одно поле указано повторно | `app/src/test_plan/service.py` |

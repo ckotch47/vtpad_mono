@@ -71,9 +71,15 @@
               <v-icon v-bind="props" color="warning" aria-label="Tag options could not be loaded">mdi-alert-circle-outline</v-icon>
             </template>
           </v-tooltip>
-          <v-select
+          <v-tooltip v-if="suiteOptionsError" text="Existing suites could not be loaded. Suite filtering may be incomplete.">
+            <template #activator="{ props }">
+              <v-icon v-bind="props" color="warning" aria-label="Suite options could not be loaded">mdi-alert-circle-outline</v-icon>
+            </template>
+          </v-tooltip>
+          <v-autocomplete
             v-model="filterSuite"
-            :items="[{title:'All Suites', value:''}, {title:'No Suite', value:'none'}]"
+            :items="availableSuiteOptions"
+            :loading="suiteOptionsLoading"
             item-title="title"
             item-value="value"
             label="Suite"
@@ -337,7 +343,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { testCaseService, testCaseTemplateService } from '@/services'
+import { testCaseService, testCaseTemplateService, testSuiteService } from '@/services'
 import EditorComponent from '@/components/common/editor/editorComponent.vue'
 import CustomFieldValuesComponent from '@/components/custom-fields/customFieldValuesComponent.vue'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
@@ -364,6 +370,9 @@ const search = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 const filterSuite = ref('')
+const suiteOptions = ref([])
+const suiteOptionsLoading = ref(false)
+const suiteOptionsError = ref(false)
 const priorityOptions = [
   { title: 'All priorities', value: '' },
   { title: 'P0 · Blocker', value: 'P0' },
@@ -382,6 +391,11 @@ const loadError = ref(false)
 const loadErrorStatus = ref(0)
 const hasCaseFilters = computed(() => Boolean(search.value || filterType.value || filterStatus.value || filterSuite.value || filterPriority.value || filterTags.value.length))
 const availableTagOptions = computed(() => [...new Set([...tagOptions.value, ...filterTags.value])])
+const availableSuiteOptions = computed(() => [
+  { title: 'All Suites', value: '' },
+  { title: 'No Suite', value: 'none' },
+  ...suiteOptions.value.map(suite => ({ title: suite.name, value: String(suite.id) }))
+])
 const searchDebounce = ref(null)
 const optionsDebounce = ref(null)
 const openCreate = ref(false)
@@ -395,6 +409,8 @@ const applyingTemplate = ref(false)
 const appliedTemplate = ref(null)
 const caseTitleTouched = ref(false)
 let templateSelectionRequestId = 0
+let suiteOptionsRequestId = 0
+let caseListRequestId = 0
 const emptyCase = () => ({ title: '', type: 'manual', priority: 'P2', tags: [], text: '', steps: '', expected_results: '', preconditions: '', postconditions: '', estimated_duration_seconds: null, custom_fields: [] })
 const newCase = ref(emptyCase())
 const createCustomFieldForm = ref(null)
@@ -445,6 +461,8 @@ function doLoadCases(options) {
   tableLoading.value = true
   loadError.value = false
   loadErrorStatus.value = 0
+  const requestId = ++caseListRequestId
+  const requestedSpaceId = String(spaceId.value)
   const p = firstLoad.value ? page.value : (options?.page || page.value)
   const pageSize = firstLoad.value ? itemsPerPage.value : (options?.itemsPerPage || itemsPerPage.value)
   firstLoad.value = false
@@ -465,7 +483,7 @@ function doLoadCases(options) {
   }
   router.replace({ query })
 
-  testCaseService.listBySpace(spaceId.value, {
+  testCaseService.listBySpace(requestedSpaceId, {
     page: p,
     page_size: pageSize,
     sort_by: sortKey,
@@ -477,11 +495,13 @@ function doLoadCases(options) {
     priority: filterPriority.value || undefined,
     tags: filterTags.value.length ? [...filterTags.value] : undefined
   }).then(res => {
+    if (requestId !== caseListRequestId || requestedSpaceId !== String(spaceId.value)) return
     cases.value = res.data.items || res.data
     totalCases.value = res.data.total !== undefined ? res.data.total : (res.data.length || 0)
     itemsPerPage.value = res.data.page_size || itemsPerPage.value
     hasLoaded.value = true
   }).catch((error) => {
+    if (requestId !== caseListRequestId || requestedSpaceId !== String(spaceId.value)) return
     loadError.value = true
     loadErrorStatus.value = Number(error?.response?.status || 0)
     if (loadErrorStatus.value === 403) {
@@ -489,8 +509,10 @@ function doLoadCases(options) {
       totalCases.value = 0
     }
   }).finally(() => {
-    hasLoaded.value = true
-    tableLoading.value = false
+    if (requestId === caseListRequestId) {
+      if (requestedSpaceId === String(spaceId.value)) hasLoaded.value = true
+      tableLoading.value = false
+    }
   })
 }
 
@@ -506,6 +528,48 @@ async function loadTagOptions() {
     tagOptionsError.value = true
   } finally {
     tagOptionsLoading.value = false
+  }
+}
+
+async function loadSuiteOptions() {
+  const requestedSpaceId = String(spaceId.value || '')
+  if (!requestedSpaceId || requestedSpaceId === 'undefined') return
+  const requestId = ++suiteOptionsRequestId
+  suiteOptions.value = []
+  suiteOptionsLoading.value = true
+  suiteOptionsError.value = false
+  try {
+    const response = await testSuiteService.listBySpace(requestedSpaceId, {
+      page: 1,
+      page_size: 1000,
+      sort_by: 'name',
+      sort_order: 'asc',
+      status: 'all'
+    })
+    if (requestId !== suiteOptionsRequestId || requestedSpaceId !== String(spaceId.value)) return
+    const firstPage = response.data || {}
+    const suites = Array.isArray(firstPage) ? [...firstPage] : [...(firstPage.items || [])]
+    const pageCount = Math.max(1, Number(firstPage.pages) || 1)
+    for (let page = 2; page <= pageCount; page += 1) {
+      if (requestId !== suiteOptionsRequestId || requestedSpaceId !== String(spaceId.value)) return
+      const pageResponse = await testSuiteService.listBySpace(requestedSpaceId, {
+        page,
+        page_size: 1000,
+        sort_by: 'name',
+        sort_order: 'asc',
+        status: 'all'
+      })
+      suites.push(...(pageResponse.data?.items || []))
+    }
+    if (requestId === suiteOptionsRequestId && requestedSpaceId === String(spaceId.value)) {
+      suiteOptions.value = suites
+    }
+  } catch (_) {
+    if (requestId === suiteOptionsRequestId && requestedSpaceId === String(spaceId.value)) {
+      suiteOptionsError.value = true
+    }
+  } finally {
+    if (requestId === suiteOptionsRequestId) suiteOptionsLoading.value = false
   }
 }
 
@@ -670,7 +734,10 @@ function normalizeTags(tags) {
   }, [])
 }
 
-onMounted(loadTagOptions)
+onMounted(() => {
+  loadTagOptions()
+  loadSuiteOptions()
+})
 
 watch(() => route.query, (query) => {
   const nextPage = parseInt(query.page) || 1
@@ -703,7 +770,16 @@ watch(() => route.query, (query) => {
 }, { deep: true })
 
 watch(spaceId, () => {
+  caseListRequestId += 1
+  tableLoading.value = false
   loadTagOptions()
+  loadSuiteOptions()
+  filterSuite.value = ''
+  suiteOptions.value = []
+  cases.value = []
+  totalCases.value = 0
+  hasLoaded.value = false
+  selectedCases.value = []
   page.value = 1
   loadCases({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: sortBy.value })
 })

@@ -237,6 +237,24 @@
                     <v-chip size="x-small" :color="result.testcase_snapshot ? 'secondary' : 'warning'" class="mr-2">
                       {{ result.testcase_snapshot ? `Snapshot v${result.testcase?.version_number || ''}` : 'Legacy live case' }}
                     </v-chip>
+                    <v-tooltip
+                      v-if="result.source?.type === 'webhook'"
+                      :text="`Updated by CI integration ${result.source.integration_name || 'integration'}`"
+                      location="top"
+                    >
+                      <template #activator="{ props: sourceTooltipProps }">
+                        <v-chip
+                          v-bind="sourceTooltipProps"
+                          size="x-small"
+                          color="info"
+                          variant="tonal"
+                          class="mr-2"
+                          :aria-label="`Result source: CI integration ${result.source.integration_name || 'integration'}`"
+                        >
+                          CI: {{ result.source.integration_name || 'integration' }}
+                        </v-chip>
+                      </template>
+                    </v-tooltip>
                     <span v-if="result.comment" class="text-medium-emphasis">{{ result.comment }}</span>
                     <span v-else class="text-grey">No comment</span>
                     <span v-if="hasDuration(result.duration_seconds)" class="ml-2 text-caption">({{ formatDuration(result.duration_seconds) }})</span>

@@ -24,6 +24,15 @@
 - Burger result: PASS. The collapsed drawer exposed the visible `Open spaces navigation` button; Shift+Tab reached it with visible focus, Space opened the drawer, and the route did not change.
 - Full package acceptance remains partial: `1440×900`, loading/error/empty/permission states, filter-result semantics, and keyboard coverage for the rest of the changed controls remain `not_run`. No product data was changed.
 
+### Follow-up UI/UX review (2026-10-09)
+
+- **Verdict: blocked for fresh visual acceptance.** The CUA browser inventory was empty; opening an in-app browser and resolving a browser by URL both failed because no browser was available. The local Vite server still returned HTTP 200.
+- The review was source-only. HEAD `2d6cfcc` has no frontend source changes since the previously browser-tested UI revision `82b3f5a`; only `ROADMAP.md` and this UX plan differ.
+- Source review reconfirmed that Suites, Cases, Runs, Plans, and Bugs share `ListPageToolbar`; the Spaces drawer button is rendered when the drawer is closed and has accessible state/name attributes; suite section action buttons are named; and Run's “Refresh time” loads data into Vue refs without a full-page reload or interval loop.
+- The previous browser evidence on the same frontend revision remains valid historical evidence, not a new runtime pass: the burger was visible and keyboard-operable, and timer refresh kept the route in place.
+- **Remaining usability check:** Cases filters can wrap across two rows at desktop widths. Recheck at `1440×900` and verify keyboard traversal when browser access is restored.
+- Not rerun: all five screens visually, accessibility tree, hover/tooltips, 1440×900, keyboard/tooltip behavior outside the burger, empty/loading/error/permission states, filter result semantics, or fresh timer reactivity. No code or product data was changed during this review.
+
 ## Outcome
 
 Make the main VTPad desktop workflows feel consistent and easier to scan while retaining module-specific controls and Vue reactivity. Align list-page hierarchy, remove duplicate or misleading controls, and make visible actions understandable to keyboard and screen-reader users.

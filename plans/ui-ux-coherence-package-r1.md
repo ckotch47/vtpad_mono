@@ -13,9 +13,16 @@
 - At `1276×718`, observed the Cases, Suites, Plans, Runs, and Bugs lists; primary actions and filters remained visible with rows below. Bugs displayed `New Bug` above the table, with only bug records in the table.
 - Opened the Core Regression suite and selected API: the suite list stayed on the left while suite detail stayed on the same page; the section name appeared once, and the section overflow button exposed the accessible name `More actions for API`.
 - Opened Run detail and used `Refresh time`: the route remained unchanged and the timer summary stayed present in the Vue page. No full-page navigation occurred.
-- Collapsed and reopened the Spaces drawer on the Cases list. The collapsed state exposed a button named `Open spaces navigation`; reopening returned the drawer without changing the route.
+- Collapsed and reopened the Spaces drawer on Run detail. In the collapsed state, the burger was visible at the top-left and exposed the accessible name `Open spaces navigation`; its keyboard focus was visible, and Space reopened the drawer. Opening and closing preserved the current route.
 - Bugs `Filter` opened its filter panel. No filter value or product record was changed.
-- Not checked: `1440×900`, keyboard-only activation/focus/tooltip, empty/loading/error/permission fixtures, and filter result semantics. Treat UIX-005 and accessibility interaction acceptance as partial until those checks run. Mobile remains excluded.
+- Keyboard focus/activation was checked for the burger only. Other changed controls' full keyboard behavior and tooltip appearance were not checked. Also not checked: `1440×900`, empty/loading/error/permission fixtures, and filter result semantics. Treat UIX-005 and overall accessibility interaction acceptance as partial until those checks run. Mobile remains excluded.
+
+### Independent UI/UX tester result (2026-10-09)
+
+- Tester independently repeated the desktop smoke at `1276×718` on commit `82b3f5a`; it found no blocking regressions in the five list screens or the Spaces drawer.
+- All five screens showed their primary actions and lists. Cases controls occupied two rows; Suites retained its split pane; Bugs showed `New Bug` above the bug table. Timer refresh kept the Run page in place.
+- Burger result: PASS. The collapsed drawer exposed the visible `Open spaces navigation` button; Shift+Tab reached it with visible focus, Space opened the drawer, and the route did not change.
+- Full package acceptance remains partial: `1440×900`, loading/error/empty/permission states, filter-result semantics, and keyboard coverage for the rest of the changed controls remain `not_run`. No product data was changed.
 
 ## Outcome
 

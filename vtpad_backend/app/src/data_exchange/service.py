@@ -528,11 +528,11 @@ async def _export_data(space_id: str, suite_ids: list[str] | None) -> dict:
     if cases:
         from tortoise import Tortoise
         tag_rows = await Tortoise.get_connection("default").execute_query_dict(
-            "SELECT link.testcase_id, tag.name FROM test_case_tag_link link "
-            "JOIN test_case_tag tag ON tag.id = link.tag_id "
+            "SELECT link.testcase_id, btrim(tag.title) AS name FROM test_case_tag_link_shared link "
+            "JOIN tagmodel tag ON tag.id = link.tag_id "
             "JOIN test_case test_case ON test_case.id = link.testcase_id "
             "WHERE test_case.space_id = $1 AND tag.space_id = $1 "
-            "AND link.testcase_id = ANY($2::uuid[]) ORDER BY tag.normalized_name",
+            "AND link.testcase_id = ANY($2::uuid[]) ORDER BY lower(btrim(tag.title))",
             [uuid.UUID(str(space_id)), [case.id for case in cases]],
         )
         for row in tag_rows:

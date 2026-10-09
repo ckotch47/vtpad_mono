@@ -82,23 +82,12 @@ class TestCaseVersionModel(Model):
         table = "test_case_version"
 
 
-class TestCaseTagModel(Model):
-    id = fields.UUIDField(pk=True, index=True)
-    space = fields.ForeignKeyField('models.SpaceModel', related_name='test_case_tags', on_delete=fields.CASCADE)
-    name = fields.CharField(max_length=255)
-    normalized_name = fields.CharField(max_length=255)
-    created_at = fields.DatetimeField(auto_now_add=True)
-
-    class Meta:
-        table = "test_case_tag"
-        unique_together = (("space", "normalized_name"),)
-
-
-class TestCaseTagLinkModel(Model):
+class TestCaseSharedTagLinkModel(Model):
     id = fields.UUIDField(pk=True, index=True)
     testcase = fields.ForeignKeyField('models.TestCaseModel', related_name='tag_links', on_delete=fields.CASCADE)
-    tag = fields.ForeignKeyField('models.TestCaseTagModel', related_name='case_links', on_delete=fields.CASCADE)
+    tag = fields.ForeignKeyField('models.TagModel', related_name='test_case_links', on_delete=fields.CASCADE)
 
     class Meta:
-        table = "test_case_tag_link"
+        table = "test_case_tag_link_shared"
         unique_together = (("testcase", "tag"),)
+        indexes = (("tag", "testcase"),)

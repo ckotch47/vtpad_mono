@@ -79,6 +79,8 @@ SU2 is implemented in code under approved plan r1: case search is scoped to the 
 
 SU8 is implemented and runtime-checked: priority and space-scoped tags are available through REST and MCP, filters combine with search and pagination, version/duplicate/restore and new run snapshots preserve values, and legacy history remains unknown rather than backfilled. REST/MCP scenarios and migration replay passed on a disposable database; frontend lint/build passed.
 
+Tag unification follow-up is implemented under approved plan r1: Bugs and cases now use the same Space tag catalog; v30 migrates legacy case labels and associations while preserving the case string-label API and historical snapshots. REST and MCP expose the shared tag manager. Local Docker migration/build verification is recorded with this implementation commit.
+
 SU5 section filtering is implemented in `74fad6f`: matching sections retain their ancestors and order, selection survives filtering, and hidden-selection, no-match, and clear states are explicit. ESLint, production build, and `git diff --check` passed. Read-only desktop smoke on the local app verified a matching result, preserved hidden selection, no-match state, and clearing. Nested-section layout, keyboard focus, and mobile smoke remain in the regression checklist.
 
 The 2026-10-09 independent desktop UI/UX retest found that the global Test Cases Suite filter omitted existing suites. The filter now loads same-space suite options and selecting `Core Regression` returned 31 cases; `No Suite` remains available and `All Suites` restores the unfiltered 63-case list. UI/UX details and the separate P3 truncated-navigation-label finding are in `plans/ui-ux-coherence-package-r1.md`.

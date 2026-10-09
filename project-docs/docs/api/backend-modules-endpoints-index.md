@@ -110,11 +110,12 @@ Comment create/update/delete require `bug_comments` on the parent bug space; upd
 - `DELETE /api/v1/comment/{comment_id}`
 
 ### `app/src/tag`
-Tag create/update/delete require the server-derived `tags` capability. Bug state changes to `CLOSED`, `HOLD`, or `REOPEN`, and transitions out of `CLOSED`/`HOLD`, require the additional `closeBugs` right. The capability response also includes `close_bugs`, which requires bug write access plus that stored right and is overridden by `readOnly`; owners and active same-company company admins receive it.
+`TagModel` is the shared Space-scoped catalog for Bugs and test cases. Case DTOs and REST/MCP responses continue to expose `tags: string[]`; case tag-option endpoints return distinct labels from this catalog, including unused tags. MCP `list_tags`, `create_tag`, `update_tag`, and `delete_tag` mirror the REST operations and enforce active Space membership plus the server-derived `tags` capability for writes. Creating a normalized duplicate reuses the existing tag; renaming to another normalized title returns `409`. Bug state changes to `CLOSED`, `HOLD`, or `REOPEN`, and transitions out of `CLOSED`/`HOLD`, require the additional `closeBugs` right. The capability response also includes `close_bugs`, which requires bug write access plus that stored right and is overridden by `readOnly`; owners and active same-company company admins receive it.
 - `GET /api/v1/tag/{space_id}`
 - `PUT /api/v1/tag/{tag_id}`
 - `POST /api/v1/tag/{space_id}`
 - `DELETE /api/v1/tag/{tag_id}`
+- MCP tools: `list_tags`, `create_tag`, `update_tag`, `delete_tag`
 
 ### `app/src/testcases`
 - `GET /api/v1/testcases/filter/{space_id}`
@@ -325,7 +326,7 @@ All definition/value routes require JWT and active access to the same space as t
 - `GET /api/v2/test-case/space/{space_id}` supports `priority` and repeated `tags` filters (AND semantics) and returns priority and tag labels.
 - A non-empty `search` on the case space list uses the trigger-maintained PostgreSQL `simple` full-text vector, ranks title/short name above description/preconditions and steps/expected results, and orders equal ranks by case ID. An exact short-name match also handles hyphenated identifiers such as `TC-123`; a missing short name is treated as no exact match and does not suppress title/full-text results. Whitespace-only input preserves the ordinary list sort. Legacy searchable fields postconditions, external ID, and link remain indexed at the lowest weight. If a document would exceed PostgreSQL's 1 MiB tsvector limit, its vector is retried using the first 8,192 characters of each indexed field so the write can still succeed.
 - `GET /api/v2/test-suite/space/{space_id}` requires space access; non-empty `search` ranks suite name above description and breaks ties by suite ID. REST and MCP suite listing use the same service and search semantics.
-- `GET /api/v2/test-case/space/{space_id}/tags` returns tag options scoped to the space.
+- `GET /api/v2/test-case/space/{space_id}/tags` returns distinct labels from the shared Space tag catalog, including unused tags; Bugs and cases use the same `TagModel` records while testcase contracts remain `tags: string[]`.
 - `GET /api/v2/test-case/suite/{suite_id}` and `/section/{section_id}` require access to the owning suite's space and return cases with priority, tags, and custom-field values loaded in one batch.
 - `GET /api/v2/test-case/{testcase_id}` and case create/update responses expose `priority`, `tags`, and current custom-field definitions/values. Space list/search and MCP `search_test_cases` expose the same custom fields for returned cases.
 - Create/update accept priority `P0`–`P3` and up to 50 tag labels; create defaults to `P2`. PATCH omission retains tags and `tags: []` clears them.

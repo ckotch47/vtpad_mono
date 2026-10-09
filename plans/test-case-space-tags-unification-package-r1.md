@@ -3,7 +3,7 @@
 ## Status
 
 - Revision: `r1`
-- Status: proposed; implementation not started
+- Status: implemented; exact revision r1 approved by user
 - Scope: use the existing space tag catalog as the one canonical tag catalog for bugs and test cases
 - User intent: “все верно, теперь их надо объядинить” (2026-10-09)
 - Implementation requires approval of this exact plan revision under root `AGENTS.md`
@@ -62,6 +62,14 @@ Test cases and Bugs use the same `TagModel` records in `tagmodel`, scoped to a S
 - Backend/frontend Docker builds succeed, the backend migration log confirms v30 applied once, and the local frontend/backend endpoints respond after container recreation. No disposable test environment is used, following the user's prior verification preference; database mutation is limited to the configured local application database after this plan is approved.
 - Relevant docs and roadmap status are updated, and implementation is committed in a dedicated commit.
 
+## Implementation evidence
+
+- v30 applied and recorded in the configured local app database as `v30_unify_test_case_space_tags.json`.
+- The local database had no legacy tag data at cutover: 0 rows in `test_case_tag`, 0 rows in `test_case_tag_link`, and 0 rows in `test_case_tag_link_shared`; post-migration cross-Space links and legacy labels without a generic Space match both count 0. Thus the migration path ran, but non-empty backfill behavior was not exercised against fixture data, consistent with the no-disposable-test-environment decision.
+- `docker compose -f docker-compose.app-only.yml up -d --no-deps --build backend frontend` built both images; both containers were then force-recreated. Backend `/ready` and frontend `/` returned HTTP 200.
+- `git diff --check` passed. Automated tests were not run; Docker startup validated module import/registration and applied the transactional migration.
+- REST/MCP case contracts remain `tags: string[]`; generic MCP CRUD was registered in `app/src/mcp/tools/__init__.py`. API, lifecycle, access, error, MCP, architecture and roadmap docs were updated.
+
 ## Risks and decisions encoded in this revision
 
 - Tag title normalization: current case tags use Python `casefold`; generic tags have no stored normalized field and PostgreSQL matching uses `lower(trim(title))`. This plan deliberately uses exact-title preference followed by trimmed case-insensitive matching, which is compatible for ordinary labels but may not equate all Unicode casefold pairs (for example, `ß` and `ss`). Such labels remain distinct rather than being silently merged.
@@ -71,4 +79,4 @@ Test cases and Bugs use the same `TagModel` records in `tagmodel`, scoped to a S
 
 ## Approval
 
-Implementation is not authorized until the user approves `Test-case and Space tag unification package r1`.
+User approved this exact revision with “Да, одобряю r1” before implementation.

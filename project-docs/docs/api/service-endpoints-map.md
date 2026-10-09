@@ -148,7 +148,7 @@
 | POST | `/api/v2/test-run/result/{result_id}/bugs` | JWT + `run_bug_links` capability | атомарно создаёт bug и UUID-связь; повторяет результат по `operation_id` при совпадении actor/result/body |
 | PATCH | `/api/v2/test-run/result/bulk` | JWT + `results` capability | массово меняет статус результатов одного active run; поддерживает возврат в `not_run` |
 | GET | `/api/v2/test-case/space/{space_id}` | JWT + space check | список с фильтрами type/status/suite/priority/tags; при непустом `search` PostgreSQL `simple` full-text rank: title/short_name A, description/preconditions B, steps/expected C, legacy searchable postconditions/external_id/link D; отсутствующий short_name не подавляет совпадение по полному тексту; одинаковый rank упорядочивается по `id`; повторяющиеся `tags` работают как AND; каждое case включает `custom_fields` |
-| GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты меток кейсов в space |
+| GET | `/api/v2/test-case/space/{space_id}/tags` | JWT + space check | варианты общих меток space (включая неиспользуемые), возвращает уникальные подписи строками; кейсы и bugs используют один каталог `TagModel` |
 | GET | `/api/v2/test-case/suite/{suite_id}` | JWT + suite space check | список кейсов suite с приоритетом, метками и `custom_fields` |
 | GET | `/api/v2/test-case/section/{section_id}` | JWT + section suite space check | список кейсов section с приоритетом, метками и `custom_fields` |
 | POST | `/api/v2/test-case/` | JWT + `cases`; `tags` also required when assigning tags | создаёт кейс с `priority` (`P0`–`P3`, default `P2`), метками `tags` и optional `custom_fields: [{field_id, value}]`; отсутствующие обязательные значения возвращают `422` |
@@ -269,10 +269,10 @@ The MCP tools `get_quality_trends`, `get_quality_results` and `get_time_trends` 
 
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
-| GET | `/api/v1/tag/{space_id}` | JWT + space check | список tags |
-| PUT | `/api/v1/tag/{tag_id}` | JWT + `tags` capability | обновление tag |
-| POST | `/api/v1/tag/{space_id}` | JWT + `tags` capability | создание tag |
-| DELETE | `/api/v1/tag/{tag_id}` | JWT + `tags` capability | удаление tag |
+| GET | `/api/v1/tag/{space_id}` | JWT + space check | список общих tags для bugs и кейсов |
+| PUT | `/api/v1/tag/{tag_id}` | JWT + `tags` capability | обновление общего tag; конфликт нормализованного названия возвращает `409` |
+| POST | `/api/v1/tag/{space_id}` | JWT + `tags` capability | создание или повторное использование общего tag по названию без учёта регистра и краевых пробелов |
+| DELETE | `/api/v1/tag/{tag_id}` | JWT + `tags` capability | удаление общего tag и его bug/case связей |
 
 ### Testcases
 

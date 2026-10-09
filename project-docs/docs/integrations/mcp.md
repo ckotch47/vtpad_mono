@@ -21,6 +21,10 @@ MCP tools are registered through imports in `app/src/mcp/tools/__init__.py`; sec
 ## Case templates
 
 `list_test_case_templates`, `get_test_case_template`, `list_test_case_template_versions`, `get_test_case_template_version`, `create_test_case_template`, `update_test_case_template`, and `use_test_case_template` mirror the REST template endpoints and share their space-scoped service. List/read responses bound history to metadata and pages; selected-version reads return one content snapshot. Each content update creates an immutable numbered version when fields change. `use_test_case_template` requires the resulting case title and supports optional suite/section, version number, allowlisted field overrides, and up to 50 typed custom-field values (64 KiB serialized maximum), validated against definitions in the same space through the existing testcase creation path. REST mutations and MCP template mutation calls are limited to 1 MiB; other MCP tools retain their 8 MiB transport cap. Template content strings are limited to 32,768 characters, description to 4,096, serialized content to 128 KiB, estimated duration to 0–2,147,483,647 seconds, and each template to 100 versions. Custom fields are excluded from template content/version history. Templates and cases have no live reference, so updating a template never changes previously created cases.
+
+## Shared Space tags
+
+`list_tags`, `create_tag`, `update_tag`, and `delete_tag` manage the same Space-scoped `TagModel` records used by Bugs and test cases. Listing requires active Space membership; writes require the `tags` capability. Creating a label that already exists after trimming and case-insensitive normalization reuses the existing record. Updating a label to collide with another normalized title returns a conflict. Testcase tools and REST endpoints retain their `tags: string[]` contract; the case tag-options tool returns unique labels from the shared catalog, including unused tags.
 ### Data exchange
 
 - `export_space_data(space_id, format="json"|"csv", suite_ids?)`

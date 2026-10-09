@@ -57,6 +57,8 @@
 2. `POST /api/v1/comment/{bug_id}` теперь возвращает `404`, если bug не существует, до создания комментария.
 3. `PATCH /api/v2/bugs/{bug_id}` и `PUT /api/v1/bugs/{bug_id}` теперь сначала проверяют существование бага и возвращают `404`, если id не найден.
 4. Обновление бага теперь допускает пустые строковые значения для редактируемых полей и корректно обрабатывает `tags=[]` как очистку тегов.
+
+Обновление общего Space tag с названием, которое после `trim` и сравнения без учёта регистра совпадает с другим tag этого пространства, возвращает `409`; выберите другое название. Создание case tag с таким названием повторно использует существующий общий tag.
 5. Background tasks для уведомлений теперь пропускают пустой `assigner_id`/`create_user_id` и не падают на UUID conversion.
 6. Bugs list filtering now respects `show_closed`; when enabled, `HOLD` and `CLOSED` are no longer excluded by default.
 7. MCP `hard_delete_suite` now imports cascade helpers correctly and no longer fails with `name '_delete_case_cascade' is not defined`.

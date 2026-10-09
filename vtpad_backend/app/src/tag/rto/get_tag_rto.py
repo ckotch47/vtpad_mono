@@ -7,6 +7,6 @@ from pydantic import BaseModel
 class GetTagRto(BaseModel):
     id: str | uuid.UUID
     title: str
-    color: str
+    color: str | None = None
     create_date: datetime.datetime | None = None
     space_id: str | uuid.UUID | None = None

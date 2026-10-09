@@ -6,9 +6,10 @@ from tortoise.transactions import in_transaction
 
 from .model import (
     TestCaseModel, TestCaseVersionModel, TestCaseType, TestCaseStatus,
-    TestCasePriority, TestCaseTagModel, TestCaseTagLinkModel,
+    TestCasePriority, TestCaseSharedTagLinkModel,
 )
 from .dto import *
+from ..tag.model import TagModel
 from ..common.crypto import get_user_id_by_token
 from ..common.space_capabilities import require_space_capability
 from ..embedding.service import EmbeddingService
@@ -97,18 +98,16 @@ class TestCaseService:
         elif suite_id:
             add_filter('suite_id', suite_id)
 
-        normalized_tags = [
-            tag.casefold() for tag in TestCaseService._normalize_tags(tag_filters)
-        ]
+        normalized_tags = [tag.lower() for tag in TestCaseService._normalize_tags(tag_filters)]
         if normalized_tags:
             params.append(normalized_tags)
             tag_param = len(params)
             filter_conditions.append(
-                '(SELECT count(DISTINCT tag.normalized_name) '
-                'FROM test_case_tag_link AS link '
-                'JOIN test_case_tag AS tag ON tag.id = link.tag_id '
+                '(SELECT count(DISTINCT lower(btrim(tag.title))) '
+                'FROM test_case_tag_link_shared AS link '
+                'JOIN tagmodel AS tag ON tag.id = link.tag_id '
                 f'WHERE link.testcase_id = test_case.id AND tag.space_id = test_case.space_id '
-                f'AND tag.normalized_name = ANY(${tag_param}::text[])) = ${tag_param + 1}'
+                f'AND lower(btrim(tag.title)) = ANY(${tag_param}::text[])) = ${tag_param + 1}'
             )
             params.append(len(normalized_tags))
 
@@ -172,53 +171,72 @@ class TestCaseService:
             if not isinstance(value, str) or not value.strip() or len(value.strip()) > 255:
                 raise HTTPException(status_code=422, detail="tag names must contain 1 to 255 characters")
             name = value.strip()
-            if len(name.casefold()) > 255:
+            if len(name.lower()) > 255:
                 raise HTTPException(status_code=422, detail="normalized tag names cannot exceed 255 characters")
             if name:
-                distinct.setdefault(name.casefold(), name)
+                distinct.setdefault(name.lower(), name)
         return list(distinct.values())
 
     @staticmethod
     async def _replace_tags(testcase_id: str, space_id: str, tags: list[str], connection=None) -> None:
         conn = connection or Tortoise.get_connection('default')
-        await TestCaseTagLinkModel.filter(testcase_id=testcase_id).using_db(conn).delete()
+        # Serialize tag resolution with generic Space-tag creation so the case
+        # and tag-management paths cannot create duplicate normalized labels.
+        space_rows = await conn.execute_query_dict(
+            'SELECT id FROM spacemodel WHERE id = $1 FOR UPDATE', [space_id]
+        )
+        if not space_rows:
+            raise HTTPException(status_code=404, detail='Space not found')
+        await TestCaseSharedTagLinkModel.filter(testcase_id=testcase_id).using_db(conn).delete()
         for name in TestCaseService._normalize_tags(tags):
-            normalized = name.casefold()
             rows = await conn.execute_query_dict(
-                "INSERT INTO test_case_tag (space_id, name, normalized_name) "
-                "VALUES ($1, $2, $3) ON CONFLICT (space_id, normalized_name) "
-                "DO UPDATE SET normalized_name = EXCLUDED.normalized_name RETURNING id",
-                [space_id, name, normalized],
+                "SELECT id FROM tagmodel WHERE space_id = $1 AND lower(btrim(title)) = $2 "
+                "ORDER BY (title = $3) DESC, create_date ASC, id ASC LIMIT 1 FOR UPDATE",
+                [space_id, name.lower(), name],
             )
-            tag_id = str(rows[0]['id'])
-            await TestCaseTagLinkModel.create(
+            if rows:
+                tag_id = str(rows[0]['id'])
+            else:
+                tag = await TagModel.create(
+                    title=name,
+                    color=None,
+                    space_id=space_id,
+                    using_db=conn,
+                )
+                tag_id = str(tag.id)
+            await TestCaseSharedTagLinkModel.create(
                 testcase_id=testcase_id, tag_id=tag_id, using_db=conn
             )
 
     @staticmethod
     async def get_tags(testcase_id: str) -> list[str]:
-        links = await TestCaseTagLinkModel.filter(testcase_id=testcase_id).prefetch_related('tag')
-        return sorted((link.tag.name for link in links), key=str.casefold)
+        links = await TestCaseSharedTagLinkModel.filter(testcase_id=testcase_id).prefetch_related('tag')
+        return sorted((link.tag.title.strip() for link in links), key=str.lower)
 
     @staticmethod
     async def get_tags_for_cases(testcase_ids: list[str], connection=None) -> dict[str, list[str]]:
         if not testcase_ids:
             return {}
-        query = TestCaseTagLinkModel.filter(testcase_id__in=testcase_ids)
+        query = TestCaseSharedTagLinkModel.filter(testcase_id__in=testcase_ids)
         if connection is not None:
             query = query.using_db(connection)
         links = await query.prefetch_related('tag')
         result: dict[str, list[str]] = {str(case_id): [] for case_id in testcase_ids}
         for link in links:
-            result.setdefault(str(link.testcase_id), []).append(link.tag.name)
+            result.setdefault(str(link.testcase_id), []).append(link.tag.title.strip())
         for names in result.values():
-            names.sort(key=str.casefold)
+            names.sort(key=str.lower)
         return result
 
     @staticmethod
     async def get_tag_options(space_id: str) -> list[str]:
-        tags = await TestCaseTagModel.filter(space_id=space_id).order_by('normalized_name')
-        return [tag.name for tag in tags]
+        tags = await TagModel.filter(space_id=space_id).order_by('create_date', 'id')
+        distinct: dict[str, str] = {}
+        for tag in tags:
+            label = tag.title.strip()
+            if label:
+                distinct.setdefault(label.lower(), label)
+        return [distinct[key] for key in sorted(distinct)]
 
     @staticmethod
     async def _filter_ids_by_all_tags(
@@ -229,7 +247,7 @@ class TestCaseService:
         names = TestCaseService._normalize_tags(tags)
         if not names:
             return None
-        normalized_names = [name.casefold() for name in names]
+        normalized_names = [name.lower() for name in names]
         name_placeholders = ', '.join(
             f'${index}' for index in range(2, len(normalized_names) + 2)
         )
@@ -237,11 +255,11 @@ class TestCaseService:
         connection = connection or Tortoise.get_connection('default')
         rows = await connection.execute_query_dict(
             "SELECT link.testcase_id "
-            "FROM test_case_tag_link AS link "
-            "JOIN test_case_tag AS tag ON tag.id = link.tag_id "
-            f"WHERE tag.space_id = $1 AND tag.normalized_name IN ({name_placeholders}) "
+            "FROM test_case_tag_link_shared AS link "
+            "JOIN tagmodel AS tag ON tag.id = link.tag_id "
+            f"WHERE tag.space_id = $1 AND lower(btrim(tag.title)) IN ({name_placeholders}) "
             "GROUP BY link.testcase_id "
-            f"HAVING COUNT(DISTINCT tag.normalized_name) = ${count_parameter}",
+            f"HAVING COUNT(DISTINCT lower(btrim(tag.title))) = ${count_parameter}",
             [space_id, *normalized_names, len(normalized_names)],
         )
         return {str(row['testcase_id']) for row in rows}
@@ -748,9 +766,9 @@ class TestCaseService:
         last_version = await query.order_by('-version_number').first()
         version_number = (last_version.version_number + 1) if last_version and next_version else 1
         tag_query = await (connection or Tortoise.get_connection('default')).execute_query_dict(
-            "SELECT tag.name FROM test_case_tag_link link "
-            "JOIN test_case_tag tag ON tag.id = link.tag_id "
-            "WHERE link.testcase_id = $1 ORDER BY tag.normalized_name",
+            "SELECT btrim(tag.title) AS name FROM test_case_tag_link_shared link "
+            "JOIN tagmodel tag ON tag.id = link.tag_id "
+            "WHERE link.testcase_id = $1 ORDER BY lower(btrim(tag.title))",
             [str(testcase.id)],
         )
         from ..custom_field.service import CustomFieldValueService

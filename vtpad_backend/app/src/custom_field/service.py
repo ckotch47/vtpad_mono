@@ -226,6 +226,19 @@ class CustomFieldService:
             if not field:
                 raise HTTPException(status_code=404, detail='Custom field not found')
             await CustomFieldService._authorize(str(field.space_id), request)
+            # Remove dependent plan predicates atomically with the definition;
+            # otherwise plan counts, previews, and run creation would retain
+            # filters that can no longer be resolved.
+            await connection.execute_query(
+                "UPDATE test_plan SET filters = jsonb_set("
+                "COALESCE(filters, '{}'::jsonb), '{custom_fields}', "
+                "COALESCE((SELECT jsonb_agg(item) FROM jsonb_array_elements("
+                "COALESCE(filters->'custom_fields', '[]'::jsonb)) AS entries(item) "
+                "WHERE item->>'field_id' <> $1), '[]'::jsonb), true) "
+                "WHERE space_id = $2 AND COALESCE(filters->'custom_fields', '[]'::jsonb) "
+                "@> jsonb_build_array(jsonb_build_object('field_id', $1))",
+                [str(field.id), str(field.space_id)],
+            )
             await CustomFieldValueModel.filter(field_id=field_id).using_db(connection).delete()
             await CustomFieldModel.filter(id=field_id).using_db(connection).delete()
         return True

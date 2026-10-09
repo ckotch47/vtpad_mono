@@ -35,19 +35,24 @@ async def get_test_plans(space_id: str) -> list[dict]:
         space_id: UUID of the space
 
     Returns:
-        List of test plans with id, name, description, case_count
+        List of test plans with source IDs, filters, and resolved case_count
     """
+    request = get_http_request()
+    await check_user_into_space(str(space_id), request)
     plans = await TestPlanModel.filter(space_id=space_id).order_by("-created_at")
-    return [
-        {
-            "id": str(p.id),
-            "name": p.name,
-            "description": p.description,
-            "case_count": len(p.case_ids or []),
-            "created_at": p.created_at.isoformat() if p.created_at else None,
-        }
-        for p in plans
-    ]
+    result = []
+    for plan in plans:
+        result.append({
+            "id": str(plan.id),
+            "name": plan.name,
+            "description": plan.description,
+            "suite_ids": plan.suite_ids or [],
+            "case_ids": plan.case_ids or [],
+            "filters": plan.filters or {},
+            "case_count": await TestPlanService.count_cases(str(plan.id)),
+            "created_at": plan.created_at.isoformat() if plan.created_at else None,
+        })
+    return result
 
 @mcp.tool()
 async def get_test_plan(plan_id: str) -> dict | None:
@@ -59,12 +64,14 @@ async def get_test_plan(plan_id: str) -> dict | None:
     Returns:
         Plan details or None
     """
-    plan = await TestPlanService.get_by_id(plan_id)
+    plan = await TestPlanService.get_by_id(plan_id, request=get_http_request())
     return {
         "id": str(plan.id),
         "name": plan.name,
         "description": plan.description,
         "case_ids": plan.case_ids or [],
+        "suite_ids": plan.suite_ids or [],
+        "filters": plan.filters or {},
         "space_id": str(plan.space_id) if plan.space_id else None,
         "created_at": plan.created_at.isoformat() if plan.created_at else None,
     }
@@ -75,6 +82,8 @@ async def create_test_plan(
     space_id: str,
     description: str | None = None,
     case_ids: list[str] | None = None,
+    suite_ids: list[str] | None = None,
+    filters: dict | None = None,
 ) -> dict:
     """Create a new test plan.
 
@@ -83,24 +92,31 @@ async def create_test_plan(
         space_id: Space UUID
         description: Optional description
         case_ids: Optional list of test case IDs to include
+        suite_ids: Optional list of test suite IDs to include
+        filters: Optional priority, tag, and typed custom-field filters
 
     Returns:
         Created plan details
     """
     from ...test_plan.dto import TestPlanCreateDto
-    token = get_http_request().headers.get("Authorization", "").replace("Bearer ", "")
+    request = get_http_request()
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
     dto = TestPlanCreateDto(
         name=name,
         space_id=space_id,
         description=description,
         case_ids=case_ids or [],
+        suite_ids=suite_ids or [],
+        filters=filters or {},
     )
-    plan = await TestPlanService.create(dto, token)
+    plan = await TestPlanService.create(dto, token, request)
     return {
         "id": str(plan.id),
         "name": plan.name,
         "description": plan.description,
         "case_ids": plan.case_ids or [],
+        "suite_ids": plan.suite_ids or [],
+        "filters": plan.filters or {},
     }
 
 @mcp.tool()
@@ -109,6 +125,8 @@ async def update_test_plan(
     name: str | None = None,
     description: str | None = None,
     case_ids: list[str] | None = None,
+    suite_ids: list[str] | None = None,
+    filters: dict | None = None,
 ) -> dict:
     """Update a test plan.
 
@@ -117,6 +135,8 @@ async def update_test_plan(
         name: Optional new name
         description: Optional new description
         case_ids: Optional new list of case IDs (replaces existing)
+        suite_ids: Optional new list of suite IDs (replaces existing)
+        filters: Optional filters; pass {} to clear them
 
     Returns:
         Updated plan details
@@ -129,12 +149,18 @@ async def update_test_plan(
         dto.description = description
     if case_ids is not None:
         dto.case_ids = case_ids
-    plan = await TestPlanService.update(plan_id, dto)
+    if suite_ids is not None:
+        dto.suite_ids = suite_ids
+    if filters is not None:
+        dto.filters = filters
+    plan = await TestPlanService.update(plan_id, dto, get_http_request())
     return {
         "id": str(plan.id),
         "name": plan.name,
         "description": plan.description,
         "case_ids": plan.case_ids or [],
+        "suite_ids": plan.suite_ids or [],
+        "filters": plan.filters or {},
     }
 
 @mcp.tool()
@@ -147,8 +173,38 @@ async def delete_test_plan(plan_id: str) -> dict:
     Returns:
         Success status
     """
-    await TestPlanService.delete(plan_id)
+    await TestPlanService.delete(plan_id, get_http_request())
     return {"deleted": True, "id": plan_id}
+
+
+@mcp.tool()
+async def preview_test_plan_selection(
+    space_id: str,
+    suite_ids: list[str] | None = None,
+    case_ids: list[str] | None = None,
+    filters: dict | None = None,
+) -> dict:
+    """Preview the selected testcase count for a plan draft without saving it.
+
+    Args:
+        space_id: UUID of the space
+        suite_ids: Optional suite source IDs; their cases are unioned with explicit case_ids
+        case_ids: Optional explicitly selected testcase IDs
+        filters: Optional intersecting priorities, all-tags, and typed custom-field filters
+
+    Returns:
+        Total selected case count, a bounded list of IDs, and whether IDs were truncated
+    """
+    from ...test_plan.dto import TestPlanPreviewDto
+
+    request = get_http_request()
+    dto = TestPlanPreviewDto(
+        space_id=space_id,
+        suite_ids=suite_ids or [],
+        case_ids=case_ids or [],
+        filters=filters or {},
+    )
+    return await TestPlanService.preview_selection(dto, request)
 
 @mcp.tool()
 async def get_test_plan_cases(plan_id: str) -> list[dict]:
@@ -160,7 +216,7 @@ async def get_test_plan_cases(plan_id: str) -> list[dict]:
     Returns:
         List of test cases in plan order
     """
-    plan = await TestPlanService.get_by_id(plan_id)
-    await check_user_into_space(str(plan.space_id), get_http_request())
-    cases = await TestPlanService.get_cases(plan_id)
+    request = get_http_request()
+    plan = await TestPlanService.get_by_id(plan_id, request=request)
+    cases = await TestPlanService.get_cases(plan_id, request=request)
     return await _cases_to_dict_with_metadata(cases)

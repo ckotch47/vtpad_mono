@@ -1,5 +1,23 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Any, Optional, List
+
+
+class TestPlanCustomFieldFilterDto(BaseModel):
+    field_id: str
+    value: Any
+
+
+class TestPlanFiltersDto(BaseModel):
+    priorities: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    custom_fields: List[TestPlanCustomFieldFilterDto] = Field(default_factory=list)
+
+
+class TestPlanPreviewDto(BaseModel):
+    space_id: str
+    suite_ids: List[str] = Field(default_factory=list)
+    case_ids: List[str] = Field(default_factory=list)
+    filters: TestPlanFiltersDto = Field(default_factory=TestPlanFiltersDto)
 
 
 class TestPlanCreateDto(BaseModel):
@@ -8,6 +26,7 @@ class TestPlanCreateDto(BaseModel):
     space_id: str
     suite_ids: Optional[List[str]] = None
     case_ids: Optional[List[str]] = None
+    filters: TestPlanFiltersDto = Field(default_factory=TestPlanFiltersDto)
 
 
 class TestPlanUpdateDto(BaseModel):
@@ -15,3 +34,4 @@ class TestPlanUpdateDto(BaseModel):
     description: Optional[str] = None
     suite_ids: Optional[List[str]] = None
     case_ids: Optional[List[str]] = None
+    filters: Optional[TestPlanFiltersDto] = None

@@ -43,8 +43,12 @@
             :plan="plan"
             :all-suites="allSuites"
             v-model:edit-suite-ids="editSuiteIds"
+            v-model:edit-filters="editFilters"
             :saving-suites="savingSuites"
-            :suite-ids-changed="suiteIdsChanged"
+            :selection-changed="selectionChanged"
+            :preview-result="previewResult"
+            :preview-error="previewError"
+            :previewing-selection="previewingSelection"
             :loading-cases="loadingCases"
             :cases-load-error="casesLoadError"
             :cases-load-error-status="casesLoadErrorStatus"
@@ -56,6 +60,7 @@
             :runs="runs"
             :is-case-in-plan="isCaseInPlan"
             @save-suites="saveSuites"
+            @preview-selection="previewSelection"
             @reset-suites="resetSuiteIds"
             @add-cases="addIndividualCases"
             @select-all-available="selectAllAvailable"
@@ -85,8 +90,12 @@ const {
   loader,
   allSuites,
   editSuiteIds,
+  editFilters,
   savingSuites,
-  suiteIdsChanged,
+  selectionChanged,
+  previewResult,
+  previewError,
+  previewingSelection,
   loadingCases,
   casesLoadError,
   casesLoadErrorStatus,
@@ -98,6 +107,7 @@ const {
   caseDialogOpen,
   selectedCase,
   saveSuites,
+  previewSelection,
   resetSuiteIds,
   loadMoreCases,
   removeCase,

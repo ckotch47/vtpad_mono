@@ -9,6 +9,7 @@ class TestPlanModel(Model):
 
     suite_ids = fields.JSONField(null=True, default=list)
     case_ids = fields.JSONField(null=True, default=list)
+    filters = fields.JSONField(null=False, default=dict)
 
     space = fields.ForeignKeyField('models.SpaceModel', related_name='test_plans')
 

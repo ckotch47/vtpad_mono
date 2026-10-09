@@ -20,7 +20,12 @@ export function useTestPlanDetail() {
 
   const allSuites = ref([])
   const editSuiteIds = ref([])
+  const editFilters = ref({ priorities: [], tags: [], custom_fields: [] })
   const savingSuites = ref(false)
+  const previewResult = ref(null)
+  const previewError = ref('')
+  const previewingSelection = ref(false)
+  const previewRequestId = ref(0)
 
   const availableCases = ref([])
   const casesPage = ref(1)
@@ -43,6 +48,21 @@ export function useTestPlanDetail() {
     if (editSuiteIds.value.length !== current.length) return true
     return editSuiteIds.value.some(id => !current.includes(id)) || current.some(id => !editSuiteIds.value.includes(id))
   })
+  const filtersChanged = computed(() => JSON.stringify(editFilters.value) !== JSON.stringify({
+    priorities: plan.value.filters?.priorities || [],
+    tags: plan.value.filters?.tags || [],
+    custom_fields: plan.value.filters?.custom_fields || [],
+  }))
+  const selectionChanged = computed(() => suiteIdsChanged.value || filtersChanged.value)
+  watch(
+    () => JSON.stringify({ suite_ids: editSuiteIds.value, filters: editFilters.value, case_ids: plan.value.case_ids || [] }),
+    () => {
+      previewRequestId.value += 1
+      previewResult.value = null
+      previewError.value = ''
+      previewingSelection.value = false
+    }
+  )
 
   const filteredAvailableCases = computed(() => {
     const plannedIds = new Set((plan.value.case_ids || []))
@@ -67,6 +87,13 @@ export function useTestPlanDetail() {
       plan.value = planRes.data
       cases.value = casesRes.data
       editSuiteIds.value = [...(planRes.data.suite_ids || [])]
+      editFilters.value = {
+        priorities: [...(planRes.data.filters?.priorities || [])],
+        tags: [...(planRes.data.filters?.tags || [])],
+        custom_fields: (planRes.data.filters?.custom_fields || []).map(item => ({ ...item })),
+      }
+      previewResult.value = null
+      previewError.value = ''
 
       const runsRes = await testRunService.listBySpace(spaceId.value, { page: 1, page_size: 100 })
       runs.value = (runsRes.data.items || []).filter(r => r.plan_id === planId.value)
@@ -89,7 +116,7 @@ export function useTestPlanDetail() {
   async function saveSuites() {
     savingSuites.value = true
     try {
-      await testPlanService.update(planId.value, { suite_ids: editSuiteIds.value })
+      await testPlanService.update(planId.value, { suite_ids: editSuiteIds.value, filters: editFilters.value })
       await loadPlan()
     } catch (e) {
       log.error('saveSuites failed', e)
@@ -100,6 +127,41 @@ export function useTestPlanDetail() {
 
   function resetSuiteIds() {
     editSuiteIds.value = [...(plan.value.suite_ids || [])]
+    editFilters.value = {
+      priorities: [...(plan.value.filters?.priorities || [])],
+      tags: [...(plan.value.filters?.tags || [])],
+      custom_fields: (plan.value.filters?.custom_fields || []).map(item => ({ ...item })),
+    }
+    previewResult.value = null
+    previewError.value = ''
+  }
+
+  async function previewSelection() {
+    if (previewingSelection.value) return
+    const requestId = ++previewRequestId.value
+    const draft = {
+      space_id: spaceId.value,
+      suite_ids: [...editSuiteIds.value],
+      case_ids: [...(plan.value.case_ids || [])],
+      filters: JSON.parse(JSON.stringify(editFilters.value)),
+    }
+    const draftKey = JSON.stringify(draft)
+    previewingSelection.value = true
+    previewError.value = ''
+    try {
+      const response = await testPlanService.previewSelection(draft)
+      const currentDraftKey = JSON.stringify({
+        space_id: spaceId.value,
+        suite_ids: editSuiteIds.value,
+        case_ids: plan.value.case_ids || [],
+        filters: editFilters.value,
+      })
+      if (requestId === previewRequestId.value && currentDraftKey === draftKey) previewResult.value = response.data
+    } catch (e) {
+      if (requestId === previewRequestId.value) previewError.value = e?.response?.data?.detail || 'Selection preview could not be loaded.'
+    } finally {
+      if (requestId === previewRequestId.value) previewingSelection.value = false
+    }
   }
 
   async function doLoadCases(requestedSpaceId, page, search) {
@@ -286,8 +348,14 @@ export function useTestPlanDetail() {
     loader,
     allSuites,
     editSuiteIds,
+    editFilters,
     savingSuites,
     suiteIdsChanged,
+    filtersChanged,
+    selectionChanged,
+    previewResult,
+    previewError,
+    previewingSelection,
     availableCases,
     casesPage,
     casesHasMore,
@@ -305,6 +373,7 @@ export function useTestPlanDetail() {
     loadSuites,
     saveSuites,
     resetSuiteIds,
+    previewSelection,
     loadMoreCases,
     removeCase,
     isCaseInPlan,

@@ -216,7 +216,11 @@ class TestCaseService:
         return [tag.name for tag in tags]
 
     @staticmethod
-    async def _filter_ids_by_all_tags(space_id: str, tags: Optional[list[str]]) -> Optional[set[str]]:
+    async def _filter_ids_by_all_tags(
+        space_id: str,
+        tags: Optional[list[str]],
+        connection=None,
+    ) -> Optional[set[str]]:
         names = TestCaseService._normalize_tags(tags)
         if not names:
             return None
@@ -225,7 +229,8 @@ class TestCaseService:
             f'${index}' for index in range(2, len(normalized_names) + 2)
         )
         count_parameter = len(normalized_names) + 2
-        rows = await Tortoise.get_connection('default').execute_query_dict(
+        connection = connection or Tortoise.get_connection('default')
+        rows = await connection.execute_query_dict(
             "SELECT link.testcase_id "
             "FROM test_case_tag_link AS link "
             "JOIN test_case_tag AS tag ON tag.id = link.tag_id "

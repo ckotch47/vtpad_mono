@@ -74,21 +74,27 @@ async def complete_test_run(run_id: str) -> dict:
 @mcp.tool()
 async def create_test_run(
     space_id: str,
-    suite_id: str,
     name: str,
+    suite_id: str | None = None,
+    plan_id: str | None = None,
+    testcase_ids: list[str] | None = None,
     description: str | None = None,
     environment_id: str | None = None,
     milestone_id: str | None = None,
+    source_hash: str | None = None,
 ) -> dict:
-    """Create a new test run from a test suite.
+    """Create a run from exactly one suite, saved plan, or explicit case list.
 
     Args:
         space_id: UUID of the space
-        suite_id: UUID of the test suite
+        suite_id: Optional UUID of the test suite
+        plan_id: Optional UUID of a saved test plan; its saved filters are resolved by the shared service
+        testcase_ids: Optional explicit testcase UUID list
         name: Name of the test run
         description: Optional description
         environment_id: Optional environment UUID
         milestone_id: Optional milestone UUID
+        source_hash: Optional preview hash; stale previews return a conflict
 
     Returns:
         Created test run details
@@ -99,10 +105,13 @@ async def create_test_run(
     dto = TestRunCreateDto(
         space_id=space_id,
         suite_id=suite_id,
+        plan_id=plan_id,
+        testcase_ids=testcase_ids,
         name=name,
         description=description,
         environment_id=environment_id,
         milestone_id=milestone_id,
+        source_hash=source_hash,
     )
     run = await TestRunService.create(dto, token)
     return {
@@ -110,8 +119,36 @@ async def create_test_run(
         "name": run.name,
         "status": run.status.value if hasattr(run.status, "value") else run.status,
         "suite_id": str(run.suite_id) if run.suite_id else None,
+        "plan_id": str(run.plan_id) if run.plan_id else None,
         "space_id": str(run.space_id) if run.space_id else None,
     }
+
+
+@mcp.tool()
+async def preview_test_run(
+    space_id: str,
+    name: str,
+    suite_id: str | None = None,
+    plan_id: str | None = None,
+    testcase_ids: list[str] | None = None,
+    description: str | None = None,
+    environment_id: str | None = None,
+    milestone_id: str | None = None,
+) -> dict:
+    """Preview a run's resolved cases and source hash before creation."""
+    request = get_http_request()
+    await check_user_into_space(space_id, request)
+    dto = TestRunCreateDto(
+        space_id=space_id,
+        suite_id=suite_id,
+        plan_id=plan_id,
+        testcase_ids=testcase_ids,
+        name=name,
+        description=description,
+        environment_id=environment_id,
+        milestone_id=milestone_id,
+    )
+    return await TestRunService.preview(dto)
 
 @mcp.tool()
 async def get_run_results(run_id: str) -> dict | None:

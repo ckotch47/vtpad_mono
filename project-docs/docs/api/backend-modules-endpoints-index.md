@@ -193,7 +193,7 @@ MCP tools in `app/src/mcp/tools/*` are not classic REST endpoints, but they are 
 Current behavior constraints (synced with code):
 - `get_space_suites` transforms items returned by `TestSuiteService.get_by_space(...)` as dictionaries.
 - MCP `search_test_cases` accepts the same type/status/suite/priority/tag filters and one-based `page`/`limit` pagination as the REST case list; `suite_id="none"` searches unassigned cases. It returns the requested page as a list, preserving the MCP result shape. `get_space_suites` accepts optional `search`, `status`, and one-based `page`/`limit`, and checks access to `space_id` before querying; it also preserves its list result shape.
-- `create_test_plan` uses Bearer token from `Authorization` header when calling `TestPlanService.create(...)`.
+- MCP plan tools provide equivalent read/write access plus `preview_test_plan_selection`; create/update accept `suite_ids` and typed `filters`, and list `case_count` is computed by the shared resolver.
 - `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
 - `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
 - Space access checks invoked by MCP tools use `request.state.mcp_authenticated_user_id`, which is populated only by `MCPAuthMiddleware` after API-token validation; REST requests continue to resolve the user from their JWT Bearer token.
@@ -201,6 +201,17 @@ Current behavior constraints (synced with code):
 - `sort_sections` reorders one section relative to exactly one before/after sibling; it uses the same `SectionSortDto` and `SectionService.update_sort` as REST, and returns JSON siblings with `id`, `name`, `description`, `suite_id`, `parent_id`, `sort`.
 - Custom-field tools `list_custom_fields`, `create_custom_field`, `update_custom_field`, `delete_custom_field`, `get_custom_field_values`, and `set_custom_field_value` call the same space-authorized services as REST. MCP testcase create/update accepts `custom_fields: [{field_id, value}]`; testcase detail/search/list reads and run result snapshots return self-contained field metadata and values. Collection responses batch-load fields for the selected cases.
 - Custom field values are validated against their definition type/options and entity type; foreign-space field/entity pairs are hidden as `404`. Required definitions default to false; requiredness is supported for testcase fields.
+
+### `app/src/test_plan`
+- `GET /api/v2/test-plan/space/{space_id}`
+- `POST /api/v2/test-plan/preview-selection`
+- `GET /api/v2/test-plan/{plan_id}`
+- `GET /api/v2/test-plan/{plan_id}/cases`
+- `POST /api/v2/test-plan/`
+- `PATCH /api/v2/test-plan/{plan_id}`
+- `DELETE /api/v2/test-plan/{plan_id}`
+
+Every REST and MCP operation checks access to the plan's space. Plan sources are the union of selected suites and explicit testcase IDs; with no sources the candidate set is empty. Priority, all-tags, and typed custom-field filters intersect that candidate set. Preview, list count, and run creation use the same resolver. Existing plans default to no filters. PATCH omission preserves filters and an empty object clears them. Run creation evaluates saved plan filters with the source and testcase snapshots in one PostgreSQL `REPEATABLE READ` transaction.
 
 ### `app/src/test_run`
 - `POST /api/v2/test-run/preview`

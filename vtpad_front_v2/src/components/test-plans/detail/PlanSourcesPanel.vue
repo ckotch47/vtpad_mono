@@ -23,13 +23,28 @@
     </v-card-text>
     <v-card-actions>
       <v-spacer />
-      <v-btn size="small" variant="text" :disabled="!suiteIdsChanged" @click="$emit('reset-suites')">
+      <v-btn size="small" variant="text" :disabled="!selectionChanged" @click="$emit('reset-suites')">
         Reset
       </v-btn>
-      <v-btn color="primary" :disabled="!suiteIdsChanged" :loading="savingSuites" @click="$emit('save-suites')">
-        Save Suites
+      <v-btn color="primary" :disabled="!selectionChanged" :loading="savingSuites" @click="$emit('save-suites')">
+        Save Selection
       </v-btn>
     </v-card-actions>
+  </v-card>
+
+  <v-card class="mb-4">
+    <v-card-title>Case filters</v-card-title>
+    <v-divider />
+    <v-card-text>
+      <plan-case-filters
+        v-model="localEditFilters"
+        :space-id="plan.space_id"
+        :preview-result="previewResult"
+        :preview-error="previewError"
+        :preview-loading="previewingSelection"
+        @preview="$emit('preview-selection')"
+      />
+    </v-card-text>
   </v-card>
 
   <!-- Individual Cases -->
@@ -159,13 +174,18 @@
 <script setup>
 import { computed } from 'vue'
 import { vElementVisibility } from '@vueuse/components'
+import PlanCaseFilters from '../PlanCaseFilters.vue'
 
 const props = defineProps({
   plan: { type: Object, required: true },
   allSuites: { type: Array, default: () => [] },
   editSuiteIds: { type: Array, default: () => [] },
+  editFilters: { type: Object, default: () => ({ priorities: [], tags: [], custom_fields: [] }) },
   savingSuites: { type: Boolean, default: false },
-  suiteIdsChanged: { type: Boolean, default: false },
+  selectionChanged: { type: Boolean, default: false },
+  previewResult: { type: Object, default: null },
+  previewError: { type: String, default: '' },
+  previewingSelection: { type: Boolean, default: false },
   loadingCases: { type: Boolean, default: false },
   casesLoadError: { type: Boolean, default: false },
   casesLoadErrorStatus: { type: Number, default: 0 },
@@ -180,9 +200,11 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update:editSuiteIds',
+  'update:editFilters',
   'update:selectedCases',
   'update:caseSearch',
   'save-suites',
+  'preview-selection',
   'reset-suites',
   'add-cases',
   'select-all-available',
@@ -193,6 +215,11 @@ const emit = defineEmits([
 const localEditSuiteIds = computed({
   get: () => props.editSuiteIds,
   set: (v) => emit('update:editSuiteIds', v),
+})
+
+const localEditFilters = computed({
+  get: () => props.editFilters,
+  set: (v) => emit('update:editFilters', v),
 })
 
 const localCaseSearch = computed({

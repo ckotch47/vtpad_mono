@@ -63,7 +63,7 @@
         <span class="font-weight-medium">{{ item.name }}</span>
       </template>
       <template v-slot:[`item.case_count`]="{ item }">
-        <v-chip size="small" color="primary">{{ (item.case_ids || []).length }}</v-chip>
+        <v-chip size="small" color="primary">{{ item.case_count || 0 }}</v-chip>
       </template>
       <template v-slot:[`item.description`]="{ item }">
         <span class="text-medium-emphasis">{{ item.description || '—' }}</span>
@@ -89,7 +89,7 @@
     </div>
 
     <!-- Create Dialog -->
-    <v-dialog v-model="openDialog" max-width="500">
+    <v-dialog v-model="openDialog" max-width="760">
       <v-card
         data-keyboard-save-scope
         :data-keyboard-escape-confirm="isCreateDirty ? 'Discard unsaved test plan changes?' : null"
@@ -99,11 +99,30 @@
         <v-card-text>
           <v-text-field v-model="newPlan.name" label="Name" required autofocus />
           <v-textarea v-model="newPlan.description" label="Description" rows="2" />
+          <v-select
+            v-model="newPlan.suite_ids"
+            :items="availableSuites"
+            item-title="name"
+            item-value="id"
+            label="Suites"
+            multiple
+            chips
+            closable-chips
+            clearable
+          />
+          <plan-case-filters
+            v-model="newPlan.filters"
+            :space-id="String(spaceId)"
+            :preview-result="createPreview"
+            :preview-error="createPreviewError"
+            :preview-loading="previewingCreate"
+            @preview="previewCreateSelection"
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="openDialog = false">Cancel</v-btn>
-          <v-btn color="primary" data-keyboard-save-action :loading="creating" :disabled="creating" @click="createPlan">Create</v-btn>
+          <v-btn color="primary" data-keyboard-save-action :loading="creating" :disabled="creating || !newPlan.name.trim()" @click="createPlan">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -111,11 +130,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useLogger } from '@/composables/useLogger'
 import { useRoute } from 'vue-router'
-import { testPlanService } from '@/services'
+import { testPlanService, testSuiteService } from '@/services'
 import ListLoadingSkeleton from '@/components/common/ListLoadingSkeleton.vue'
+import PlanCaseFilters from './PlanCaseFilters.vue'
 
 const log = useLogger('app')
 const route = useRoute()
@@ -135,13 +155,35 @@ const requestId = ref(0)
 const search = ref('')
 const searchDebounce = ref(null)
 const openDialog = ref(false)
-const newPlan = ref({ name: '', description: '' })
+const emptyPlanDraft = () => ({ name: '', description: '', suite_ids: [], filters: { priorities: [], tags: [], custom_fields: [] } })
+const newPlan = ref(emptyPlanDraft())
 const creating = ref(false)
-const isCreateDirty = computed(() => Boolean(newPlan.value.name || newPlan.value.description))
+const availableSuites = ref([])
+const createPreview = ref(null)
+const createPreviewError = ref('')
+const previewingCreate = ref(false)
+const createPreviewRequestId = ref(0)
+const isCreateDirty = computed(() => Boolean(newPlan.value.name || newPlan.value.description || newPlan.value.suite_ids.length || newPlan.value.filters.priorities.length || newPlan.value.filters.tags.length || newPlan.value.filters.custom_fields.length))
 
 watch(openDialog, (isOpen) => {
-  if (!isOpen && !creating.value) newPlan.value = { name: '', description: '' }
+  if (!isOpen && !creating.value) {
+    newPlan.value = emptyPlanDraft()
+    createPreview.value = null
+    createPreviewError.value = ''
+    createPreviewRequestId.value += 1
+    previewingCreate.value = false
+  }
 })
+
+watch(
+  () => JSON.stringify({ suite_ids: newPlan.value.suite_ids, filters: newPlan.value.filters }),
+  () => {
+    createPreviewRequestId.value += 1
+    createPreview.value = null
+    createPreviewError.value = ''
+    previewingCreate.value = false
+  }
+)
 
 watch(spaceId, (nextSpaceId, previousSpaceId) => {
   if (!nextSpaceId || nextSpaceId === previousSpaceId) return
@@ -156,8 +198,11 @@ watch(spaceId, (nextSpaceId, previousSpaceId) => {
   loadErrorStatus.value = 0
   search.value = ''
   openDialog.value = false
-  newPlan.value = { name: '', description: '' }
+  newPlan.value = emptyPlanDraft()
+  createPreview.value = null
+  createPreviewRequestId.value += 1
   loadPlans({ page: 1, itemsPerPage: pageSize.value })
+  loadSuites()
 })
 
 const headers = computed(() => [
@@ -215,16 +260,18 @@ function onSearch() {
 }
 
 async function createPlan() {
-  if (creating.value) return
+  if (creating.value || !newPlan.value.name.trim()) return
   creating.value = true
   try {
     await testPlanService.create({
       name: newPlan.value.name,
       description: newPlan.value.description,
-      space_id: spaceId.value
+      space_id: spaceId.value,
+      suite_ids: newPlan.value.suite_ids,
+      filters: newPlan.value.filters,
     })
     openDialog.value = false
-    newPlan.value = { name: '', description: '' }
+    newPlan.value = emptyPlanDraft()
     loadPlans({ page: page.value, itemsPerPage: pageSize.value })
   } catch (e) {
     log.error("request failed", e)
@@ -232,6 +279,46 @@ async function createPlan() {
     creating.value = false
   }
 }
+
+async function previewCreateSelection() {
+  if (previewingCreate.value) return
+  const requestId = ++createPreviewRequestId.value
+  const draft = {
+    space_id: spaceId.value,
+    suite_ids: [...newPlan.value.suite_ids],
+    case_ids: [],
+    filters: JSON.parse(JSON.stringify(newPlan.value.filters)),
+  }
+  const draftKey = JSON.stringify(draft)
+  previewingCreate.value = true
+  createPreviewError.value = ''
+  try {
+    const response = await testPlanService.previewSelection(draft)
+    const currentDraftKey = JSON.stringify({
+      space_id: spaceId.value,
+      suite_ids: newPlan.value.suite_ids,
+      case_ids: [],
+      filters: newPlan.value.filters,
+    })
+    if (requestId === createPreviewRequestId.value && currentDraftKey === draftKey) createPreview.value = response.data
+  } catch (e) {
+    if (requestId === createPreviewRequestId.value) createPreviewError.value = e?.response?.data?.detail || 'Selection preview could not be loaded.'
+  } finally {
+    if (requestId === createPreviewRequestId.value) previewingCreate.value = false
+  }
+}
+
+async function loadSuites() {
+  if (!spaceId.value || spaceId.value === 'undefined') return
+  try {
+    const response = await testSuiteService.listBySpace(spaceId.value, { page: 1, page_size: 1000 })
+    availableSuites.value = response.data.items || []
+  } catch (e) {
+    log.error('could not load suites for plan creation', e)
+  }
+}
+
+onMounted(loadSuites)
 
 async function deletePlan(id) {
   if (!confirm('Delete this test plan?')) return

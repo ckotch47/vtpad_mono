@@ -101,6 +101,13 @@
 | Method | Path | Auth/Access | Примечания |
 | --- | --- | --- | --- |
 | GET | `/api/v2/test-suite/space/{space_id}` | JWT + space check | paginated list; `search` uses PostgreSQL full-text rank (`name` A, `description` B), with `id` tie-break; `status` supports active, archived, all |
+| GET | `/api/v2/test-plan/space/{space_id}` | JWT + space check | paginated plans; includes `suite_ids`, `case_ids`, stored typed `filters`, and the resolved `case_count` |
+| POST | `/api/v2/test-plan/preview-selection` | JWT + space check | validates same-space sources and typed testcase custom-field filters; returns selected count and up to 100 case IDs using the same resolver as saved plans and run creation |
+| GET | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | gets plan configuration after checking space access |
+| GET | `/api/v2/test-plan/{plan_id}/cases` | JWT + plan-space check | resolved suite/case union after intersecting priority, all-tags, and typed custom-field filters |
+| POST | `/api/v2/test-plan/` | JWT + space check | creates a plan with optional `suite_ids`, `case_ids`, and `filters` |
+| PATCH | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | updates supplied source/filter fields; omitted filters remain unchanged and `filters: {}` clears filters |
+| DELETE | `/api/v2/test-plan/{plan_id}` | JWT + plan-space check | deletes the plan after checking access to its space |
 | POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с suite, root→leaf `section_path` и `source_hash`; source, case content, versions, tags, custom fields и locations читаются в одном PostgreSQL `REPEATABLE READ` snapshot |
 | POST | `/api/v2/test-run` | JWT + space check | создаёт run и self-contained result snapshots для cases любого статуса; атомарный selection snapshot согласован даже если caller не передал optional `source_hash`; устаревший preview возвращает `409` |
 | GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`, `status`; возвращает nullable `created_by` с `{id, username}` и `completed_at` |
@@ -147,6 +154,8 @@
 | DELETE | `/api/v2/custom-field/{field_id}` | JWT + field space check | удаляет definition и live values; testcase-version/run snapshots остаются self-contained |
 | POST | `/api/v2/custom-field/value` | JWT + entity space check | typed value; field/entity type, same-space и доступ валидируются общим сервисом; testcase mutation создаёт версию |
 | GET | `/api/v2/custom-field/value/{entity_id}` | JWT + entity space check | live values определения; пустой набор разрешён для доступного entity |
+
+Plan filters form a candidate set by unioning suite members with explicit `case_ids`; when both source lists are empty, the candidate set is empty. Then priorities, all selected tags, and typed testcase custom-field predicates intersect it. Scalar custom fields use exact matching; multiselect filters match arrays containing the requested values, while an empty array matches only an empty value; a JSON `null` filter selects cases with no non-null value. REST and MCP preview/count/create use the shared plan resolver. Run creation resolves the saved plan filters in the same transaction snapshot as the testcase and custom-field snapshots.
 
 Testcase detail, list/search, create/update response `custom_fields` содержит definition metadata (`field_id`, `name`, `field_type`, `options`, `required`) и `value`; REST и MCP `search_test_cases` включают ту же структуру. Коллекции загружают значения пакетом. Version snapshots хранят metadata и values; `null` означает legacy version без достоверной истории. Создание/обновление принимает `custom_fields: [{field_id, value}]`; ключ `value` обязателен, а JSON `null` явно очищает необязательное значение. В PATCH omission всего `custom_fields` сохраняет values, переданный массив является полной заменой. Явные `null` в полях PATCH определения игнорируются для совместимости с прежним контрактом.
 

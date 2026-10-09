@@ -23,7 +23,7 @@
           class="space-section-navigation-tabs"
           :model-value="route.meta.tabValue"
           show-arrows
-          align-tabs="start"
+          align-tabs="center"
           density="compact"
         >
           <v-tab
@@ -197,9 +197,12 @@ watch(route, () => {
 }
 
 .space-section-navigation-tabs {
+  position: absolute;
+  left: 50%;
+  width: calc(100vw - 340px);
+  max-width: 1200px;
   min-width: 0;
-  max-width: calc(100vw - 300px);
-  flex: 1 1 auto;
+  transform: translateX(-50%);
 }
 
 .spaces-navigation-profile {

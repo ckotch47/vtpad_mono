@@ -31,9 +31,12 @@ async def get_by_space(
     search: Optional[str] = None,
     milestone_id: Optional[str] = None,
     environment_id: Optional[str] = None,
+    status: Optional[str] = None,
 ):
     await check_user_into_space(space_id, request)
-    return await TestRunService.get_by_space(space_id, page, page_size, sort_by, sort_order, search, milestone_id, environment_id)
+    return await TestRunService.get_by_space(
+        space_id, page, page_size, sort_by, sort_order, search, milestone_id, environment_id, status
+    )
 
 
 @router.get('/{run_id}', dependencies=[Depends(bearer)])
@@ -98,6 +101,11 @@ async def _timer_transition_response(run_id: str, run):
 async def get_with_results(run_id: str, request: Request):
     await _require_run_access(run_id, request)
     return await TestRunService.get_with_results(run_id)
+
+
+@router.get('/{run_id}/compare/{other_run_id}', dependencies=[Depends(bearer)])
+async def compare_runs(run_id: str, other_run_id: str, request: Request):
+    return await TestRunService.compare_runs(run_id, other_run_id, request)
 
 
 @router.post('/', dependencies=[Depends(bearer)])

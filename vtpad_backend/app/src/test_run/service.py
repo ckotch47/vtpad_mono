@@ -3,6 +3,10 @@ from starlette.requests import Request
 import hashlib
 import json
 import uuid
+import re
+from html import escape
+from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 from typing import Any, Optional, List
 from datetime import datetime, timezone
@@ -27,6 +31,296 @@ from ..bug.enum import StateBugEnum
 
 
 class TestRunService:
+    _comparison_case_fields = (
+        ('title', 'title'),
+        ('type', 'type'),
+        ('suite_id', 'suite_id'),
+        ('suite_name', 'suite_name'),
+        ('section_path', 'section_path'),
+        ('description', 'text'),
+        ('preconditions', 'preconditions'),
+        ('steps', 'steps'),
+        ('expected_results', 'expected_results'),
+        ('priority', 'priority'),
+        ('tags', 'tags'),
+        ('estimated_duration_seconds', 'estimated_duration_seconds'),
+    )
+    _rich_case_fields = {'description', 'preconditions', 'steps', 'expected_results'}
+    _safe_markup_tags = {
+        'a', 'b', 'blockquote', 'br', 'code', 'div', 'em', 'h1', 'h2', 'h3', 'h4',
+        'h5', 'h6', 'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 's', 'span', 'strike',
+        'sub', 'sup', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'u', 'ul',
+    }
+    _safe_void_tags = {'br', 'hr', 'img'}
+
+    class _MarkupNormalizer(HTMLParser):
+        """Canonicalize the editor's allowed markup for snapshot comparisons."""
+
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.parts = []
+            self.unsafe_depth = 0
+
+        def handle_starttag(self, tag, attrs):
+            if self.unsafe_depth:
+                if tag in {'script', 'style', 'iframe', 'object', 'template'}:
+                    self.unsafe_depth += 1
+                return
+            if tag in {'script', 'style', 'iframe', 'object', 'template'}:
+                self.unsafe_depth = 1
+                return
+            if tag not in TestRunService._safe_markup_tags:
+                return
+            safe_attrs = []
+            allowed_attrs = {
+                'href', 'src', 'alt', 'title', 'width', 'height', 'align', 'valign',
+                'colspan', 'rowspan', 'class',
+            }
+            for name, value in attrs:
+                if name not in allowed_attrs or value is None:
+                    continue
+                normalized_value = str(value).strip()
+                if name in {'href', 'src'}:
+                    if any(ord(character) < 0x20 or ord(character) == 0x7f for character in normalized_value):
+                        continue
+                    try:
+                        scheme = urlsplit(normalized_value).scheme.lower()
+                    except ValueError:
+                        continue
+                    if scheme and scheme not in {'http', 'https', 'mailto', 'tel'}:
+                        continue
+                safe_attrs.append((name, normalized_value))
+            attrs_text = ''.join(
+                f' {name}="{escape(value, quote=True)}"'
+                for name, value in sorted(set(safe_attrs))
+            )
+            self.parts.append(f'<{tag}{attrs_text}>')
+
+        def handle_endtag(self, tag):
+            if self.unsafe_depth:
+                if tag in {'script', 'style', 'iframe', 'object', 'template'}:
+                    self.unsafe_depth = max(0, self.unsafe_depth - 1)
+                return
+            if tag in TestRunService._safe_markup_tags and tag not in TestRunService._safe_void_tags:
+                self.parts.append(f'</{tag}>')
+
+        def handle_data(self, data):
+            if not self.unsafe_depth:
+                self.parts.append(re.sub(r'\s+', ' ', data))
+
+    @staticmethod
+    def _normalize_comparison_value(value, rich_markup=False):
+        if isinstance(value, dict):
+            return {
+                key: TestRunService._normalize_comparison_value(item, rich_markup=rich_markup)
+                for key, item in sorted(value.items())
+            }
+        if isinstance(value, list):
+            return [
+                TestRunService._normalize_comparison_value(item, rich_markup=rich_markup)
+                for item in value
+            ]
+        if rich_markup and isinstance(value, str):
+            parser = TestRunService._MarkupNormalizer()
+            parser.feed(value)
+            parser.close()
+            return ''.join(parser.parts)
+        return value
+
+    @staticmethod
+    def _comparison_result(result):
+        return {
+            'status': result.status.value if hasattr(result.status, 'value') else result.status,
+            'comment': result.comment,
+            'duration_seconds': (
+                result.duration_seconds
+                if result.duration_seconds is not None and result.duration_seconds >= 0
+                else None
+            ),
+        }
+
+    @staticmethod
+    def _comparison_case_identity(result):
+        snapshot = result.testcase_snapshot
+        if isinstance(snapshot, dict):
+            snapshot_id = snapshot.get('testcase_id')
+            if snapshot_id:
+                return str(snapshot_id), str(snapshot_id), 'snapshot'
+            return f'unknown-snapshot:{result.id}', None, 'unknown_snapshot'
+        if snapshot is not None:
+            return f'unknown-snapshot:{result.id}', None, 'unknown_snapshot'
+        legacy_id = str(result.testcase_id)
+        return legacy_id, legacy_id, 'legacy_foreign_key'
+
+    @staticmethod
+    def _comparison_snapshot_for_response(snapshot):
+        if not isinstance(snapshot, dict):
+            return None
+        allowed_keys = {'testcase_id', 'version_number'} | {
+            snapshot_key for _field_name, snapshot_key in TestRunService._comparison_case_fields
+        }
+        safe_snapshot = {key: snapshot[key] for key in allowed_keys if key in snapshot}
+        for field_name, snapshot_key in TestRunService._comparison_case_fields:
+            if field_name in TestRunService._rich_case_fields and snapshot_key in safe_snapshot:
+                safe_snapshot[snapshot_key] = TestRunService._normalize_comparison_value(
+                    safe_snapshot[snapshot_key], rich_markup=True
+                )
+        return safe_snapshot
+
+    @staticmethod
+    async def compare_runs(run_id: str, other_run_id: str, request=None) -> dict:
+        """Compare two completed runs using only their immutable snapshots."""
+        if str(run_id) == str(other_run_id):
+            raise HTTPException(status_code=422, detail='Choose two different test runs')
+
+        left_run = await TestRunService.get_by_id(run_id)
+        right_run = await TestRunService.get_by_id(other_run_id)
+        if str(left_run.space_id) != str(right_run.space_id):
+            raise HTTPException(status_code=404, detail='Test run not found')
+        if request is not None:
+            await check_user_into_space(str(left_run.space_id), request)
+        if left_run.status != TestRunStatus.completed or right_run.status != TestRunStatus.completed:
+            raise HTTPException(
+                status_code=422,
+                detail='Both test runs must be completed before comparison',
+            )
+
+        left_results = await TestResultModel.filter(run_id=left_run.id).order_by('created_at', 'id')
+        right_results = await TestResultModel.filter(run_id=right_run.id).order_by('created_at', 'id')
+        def index_results(results):
+            indexed = {}
+            for result in results:
+                identity_key = TestRunService._comparison_case_identity(result)[0]
+                if identity_key in indexed:
+                    raise HTTPException(
+                        status_code=409,
+                        detail='Test run contains duplicate testcase comparison identifiers',
+                    )
+                indexed[identity_key] = result
+            return indexed
+
+        left_by_case = index_results(left_results)
+        right_by_case = index_results(right_results)
+        case_ids = sorted(set(left_by_case) | set(right_by_case))
+        rows = []
+        counts = {'added': 0, 'removed': 0, 'changed': 0, 'unchanged': 0, 'inconclusive': 0}
+
+        for case_id in case_ids:
+            left_result = left_by_case.get(case_id)
+            right_result = right_by_case.get(case_id)
+            left_snapshot = left_result.testcase_snapshot if left_result else None
+            right_snapshot = right_result.testcase_snapshot if right_result else None
+            case_fields_changed = []
+            unknown_case_fields = []
+            result_fields_changed = []
+
+            if left_result is None:
+                change_type = 'added'
+                if not right_snapshot:
+                    unknown_case_fields = [name for name, _ in TestRunService._comparison_case_fields]
+            elif right_result is None:
+                change_type = 'removed'
+                if not left_snapshot:
+                    unknown_case_fields = [name for name, _ in TestRunService._comparison_case_fields]
+            else:
+                if not left_snapshot or not right_snapshot:
+                    unknown_case_fields = [name for name, _ in TestRunService._comparison_case_fields]
+                else:
+                    for field_name, snapshot_key in TestRunService._comparison_case_fields:
+                        if snapshot_key not in left_snapshot or snapshot_key not in right_snapshot:
+                            unknown_case_fields.append(field_name)
+                            continue
+                        rich = field_name in TestRunService._rich_case_fields
+                        left_value = TestRunService._normalize_comparison_value(
+                            left_snapshot.get(snapshot_key), rich_markup=rich
+                        )
+                        right_value = TestRunService._normalize_comparison_value(
+                            right_snapshot.get(snapshot_key), rich_markup=rich
+                        )
+                        if left_value != right_value:
+                            case_fields_changed.append(field_name)
+
+                left_result_data = TestRunService._comparison_result(left_result)
+                right_result_data = TestRunService._comparison_result(right_result)
+                result_fields_changed = [
+                    field for field in ('status', 'comment', 'duration_seconds')
+                    if left_result_data[field] != right_result_data[field]
+                ]
+                if case_fields_changed or result_fields_changed:
+                    change_type = 'changed'
+                elif unknown_case_fields:
+                    change_type = 'inconclusive'
+                else:
+                    change_type = 'unchanged'
+
+            counts[change_type] += 1
+            identity_result = left_result or right_result
+            identity = TestRunService._comparison_case_identity(identity_result)
+            rows.append({
+                'case_key': case_id,
+                'testcase_id': identity[1],
+                'identity_source': {
+                    'left': TestRunService._comparison_case_identity(left_result)[2] if left_result else None,
+                    'right': TestRunService._comparison_case_identity(right_result)[2] if right_result else None,
+                },
+                'change_type': change_type,
+                'case_snapshot_available': {
+                    'left': bool(left_snapshot),
+                    'right': bool(right_snapshot),
+                },
+                'case_fields_changed': case_fields_changed,
+                'unknown_case_fields': unknown_case_fields,
+                'result_fields_changed': result_fields_changed,
+                'left': {
+                    'testcase_snapshot': TestRunService._comparison_snapshot_for_response(left_snapshot),
+                    'result': TestRunService._comparison_result(left_result) if left_result else None,
+                } if left_result else None,
+                'right': {
+                    'testcase_snapshot': TestRunService._comparison_snapshot_for_response(right_snapshot),
+                    'result': TestRunService._comparison_result(right_result) if right_result else None,
+                } if right_result else None,
+            })
+
+        def source_for(run):
+            source_snapshot = run.source_snapshot
+            source = source_snapshot.get('source') if isinstance(source_snapshot, dict) else None
+            if isinstance(source, dict):
+                return {
+                    'type': source.get('type'),
+                    'id': source.get('id'),
+                    'name': source.get('name'),
+                }
+            return {
+                'type': 'legacy_unknown',
+                'id': None,
+                'name': None,
+            }
+
+        left_source = source_for(left_run)
+        right_source = source_for(right_run)
+        sources_differ = any(
+            left_source.get(field) != right_source.get(field)
+            for field in ('type', 'id', 'name')
+        )
+
+        return {
+            'left_run': {
+                'id': str(left_run.id),
+                'name': left_run.name,
+                'completed_at': left_run.completed_at.isoformat() if left_run.completed_at else None,
+                'source': left_source,
+            },
+            'right_run': {
+                'id': str(right_run.id),
+                'name': right_run.name,
+                'completed_at': right_run.completed_at.isoformat() if right_run.completed_at else None,
+                'source': right_source,
+            },
+            'sources_differ': sources_differ,
+            'summary': counts,
+            'results': rows,
+        }
+
     @staticmethod
     async def _resolve_testcases_for_run(dto: TestRunCreateDto):
         """Resolve exactly one source, scoped to test cases in its space."""
@@ -333,6 +627,7 @@ class TestRunService:
         search: Optional[str] = None,
         milestone_id: Optional[str] = None,
         environment_id: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> dict:
         q = TestRunModel.filter(space_id=space_id)
         if search:
@@ -341,6 +636,11 @@ class TestRunService:
             q = q.filter(milestone_id=milestone_id)
         if environment_id:
             q = q.filter(environment_id=environment_id)
+        if status:
+            valid_statuses = {item.value for item in TestRunStatus}
+            if status not in valid_statuses:
+                raise HTTPException(status_code=422, detail='Invalid test run status')
+            q = q.filter(status=status)
 
         q = q.prefetch_related('milestone', 'environment', 'created_by')
         result = await paginate(q, page, page_size, sort_by, sort_order)
@@ -373,6 +673,7 @@ class TestRunService:
                         'username': r.created_by.username,
                     } if r.created_by else None,
                     'created_at': r.created_at.isoformat() if r.created_at else None,
+                    'completed_at': r.completed_at.isoformat() if r.completed_at else None,
                 }
                 for r in items
             ],

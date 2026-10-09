@@ -196,13 +196,15 @@ Current behavior constraints (synced with code):
 - `duplicate_test_case` uses Bearer token from `Authorization` header when calling `TestCaseService.duplicate(...)`.
 - `MCPAuthMiddleware` enforces `text/event-stream; charset=utf-8` on MCP SSE responses.
 - Space access checks invoked by MCP tools use `request.state.mcp_authenticated_user_id`, which is populated only by `MCPAuthMiddleware` after API-token validation; REST requests continue to resolve the user from their JWT Bearer token.
-- Test-run MCP lifecycle includes `start_test_run`, `pause_test_run`, `resume_test_run` and `complete_test_run`; `get_run_results` returns the same timer and duration aggregates as REST. Testcase MCP create/update/read and result updates expose the estimate and validated actual duration.
+- Test-run MCP lifecycle includes `start_test_run`, `pause_test_run`, `resume_test_run` and `complete_test_run`; `get_run_results` returns the same timer and duration aggregates as REST. `compare_test_runs` returns the same snapshot-only comparison projection and same-space/completed-run checks as REST. Testcase MCP create/update/read and result updates expose the estimate and validated actual duration.
 - `sort_sections` reorders one section relative to exactly one before/after sibling; it uses the same `SectionSortDto` and `SectionService.update_sort` as REST, and returns JSON siblings with `id`, `name`, `description`, `suite_id`, `parent_id`, `sort`.
 
 ### `app/src/test_run`
 - `POST /api/v2/test-run/preview`
 - `POST /api/v2/test-run`
 - `GET /api/v2/test-run/space/{space_id}`
+- The run list accepts an optional status filter and returns `completed_at` so completed runs can be searched and paginated in the comparison selector.
+- `GET /api/v2/test-run/{run_id}/compare/{other_run_id}` compares two completed runs in one space by immutable testcase snapshots. It reports added/removed testcase IDs, changed snapshot fields, result status/comment/duration deltas, and explicitly unknown fields for incomplete legacy snapshots; it never falls back to the current testcase. MCP exposes the same projection through `compare_test_runs`.
 - `GET/PATCH/DELETE /api/v2/test-run/{run_id}`
 - `POST /api/v2/test-run/{run_id}/start`
 - `POST /api/v2/test-run/{run_id}/pause`

@@ -102,9 +102,10 @@
 | --- | --- | --- | --- |
 | POST | `/api/v2/test-run/preview` | JWT + space check | валидирует ровно один источник run и возвращает состав с suite, root→leaf `section_path` и `source_hash`; путь учитывается при проверке устаревшего preview |
 | POST | `/api/v2/test-run` | JWT + space check | создаёт run и snapshots результатов для cases любого статуса; устаревший preview возвращает `409` |
-| GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`; возвращает nullable `created_by` с `{id, username}` |
+| GET | `/api/v2/test-run/space/{space_id}` | JWT + space check | список, поддерживает `search`, `milestone_id`, `environment_id`, `status`; возвращает nullable `created_by` с `{id, username}` и `completed_at` |
 | GET | `/api/v2/test-run/{run_id}` | JWT + space check | метаданные run |
 | GET | `/api/v2/test-run/{run_id}/detail` | JWT + space check | результаты со suite и `section_path` (root→leaf), snapshot/legacy-признак, run timer и сумма фактических длительностей; `linked_bug_ids` остаётся массивом, `linked_bug_ids_raw` содержит неизменённое legacy JSON (включая `null`), `linked_bugs` содержит новые UUID-связи |
+| GET | `/api/v2/test-run/{run_id}/compare/{other_run_id}` | JWT + same-space check | сравнивает два завершённых run по сохранённым testcase snapshots; другой space скрывается как `404`, неполный статус возвращает `422`; сравнение без snapshot помечает неизвестные поля и не читает текущий testcase |
 | PATCH | `/api/v2/test-run/{run_id}` | JWT + space check | обновляет метаданные; статус передаётся отдельным lifecycle endpoint |
 | POST | `/api/v2/test-run/{run_id}/start` | JWT + space check | переводит run из `draft` в `active` и открывает общий timer interval |
 | POST | `/api/v2/test-run/{run_id}/pause` | JWT + space check | закрывает текущий общий timer interval |

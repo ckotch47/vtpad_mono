@@ -133,6 +133,20 @@ async def get_run_results(run_id: str) -> dict | None:
         logger.error('Unexpected error: %s', e, exc_info=True)
         return None
 
+
+@mcp.tool()
+async def compare_test_runs(run_id: str, other_run_id: str) -> dict:
+    """Compare two completed test runs from the same space using their snapshots.
+
+    Args:
+        run_id: UUID of the first completed test run
+        other_run_id: UUID of the second completed test run
+
+    Returns:
+        Snapshot-based case and result differences
+    """
+    return await TestRunService.compare_runs(run_id, other_run_id, get_http_request())
+
 @mcp.tool()
 async def update_test_result(
     result_id: str,

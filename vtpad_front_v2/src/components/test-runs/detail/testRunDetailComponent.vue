@@ -34,6 +34,14 @@
           <v-chip :color="statusColor(run.status)" size="large" class="text-uppercase font-weight-bold">
             {{ run.status }}
           </v-chip>
+          <v-btn
+            v-if="run.status === 'completed'"
+            class="ml-2"
+            color="primary"
+            variant="outlined"
+            prepend-icon="mdi-compare-horizontal"
+            @click="comparisonOpen = true"
+          >Compare runs</v-btn>
         </v-col>
       </v-row>
     </v-container>
@@ -327,6 +335,12 @@
       @update:bug="newBug = $event"
       @create="createBug"
     />
+
+    <run-comparison-dialog
+      v-model="comparisonOpen"
+      :space-id="String(spaceId)"
+      :run="run"
+    />
   </div>
 </template>
 
@@ -338,6 +352,7 @@ import { testRunService, bugService, testCaseService } from '@/services'
 import RunStatsPanel from './RunStatsPanel.vue'
 import RunResultEditDialog from './RunResultEditDialog.vue'
 import QuickBugDialog from './QuickBugDialog.vue'
+import RunComparisonDialog from './RunComparisonDialog.vue'
 import CaseViewDialog from '@/components/test-plans/detail/CaseViewDialog.vue'
 
 const log = useLogger('testRunDetail')
@@ -347,6 +362,7 @@ const spaceId = computed(() => route.params.spaceId)
 const runId = computed(() => route.params.runId)
 
 const run = ref({})
+const comparisonOpen = ref(false)
 const stats = ref({})
 const results = ref([])
 const loader = ref(true)

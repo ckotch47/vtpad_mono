@@ -23,6 +23,7 @@
 
 | Ошибка | Причина | Где искать |
 |---|---|---|
+| `500` на `/api/...` через Vite при живом Docker backend | dev proxy идёт на `localhost:8000`, но app-only Compose не публиковал backend/frontend порты на host | `docker-compose.app-only.yml`, `vtpad_front_v2/vite.config.mjs` |
 | `500` на фильтрации bugs | Raw SQL с hardcoded column name | `app/src/bug/service.py` |
 | В модалке бага не переключается вкладка History | Разный тип `value` у `v-tab` и `v-tabs-window-item` (`number` vs `string`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalHistoryComponentV2.vue` |
 | Комментарий в модалке бага не сохраняется | Отсутствует `bug.id` или отправляется пустой HTML (`<p></p>`) | `vtpad_front_v2/src/components/bugs/modal/bugsModalCommentComponent.vue` |
@@ -37,6 +38,7 @@
 
 ## Исправленные дефекты
 
+- `500` от Vite proxy при исправном Docker backend: app-only Compose настроен публиковать backend на `127.0.0.1:8000` и frontend на `127.0.0.1:3000`; runtime-результат будет подтверждён после финального перезапуска.
 - Проверка роли компании больше не передаёт JWT payload в logging API: ранее это вызывало formatting traceback и записывало email, user ID, company ID и срок токена в логи.
 - `413` при загрузке portable JSON/CSV: файл превышает 5 MiB. Также применяются лимиты 10,000 rows, 5,000 cases и 20 уровней секций.
 - `404` при экспорте с malformed или foreign-space `suite_id`: API не раскрывает, существует ли suite вне выбранного space. Некорректный `space_id` также не приводит к ошибке БД.

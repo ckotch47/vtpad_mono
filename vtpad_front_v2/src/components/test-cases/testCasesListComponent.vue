@@ -550,12 +550,15 @@ async function loadCaseTemplates() {
 }
 
 async function applyCaseTemplate(templateId) {
-  selectedTemplateId.value = templateId
-  templateApplyError.value = false
-  if (!templateId) return
   const requestId = ++templateSelectionRequestId
-  applyingTemplate.value = true
+  selectedTemplateId.value = templateId || null
   templateApplyError.value = false
+  appliedTemplate.value = null
+  if (!templateId) {
+    applyingTemplate.value = false
+    return
+  }
+  applyingTemplate.value = true
   try {
     const response = await testCaseTemplateService.getById(spaceId.value, templateId)
     if (requestId !== templateSelectionRequestId) return
